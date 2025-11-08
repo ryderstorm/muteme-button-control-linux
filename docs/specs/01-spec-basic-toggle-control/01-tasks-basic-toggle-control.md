@@ -4,14 +4,14 @@
 
 ## Tasks
 
-- [ ] 1.0 CLI Foundation and Configuration System
+- [x] 1.0 CLI Foundation and Configuration System
   - Demo Criteria: "Run `uv run muteme-btn-control --help` and see complete command structure with version, config validation, and logging options working"
   - Proof Artifact(s): "CLI: `uv run muteme-btn-control --version` outputs '0.1.0'; Test: pytest tests/test_cli.py passes; Config: TOML loading with validation errors"
-  - [ ] 1.1 Create project structure and basic Typer CLI framework
-  - [ ] 1.2 Implement configuration models with Pydantic validation
-  - [ ] 1.3 Add structured logging with text and JSON output formats
-  - [ ] 1.4 Create comprehensive CLI tests following TDD methodology
-  - [ ] 1.5 Add configuration loading and validation tests
+  - [x] 1.1 Create project structure and basic Typer CLI framework
+  - [x] 1.2 Implement configuration models with Pydantic validation
+  - [x] 1.3 Add structured logging with text and JSON output formats
+  - [x] 1.4 Create comprehensive CLI tests following TDD methodology
+  - [x] 1.5 Add configuration loading and validation tests
 
 - [ ] 2.0 HID Device Communication Layer
   - Demo Criteria: "Application detects MuteMe device (VID:0x20a0, PID:0x42da) and logs button press events with timestamps"

@@ -1,0 +1,2 @@
+[console_scripts]
+muteme-btn-control = muteme_btn.main:app

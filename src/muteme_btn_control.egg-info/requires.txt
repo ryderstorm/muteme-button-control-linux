@@ -1,0 +1,6 @@
+hidapi>=0.14.0.post4
+pulsectl>=24.12.0
+pydantic>=2.12.4
+structlog>=25.5.0
+toml>=0.10.2
+typer>=0.20.0
