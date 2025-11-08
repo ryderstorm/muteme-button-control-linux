@@ -321,10 +321,13 @@ repos:
       - id: ruff-format   # Formatting
 
   # Type checking with ty
-  - repo: https://github.com/astral-sh/ty-pre-commit
-    rev: v0.0.1a25
+  - repo: local
     hooks:
       - id: ty
+        name: ty check
+        entry: uv run ty check
+        language: python
+
 
   # Security checks
   - repo: https://github.com/PyCQA/bandit
