@@ -13,15 +13,15 @@
   - [x] 1.4 Create comprehensive CLI tests following TDD methodology
   - [x] 1.5 Add configuration loading and validation tests
 
-- [ ] 2.0 HID Device Communication Layer
+- [~] 2.0 HID Device Communication Layer
   - Demo Criteria: "Application detects MuteMe device (VID:0x20a0, PID:0x42da) and logs button press events with timestamps"
   - Proof Artifact(s): "Log: device discovery with VID/PID; Test: mocked HID device tests pass; CLI: `--check-device` shows device status"
-  - [ ] 2.1 Implement HID device discovery and connection logic
-  - [ ] 2.2 Create button event handling and processing system
-  - [ ] 2.3 Add LED color control via HID reports
-  - [ ] 2.4 Implement device error handling and permission checking
-  - [ ] 2.5 Create mocked HID device tests for CI compatibility
-  - [ ] 2.6 Add device status checking CLI functionality
+  - [x] 2.1 Implement HID device discovery and connection logic
+  - [x] 2.2 Create button event handling and processing system
+  - [x] 2.3 Add LED color control via HID reports
+  - [x] 2.4 Implement device error handling and permission checking
+  - [x] 2.5 Create mocked HID device tests for CI compatibility
+  - [x] 2.6 Add device status checking CLI functionality
 
 - [ ] 3.0 Audio Integration and Toggle Logic
   - Demo Criteria: "Button press toggles PulseAudio mute state and changes LED color (red= muted, green=unmuted) with sub-100ms latency"
