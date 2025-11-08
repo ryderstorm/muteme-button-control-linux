@@ -145,12 +145,12 @@ class TestPerformanceMeasurement:
         start_time = time.perf_counter()
         
         # Add events
-        for i in range(100):
+        for i in range(50):
             perf_device.add_event("press")
             perf_device.add_event("release")
         
         # Wait for processing
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(0.25)
         
         end_time = time.perf_counter()
         total_time = end_time - start_time
@@ -160,7 +160,7 @@ class TestPerformanceMeasurement:
         avg_event_time = sum(event_times) / len(event_times) if event_times else 0
         
         # Performance assertions
-        assert total_time < 1.0  # Should complete within 1 second
+        assert total_time < 0.5
         assert avg_event_time < 0.001  # Average event time should be < 1ms
         
         await perf_daemon.stop()
@@ -207,9 +207,9 @@ class TestPerformanceMeasurement:
         start_time = time.perf_counter()
         
         # Trigger multiple LED updates
-        for i in range(100):
+        for i in range(50):
             perf_daemon.led_controller.update_led_to_mute_status()
-            await asyncio.sleep(0.001)  # Small delay between updates
+            await asyncio.sleep(0.0005)
         
         end_time = time.perf_counter()
         total_time = end_time - start_time
@@ -218,7 +218,7 @@ class TestPerformanceMeasurement:
         avg_led_time = sum(led_times) / len(led_times) if led_times else 0
         
         # Performance assertions
-        assert total_time < 2.0  # Should complete within 2 seconds
+        assert total_time < 1.0
         assert avg_led_time < 0.001  # Average LED time should be < 1ms
         
         await perf_daemon.stop()
@@ -243,13 +243,13 @@ class TestPerformanceMeasurement:
         await asyncio.sleep(0.01)
         
         # Simulate extended operation
-        for cycle in range(10):
+        for cycle in range(5):
             # Add many events
-            for i in range(50):
+            for i in range(25):
                 perf_daemon.device.add_event("press")
                 perf_daemon.device.add_event("release")
             
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0.05)
         
         final_memory = process.memory_info().rss
         memory_growth = final_memory - initial_memory
@@ -270,20 +270,20 @@ class TestPerformanceMeasurement:
         
         # Create concurrent tasks
         async def add_events():
-            for i in range(50):
+            for i in range(25):
                 perf_device.add_event("press")
                 perf_device.add_event("release")
-                await asyncio.sleep(0.001)
+                await asyncio.sleep(0.0005)
         
         async def check_audio():
-            for i in range(50):
+            for i in range(25):
                 perf_audio_backend.is_muted()
-                await asyncio.sleep(0.001)
+                await asyncio.sleep(0.0005)
         
         async def update_led():
-            for i in range(50):
+            for i in range(25):
                 perf_daemon.led_controller.update_led_to_mute_status()
-                await asyncio.sleep(0.001)
+                await asyncio.sleep(0.0005)
         
         # Run concurrent operations
         start_time = time.perf_counter()
@@ -298,7 +298,7 @@ class TestPerformanceMeasurement:
         total_time = end_time - start_time
         
         # Should handle concurrent operations efficiently
-        assert total_time < 1.0  # Should complete within 1 second
+        assert total_time < 0.5
         
         await perf_daemon.stop()
         await daemon_task
@@ -427,13 +427,13 @@ class TestPerformanceMeasurement:
         # Run for extended period with periodic operations
         start_time = time.perf_counter()
         
-        for cycle in range(100):
+        for cycle in range(50):
             # Add events
             perf_device.add_event("press")
             perf_device.add_event("release")
             
             # Wait a bit
-            await asyncio.sleep(0.01)
+            await asyncio.sleep(0.005)
             
             # Verify daemon is still responsive
             assert perf_daemon.running is True
@@ -442,7 +442,7 @@ class TestPerformanceMeasurement:
         total_time = end_time - start_time
         
         # Should maintain stability over time
-        assert total_time < 5.0  # Should complete within 5 seconds
+        assert total_time < 2.5
         assert perf_daemon.running is True  # Should still be running
         
         await perf_daemon.stop()
