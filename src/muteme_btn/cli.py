@@ -69,7 +69,7 @@ def check_device(
                 typer.echo("  Permissions: ❌ FAILED")
                 if verbose:
                     error_msg = MuteMeDevice.get_device_permissions_error(device.path)
-                    typer.echo(f"  Error Details:")
+                    typer.echo("  Error Details:")
                     for line in error_msg.split('\n'):
                         if line.strip():
                             typer.echo(f"    {line}")

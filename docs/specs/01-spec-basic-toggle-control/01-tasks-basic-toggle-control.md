@@ -13,7 +13,7 @@
   - [x] 1.4 Create comprehensive CLI tests following TDD methodology
   - [x] 1.5 Add configuration loading and validation tests
 
-- [~] 2.0 HID Device Communication Layer
+- [x] 2.0 HID Device Communication Layer
   - Demo Criteria: "Application detects MuteMe device (VID:0x20a0, PID:0x42da) and logs button press events with timestamps"
   - Proof Artifact(s): "Log: device discovery with VID/PID; Test: mocked HID device tests pass; CLI: `--check-device` shows device status"
   - [x] 2.1 Implement HID device discovery and connection logic
