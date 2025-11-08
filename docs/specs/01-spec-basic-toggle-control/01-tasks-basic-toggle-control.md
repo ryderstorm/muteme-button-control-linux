@@ -23,17 +23,17 @@
   - [x] 2.5 Create mocked HID device tests for CI compatibility
   - [x] 2.6 Add device status checking CLI functionality
 
-- [ ] 3.0 Audio Integration and Toggle Logic
+- [x] 3.0 Audio Integration and Toggle Logic
   - Demo Criteria: "Button press toggles PulseAudio mute state and changes LED color (red= muted, green=unmuted) with sub-100ms latency"
   - Proof Artifact(s): "Log: audio state changes synchronized with button events; Test: end-to-end toggle workflow passes; Performance: latency measurements <100ms"
-  - [ ] 3.1 Implement PulseAudio backend with pulsectl integration
-  - [ ] 3.2 Create button state machine for toggle logic
-  - [ ] 3.3 Add LED feedback synchronized with mute status
-  - [ ] 3.4 Implement main daemon orchestration with asyncio
-  - [ ] 3.5 Add signal handling for graceful shutdown
-  - [ ] 3.6 Create mocked audio backend tests
-  - [ ] 3.7 Implement end-to-end integration tests
-  - [ ] 3.8 Add performance measurement and validation
+  - [x] 3.1 Implement PulseAudio backend with pulsectl integration
+  - [x] 3.2 Create button state machine for toggle logic
+  - [x] 3.3 Add LED feedback synchronized with mute status
+  - [x] 3.4 Implement main daemon orchestration with asyncio
+  - [x] 3.5 Add signal handling for graceful shutdown
+  - [x] 3.6 Create mocked audio backend tests
+  - [x] 3.7 Implement end-to-end integration tests
+  - [x] 3.8 Add performance measurement and validation
 
 - [ ] 4.0 Task Runner and Development Infrastructure
   - Demo Criteria: "Run `just setup` to install dependencies, `just check` to run quality gates, and `just run` to start the application"
