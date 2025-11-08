@@ -105,7 +105,7 @@ $ uv run pytest tests/test_performance.py -v --tb=no
 **Latency Validation**:
 
 - ✅ Button event processing latency < 1ms average
-- ✅ Audio operations latency < 0.1ms average  
+- ✅ Audio operations latency < 0.1ms average
 - ✅ LED update latency < 1ms average
 - ✅ Daemon startup/shutdown < 150ms
 - ✅ State machine performance < 0.01ms per event
@@ -124,13 +124,13 @@ class PulseAudioBackend:
     def __init__(self, config: AudioConfig):
         self.config = config
         self._pulse: pulsectl.Pulse = pulsectl.Pulse('muteme-btn-control')
-    
+
     def get_default_sink(self) -> Dict[str, Any]:
         # Get default PulseAudio sink info
-    
+
     def set_mute_state(self, sink_name: Optional[str], muted: bool) -> None:
         # Set mute state on PulseAudio sink
-    
+
     def is_muted(self, sink_name: Optional[str]) -> bool:
         # Check current mute state
 ```
@@ -143,7 +143,7 @@ class ButtonStateMachine:
         self.current_state: ButtonState = ButtonState.IDLE
         self.double_tap_timeout_ms = double_tap_timeout_ms
         self.debounce_time_ms = debounce_time_ms
-    
+
     def process_event(self, event: ButtonEvent) -> List[str]:
         # Process button events with debounce and double-tap detection
         # Returns action list (e.g., ["toggle"])
@@ -158,7 +158,7 @@ class LEDFeedbackController:
         self.audio_backend = audio_backend
         self.muted_color = LEDColor.RED
         self.unmuted_color = LEDColor.GREEN
-    
+
     def update_led_to_mute_status(self) -> None:
         # Update LED color based on current mute state
 ```
@@ -173,10 +173,10 @@ class MuteMeDaemon:
         self.audio_backend = audio_backend or PulseAudioBackend(self.audio_config)
         self.state_machine = state_machine or ButtonStateMachine()
         self.led_controller = led_controller or LEDFeedbackController(...)
-        
+
     async def start(self) -> None:
         # Main daemon loop with asyncio
-        
+
     async def stop(self) -> None:
         # Graceful shutdown with cleanup
 ```
@@ -227,15 +227,15 @@ Author: Cascade <cascade@example.com>
 Date:   Fri Nov 8 15:03:00 2025 -0500
 
     feat: complete Task 3.0 - Audio Integration and Toggle Logic
-    
+
     ## Why?
-    Implement complete audio integration with PulseAudio backend, button state 
-    machine, LED feedback control, and main daemon orchestration to enable 
+    Implement complete audio integration with PulseAudio backend, button state
+    machine, LED feedback control, and main daemon orchestration to enable
     mute toggle functionality with sub-100ms latency.
-    
+
     ## What Changed?
     - Added PulseAudio backend with pulsectl integration for audio control
-    - Implemented button state machine with debounce and double-tap detection  
+    - Implemented button state machine with debounce and double-tap detection
     - Created LED feedback controller synchronized with mute status
     - Built main asyncio daemon with signal handling and graceful shutdown
     - Added comprehensive test suite (95 tests passing, 2 skipped)

@@ -29,9 +29,9 @@ Device 1:
 
 ```bash
 $ uv run muteme-btn-control --help
- Usage: muteme-btn-control [OPTIONS] COMMAND [ARGS]...                         
+ Usage: muteme-btn-control [OPTIONS] COMMAND [ARGS]...
 
- A Linux CLI tool for MuteMe button integration with PulseAudio                 
+ A Linux CLI tool for MuteMe button integration with PulseAudio
 
 ╭─ Options ────────────────────────────────────────────────────────────────────╮
 │ --version             -v        Show version and exit                        │
@@ -107,13 +107,13 @@ TOTAL                              197     22    89%
 def test_process_hid_data_timestamp(self):
     """Test that event timestamp is set correctly."""
     mock_time.return_value = 1234567890.5
-    
+
     handler = EventHandler("/dev/hidraw0")
     callback = Mock()
     handler.set_event_callback(callback)
-    
+
     handler.process_hid_data(b'\x01')
-    
+
     event = callback.call_args[0][0]
     assert event.timestamp == 1234567890.5
 ```
@@ -128,9 +128,9 @@ def test_set_led_color_success(self):
     """Test successful LED color setting."""
     mock_hid_device = Mock()
     device = MuteMeDevice(mock_hid_device)
-    
+
     device.set_led_color(LEDColor.RED)
-    
+
     # Verify the correct HID report was sent
     mock_hid_device.write.assert_called_once_with([0x01, 0x01])  # Report ID 1, Color RED
 ```
@@ -175,15 +175,15 @@ All checks passed!
 
 #### Completed Features
 
-✅ **HID Device Discovery**: Detects MuteMe devices (VID:0x20a0, PID:0x42da) and Mini variants  
-✅ **Device Connection**: Reliable connection and disconnection handling  
-✅ **Button Event Processing**: Real-time button press/release events with timestamps  
-✅ **LED Color Control**: 8-color LED control via HID reports  
-✅ **Error Handling**: Comprehensive error handling with user-friendly messages  
-✅ **Permission Checking**: Device access verification with troubleshooting guidance  
-✅ **CLI Integration**: `check-device` command with verbose output options  
-✅ **CI Compatibility**: Fully mocked test suite for CI environments  
-✅ **Test Coverage**: 89% coverage with 52 passing tests  
+✅ **HID Device Discovery**: Detects MuteMe devices (VID:0x20a0, PID:0x42da) and Mini variants
+✅ **Device Connection**: Reliable connection and disconnection handling
+✅ **Button Event Processing**: Real-time button press/release events with timestamps
+✅ **LED Color Control**: 8-color LED control via HID reports
+✅ **Error Handling**: Comprehensive error handling with user-friendly messages
+✅ **Permission Checking**: Device access verification with troubleshooting guidance
+✅ **CLI Integration**: `check-device` command with verbose output options
+✅ **CI Compatibility**: Fully mocked test suite for CI environments
+✅ **Test Coverage**: 89% coverage with 52 passing tests
 
 #### Device Support
 
@@ -198,10 +198,10 @@ All checks passed!
 
 ## Demo Success Criteria Met
 
-✅ **Device Detection**: Application detects MuteMe device (VID:0x20a0, PID:0x42da)  
-✅ **Event Logging**: Logs device discovery and button events with timestamps  
-✅ **CLI Status**: `--check-device` command shows device status and permissions  
-✅ **Test Coverage**: Mocked HID device tests pass in CI environments  
+✅ **Device Detection**: Application detects MuteMe device (VID:0x20a0, PID:0x42da)
+✅ **Event Logging**: Logs device discovery and button events with timestamps
+✅ **CLI Status**: `--check-device` command shows device status and permissions
+✅ **Test Coverage**: Mocked HID device tests pass in CI environments
 
 ## Task 2.0 Status
 
