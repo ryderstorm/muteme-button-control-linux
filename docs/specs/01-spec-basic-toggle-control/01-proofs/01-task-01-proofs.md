@@ -8,11 +8,11 @@
 
 ```bash
 $ uv run muteme-btn-control --help
-                                                                                
- Usage: muteme-btn-control [OPTIONS] COMMAND [ARGS]...                          
-                                                                                
- A Linux CLI tool for MuteMe button integration with PulseAudio                 
-                                                                                
+
+ Usage: muteme-btn-control [OPTIONS] COMMAND [ARGS]...
+
+ A Linux CLI tool for MuteMe button integration with PulseAudio
+
 ╭─ Options ────────────────────────────────────────────────────────────────────╮
 │ --version             -v        Show version and exit                        │
 │ --install-completion            Install completion for the current shell.    │
@@ -113,17 +113,17 @@ tests/test_config.py::TestConfigEnums::test_enum_serialization PASSED    [100%]
 ```python
 >>> from muteme_btn.config import AppConfig
 >>> from pathlib import Path
->>> 
+>>>
 >>> # Test loading invalid configuration
 >>> invalid_config = Path("/tmp/invalid.toml")
 >>> with open(invalid_config, 'w') as f:
 ...     f.write('{"device": {"timeout": 0.05}}')  # timeout too small
->>> 
+>>>
 >>> try:
 ...     AppConfig.from_toml_file(invalid_config)
 ... except ValueError as e:
 ...     print(f"Validation error: {e}")
-... 
+...
 Validation error: Invalid configuration file /tmp/invalid.toml: 1 validation error for AppConfig
 device.timeout
   Input should be greater than or equal to 0.1 [type=greater_than_equal, input_value=0.05, input_type=float]
@@ -134,14 +134,14 @@ device.timeout
 
 ```python
 >>> from muteme_btn.config import AppConfig, LoggingConfig, LogLevel
->>> 
+>>>
 >>> # Create and save a valid config
 >>> config = AppConfig(
 ...     daemon=True,
 ...     logging=LoggingConfig(level=LogLevel.DEBUG, format="json")
 ... )
 >>> config.to_toml_file(Path("/tmp/valid_config.toml"))
->>> 
+>>>
 >>> # Load it back
 >>> loaded = AppConfig.from_toml_file(Path("/tmp/valid_config.toml"))
 >>> print(f"Daemon mode: {loaded.daemon}")
@@ -154,7 +154,7 @@ Log format: LogFormat.JSON
 
 ## Project Structure
 
-```
+```text
 src/muteme_btn/
 ├── __init__.py          # Package initialization and version
 ├── cli.py               # Main Typer CLI interface
@@ -173,26 +173,69 @@ tests/
 
 ## Implementation Summary
 
-✅ **CLI Framework**: Complete Typer-based CLI with version and help commands  
-✅ **Configuration System**: Full Pydantic models with validation and TOML support  
-✅ **Logging Infrastructure**: Structured logging with text/JSON formats  
-✅ **Test Coverage**: Comprehensive test suite with 33 passing tests  
-✅ **Project Structure**: Proper Python package structure with entry points  
-✅ **Quality Standards**: All lint errors resolved, code follows project conventions  
+✅ **CLI Framework**: Complete Typer-based CLI with version and help commands
+✅ **Configuration System**: Full Pydantic models with validation and TOML support
+✅ **Logging Infrastructure**: Structured logging with text/JSON formats
+✅ **Test Coverage**: Comprehensive test suite with 33 passing tests
+✅ **Project Structure**: Proper Python package structure with entry points
+✅ **Quality Standards**: All lint errors resolved, code follows project conventions
 
 ## Git Commit
 
 ```bash
 $ git log --oneline -1
-ae42cfb feat: implement CLI foundation and configuration system
+0a5ee68 feat: add comprehensive Python .gitignore and fix packaging
 ```
 
+## Additional Infrastructure Updates
+
+### Build System Configuration
+
+The project now includes proper build system configuration:
+
+```toml
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/muteme_btn"]
+```
+
+### Comprehensive .gitignore
+
+Updated with complete Python patterns from GitHub template including:
+
+- `__pycache__/` and compiled Python files
+- Build artifacts (`*.egg-info/`, `dist/`, `build/`)
+- Test coverage files (`.coverage`, `htmlcov/`)
+- IDE files (`.ruff_cache/`, etc.)
+- Environment files (`.venv/`, etc.)
+
+### Package Installation Verification
+
 ```bash
-$ git log --oneline -1
-ae42cfb feat: implement CLI foundation and configuration system
-- Add complete Typer CLI framework with version and help commands
-- Implement Pydantic configuration models with validation
-- Add structured logging with text/JSON output formats
-- Create comprehensive test suite following TDD methodology
-- Add configuration loading and validation with TOML support
+$ uv pip install -e .
+Resolved 18 packages in 15ms
+   Building muteme-btn-control @ file:///home/damien/personal_projects/muteme-btn-control
+      Built muteme-btn-control @ file:///home/damien/personal_projects/muteme-btn-control
+Prepared 1 package in 234ms
+Installed 1 package in 0.88ms
+ + muteme-btn-control==0.1.0 (from file:///home/damien/personal_projects/muteme-btn-control)
+
+$ uv run muteme-btn-control --version
+muteme-btn-control 0.1.0
+```
+
+## Implementation Summary
+
+✅ **CLI Framework**: Complete Typer-based CLI with version and help commands
+✅ **Configuration System**: Full Pydantic models with validation and TOML support
+✅ **Logging Infrastructure**: Structured logging with text/JSON formats
+✅ **Test Coverage**: Comprehensive test suite with 33 passing tests
+✅ **Project Structure**: Proper Python package structure with entry points
+✅ **Quality Standards**: All lint errors resolved, code follows project conventions
+✅ **Build System Configuration**: Proper build system configuration with Hatchling
+✅ **Comprehensive .gitignore**: Complete Python patterns from GitHub template
+✅ **Package Installation Verification**: Successful installation with pip
 Related to T1.0 in Spec 01
