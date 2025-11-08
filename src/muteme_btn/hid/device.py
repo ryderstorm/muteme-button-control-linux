@@ -302,15 +302,76 @@ class MuteMeDevice:
         self.set_led_color(color)
 
     @classmethod
+    def _find_hidraw_device(cls, vendor_id: int, product_id: int) -> str | None:
+        """Find the /dev/hidraw* device file for a given vendor/product ID.
+
+        Args:
+            vendor_id: USB vendor ID
+            product_id: USB product ID
+
+        Returns:
+            Path to hidraw device (e.g., '/dev/hidraw0') or None if not found
+        """
+        import glob
+
+        # Check all hidraw devices by reading sysfs uevent
+        for hidraw_path in sorted(glob.glob("/dev/hidraw*")):
+            try:
+                # Extract hidraw number (e.g., "0" from "/dev/hidraw0")
+                hidraw_num = hidraw_path.replace("/dev/hidraw", "")
+
+                # Read uevent file which contains HID_ID with vendor:product format
+                uevent_path = f"/sys/class/hidraw/hidraw{hidraw_num}/device/uevent"
+
+                try:
+                    with open(uevent_path) as f:
+                        uevent_content = f.read()
+
+                    # Parse HID_ID line (format: HID_ID=0003:000005AC:00008242)
+                    # Format is: bus:vendor:product
+                    for line in uevent_content.split("\n"):
+                        if line.startswith("HID_ID="):
+                            hid_id = line.split("=", 1)[1]
+                            parts = hid_id.split(":")
+                            if len(parts) >= 3:
+                                vid_hex = parts[1]
+                                pid_hex = parts[2]
+
+                                try:
+                                    vid = int(vid_hex, 16)
+                                    pid = int(pid_hex, 16)
+
+                                    if vid == vendor_id and pid == product_id:
+                                        return hidraw_path
+                                except ValueError:
+                                    continue
+                except (OSError, FileNotFoundError):
+                    continue
+            except (OSError, ValueError):
+                continue
+
+        return None
+
+    @classmethod
     def check_device_permissions(cls, device_path: str) -> bool:
         """Check if we have read/write permissions for the device.
 
         Args:
-            device_path: Path to the HID device
+            device_path: Path to the HID device (USB path or /dev/hidraw*)
 
         Returns:
             True if we have permissions, False otherwise
         """
+        # If it's already a /dev/hidraw* path, check it directly
+        if device_path.startswith("/dev/hidraw"):
+            try:
+                return os.access(device_path, os.R_OK | os.W_OK)
+            except OSError:
+                return False
+
+        # Otherwise, it's a USB device path - we need to find the hidraw device
+        # But we don't have vendor/product ID here, so we can't map it
+        # For now, try to check if the path exists (it won't for USB paths)
         try:
             return os.access(device_path, os.R_OK | os.W_OK)
         except OSError:

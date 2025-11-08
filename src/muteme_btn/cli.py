@@ -60,15 +60,31 @@ def check_device(
                 typer.echo(f"    Product ID: 0x{device.product_id:04x}")
                 typer.echo(f"    Manufacturer: {device.manufacturer or 'Unknown'}")
                 typer.echo(f"    Product: {device.product or 'Unknown'}")
-                typer.echo(f"    Device Path: {device.path}")
+                typer.echo(f"    USB Path: {device.path}")
 
-            # Check permissions
-            if MuteMeDevice.check_device_permissions(device.path):
+            # Find the corresponding hidraw device
+            hidraw_path = MuteMeDevice._find_hidraw_device(device.vendor_id, device.product_id)
+            if not hidraw_path:
+                typer.echo("  Permissions: ❌ FAILED")
+                typer.echo("  Error: Could not find corresponding /dev/hidraw* device")
+                typer.echo("  Troubleshooting:")
+                typer.echo("    • Try unplugging and replugging the device")
+                typer.echo("    • Check if UDEV rules are installed: just install-udev")
+                sys.exit(1)
+
+            # At this point, hidraw_path is guaranteed to be a string
+            assert hidraw_path is not None
+
+            if verbose:
+                typer.echo(f"    HIDraw Device: {hidraw_path}")
+
+            # Check permissions on the hidraw device
+            if MuteMeDevice.check_device_permissions(hidraw_path):
                 typer.echo("  Permissions: ✅ OK")
             else:
                 typer.echo("  Permissions: ❌ FAILED")
                 if verbose:
-                    error_msg = MuteMeDevice.get_device_permissions_error(device.path)
+                    error_msg = MuteMeDevice.get_device_permissions_error(hidraw_path)
                     typer.echo("  Error Details:")
                     for line in error_msg.split("\n"):
                         if line.strip():
