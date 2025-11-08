@@ -35,15 +35,15 @@
   - [x] 3.7 Implement end-to-end integration tests
   - [x] 3.8 Add performance measurement and validation
 
-- [ ] 4.0 Task Runner and Development Infrastructure
+- [x] 4.0 Task Runner and Development Infrastructure
   - Demo Criteria: "Run `just setup` to install dependencies, `just check` to run quality gates, and `just run` to start the application"
   - Proof Artifact(s): "CLI: `just --help` shows all recipes; Test: `just test` runs with coverage >85%; Quality: `just check` passes all gates"
-  - [ ] 4.1 Create justfile with development recipes
-  - [ ] 4.2 Configure pre-commit hooks and quality gates - reference ./docs/IMPLEMENTATION_PLAN.md for tooling
-  - [ ] 4.3 Set up pytest with coverage reporting
-  - [ ] 4.4 Add UDEV rules template for device permissions
-  - [ ] 4.5 Create example configuration file
-  - [ ] 4.6 Update README with installation and usage instructions
+  - [x] 4.1 Create justfile with development recipes
+  - [x] 4.2 Configure pre-commit hooks and quality gates - reference ./docs/IMPLEMENTATION_PLAN.md for tooling
+  - [x] 4.3 Set up pytest with coverage reporting
+  - [x] 4.4 Add UDEV rules template for device permissions
+  - [x] 4.5 Create example configuration file
+  - [x] 4.6 Update README with installation and usage instructions
 
 ## Relevant Files
 

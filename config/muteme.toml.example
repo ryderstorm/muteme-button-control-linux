@@ -1,0 +1,38 @@
+# MuteMe Button Control - Example Configuration File
+# Copy this file to ~/.config/muteme/muteme.toml or /etc/muteme/muteme.toml
+# Or use it with: uv run muteme-btn-control --config /path/to/muteme.toml
+
+# Device configuration
+[device]
+# USB Vendor ID for MuteMe device (default: 0x20A0)
+vid = 8352  # 0x20A0 in decimal
+# USB Product ID for MuteMe device (default: 0x42DA)
+pid = 17114  # 0x42DA in decimal
+# Device connection timeout in seconds (default: 5.0, range: 0.1-60.0)
+timeout = 5.0
+
+# Audio backend configuration
+[audio]
+# Audio backend to use (default: "pulseaudio")
+backend = "pulseaudio"
+# Specific PulseAudio sink name to control (optional, None = use default)
+# sink_name = null
+# Audio state polling interval in seconds (default: 0.1, range: 0.01-1.0)
+poll_interval = 0.1
+
+# Logging configuration
+[logging]
+# Minimum log level: DEBUG, INFO, WARNING, ERROR, CRITICAL (default: INFO)
+level = "INFO"
+# Log output format: "text" for human-readable, "json" for machine parsing (default: "text")
+format = "text"
+# Log file path (optional, None = stdout)
+# file_path = null
+# Maximum log file size in bytes (default: 10485760 = 10MB)
+max_file_size = 10485760
+# Number of backup log files to keep (default: 5, range: 1-20)
+backup_count = 5
+
+# Application settings
+# Run in daemon mode (default: false)
+daemon = false

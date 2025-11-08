@@ -32,6 +32,7 @@ dev = [
     "pytest-cov>=7.0.0",
     "ruff>=0.14.4",
     "ty>=0.0.1a25",
+    "bandit[toml]>=1.8.3",
 ]
 gui = [
     "pyside6>=6.10.0",
@@ -42,3 +43,26 @@ packaging = [
 pipewire = [
     "dbus-next>=0.2.3",
 ]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+]
+ignore = []
+
+[tool.ruff.lint.isort]
+known-first-party = ["muteme_btn"]
+
+[tool.bandit]
+exclude_dirs = ["tests", "htmlcov", ".venv", "venv"]
+skips = ["B101"]  # Skip assert_used check (common in tests)

@@ -27,11 +27,11 @@ def temp_dir() -> Path:
 def temp_config_file(temp_dir: Path) -> Path:
     """Create a temporary configuration file."""
     config_path = temp_dir / "test_config.toml"
-    
+
     # Create a basic valid config
     config = AppConfig()
     config.to_toml_file(config_path)
-    
+
     return config_path
 
 
@@ -39,8 +39,8 @@ def temp_config_file(temp_dir: Path) -> Path:
 def mock_hid_device():
     """Create a mock HID device for testing."""
     mock_device = MagicMock()
-    mock_device.vendor_id = 0x20a0
-    mock_device.product_id = 0x42da
+    mock_device.vendor_id = 0x20A0
+    mock_device.product_id = 0x42DA
     mock_device.path = b"/dev/hidraw0"
     mock_device.serial_number = "MTM123456"
     mock_device.manufacturer_string = "MuteMe"

@@ -52,13 +52,15 @@ class TestCLI:
         result = runner.invoke(app, ["invalid-command"])
         assert result.exit_code != 0
 
-    @patch('muteme_btn.config.AppConfig.from_toml_file')
-    def test_config_file_loading(self, mock_from_toml, runner: CliRunner, temp_config_file: Path) -> None:
+    @patch("muteme_btn.config.AppConfig.from_toml_file")
+    def test_config_file_loading(
+        self, mock_from_toml, runner: CliRunner, temp_config_file: Path
+    ) -> None:
         """Test loading configuration from file."""
         # Mock the config loading to avoid file system issues in test
         mock_config = AppConfig()
         mock_from_toml.return_value = mock_config
-        
+
         # This will be implemented when we add config file support to CLI
         # For now, just test that the CLI can handle the concept
         result = runner.invoke(app, ["--help"])
@@ -67,18 +69,20 @@ class TestCLI:
     def test_cli_imports(self) -> None:
         """Test that CLI imports work correctly."""
         from muteme_btn.cli import app, version_callback
+
         assert app is not None
         assert version_callback is not None
 
     def test_version_callback_function(self) -> None:
         """Test version callback function directly."""
-        from muteme_btn.cli import version_callback
         import typer
-        
+
+        from muteme_btn.cli import version_callback
+
         # Test that calling version_callback with True raises Exit
         with pytest.raises(typer.Exit):
             version_callback(True)
-        
+
         # Test that calling with False does not raise Exit
         try:
             version_callback(False)
@@ -92,7 +96,7 @@ class TestCLI:
         # Check the no_args_is_help through the rich_console if available
         # or just verify the help behavior works correctly
 
-    @patch('muteme_btn.utils.logging.setup_logging')
+    @patch("muteme_btn.utils.logging.setup_logging")
     def test_logging_setup_integration(self, mock_setup_logging, runner: CliRunner) -> None:
         """Test that logging setup is called when CLI is invoked."""
         # This will be tested more thoroughly when we integrate logging
@@ -103,7 +107,8 @@ class TestCLI:
     def test_cli_entry_point(self) -> None:
         """Test that the CLI entry point works."""
         from muteme_btn.main import app as main_app
+
         assert main_app is not None
-        
+
         # Test that it's the same app as cli.app
         assert main_app is app

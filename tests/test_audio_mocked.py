@@ -1,16 +1,16 @@
 """Mocked audio backend tests for CI and testing environments."""
 
-import pytest
-from unittest.mock import Mock
-from typing import Dict, List, Any
 import copy
+from typing import Any
+
+import pytest
 
 from muteme_btn.config import AudioConfig
 
 
 class MockedPulseAudioBackend:
     """Mock implementation of PulseAudio backend for testing."""
-    
+
     def __init__(self, config: AudioConfig):
         """Initialize mocked backend."""
         self.config = config
@@ -26,13 +26,13 @@ class MockedPulseAudioBackend:
                 "description": "Bluetooth Headphones",
                 "muted": True,
                 "index": 1,
-            }
+            },
         ]
         self._default_sink_index = 0
         self._mute_state = False
         self._connected = True
 
-    def get_default_sink(self) -> Dict[str, Any]:
+    def get_default_sink(self) -> dict[str, Any]:
         """Get mocked default sink."""
         if not self._connected:
             raise Exception("Not connected to PulseAudio")
@@ -42,34 +42,34 @@ class MockedPulseAudioBackend:
         """Set mocked mute state."""
         if not self._connected:
             raise Exception("Not connected to PulseAudio")
-        
+
         if sink_name is None:
             sink_name = self.get_default_sink()["name"]
-        
+
         for sink in self._mock_sinks:
             if sink["name"] == sink_name:
                 sink["muted"] = muted
                 if sink["index"] == self._default_sink_index:
                     self._mute_state = muted
                 return
-        
+
         raise Exception(f"Sink '{sink_name}' not found")
 
     def is_muted(self, sink_name: str) -> bool:
         """Check mocked mute state."""
         if not self._connected:
             raise Exception("Not connected to PulseAudio")
-        
+
         if sink_name is None:
             return self._mute_state
-        
+
         for sink in self._mock_sinks:
             if sink["name"] == sink_name:
                 return sink["muted"]
-        
+
         raise Exception(f"Sink '{sink_name}' not found")
 
-    def list_sinks(self) -> List[Dict[str, Any]]:
+    def list_sinks(self) -> list[dict[str, Any]]:
         """List mocked sinks."""
         if not self._connected:
             raise Exception("Not connected to PulseAudio")
@@ -108,7 +108,7 @@ class TestMockedAudioBackend:
     def test_mocked_get_default_sink(self, mocked_backend):
         """Test getting default sink from mocked backend."""
         sink = mocked_backend.get_default_sink()
-        
+
         assert sink["name"] == "alsa_output.pci-0000_00_1b.0.analog-stereo"
         assert sink["description"] == "Built-in Audio Analog Stereo"
         assert sink["muted"] is False
@@ -117,14 +117,14 @@ class TestMockedAudioBackend:
     def test_mocked_set_mute_state_default_sink(self, mocked_backend):
         """Test setting mute state on default sink."""
         mocked_backend.set_mute_state(None, True)
-        
+
         assert mocked_backend.is_muted(None) is True
         assert mocked_backend._mock_sinks[0]["muted"] is True
 
     def test_mocked_set_mute_state_specific_sink(self, mocked_backend):
         """Test setting mute state on specific sink."""
         mocked_backend.set_mute_state("bluez_sink.00_11_22_33_44_55.a2dp_sink", False)
-        
+
         assert mocked_backend.is_muted("bluez_sink.00_11_22_33_44_55.a2dp_sink") is False
         assert mocked_backend._mock_sinks[1]["muted"] is False
 
@@ -136,7 +136,7 @@ class TestMockedAudioBackend:
     def test_mocked_is_muted_default_sink(self, mocked_backend):
         """Test checking mute state of default sink."""
         assert mocked_backend.is_muted(None) is False
-        
+
         mocked_backend.set_mute_state(None, True)
         assert mocked_backend.is_muted(None) is True
 
@@ -152,7 +152,7 @@ class TestMockedAudioBackend:
     def test_mocked_list_sinks(self, mocked_backend):
         """Test listing all sinks."""
         sinks = mocked_backend.list_sinks()
-        
+
         assert len(sinks) == 2
         assert sinks[0]["name"] == "alsa_output.pci-0000_00_1b.0.analog-stereo"
         assert sinks[1]["name"] == "bluez_sink.00_11_22_33_44_55.a2dp_sink"
@@ -160,9 +160,9 @@ class TestMockedAudioBackend:
     def test_mocked_close_connection(self, mocked_backend):
         """Test closing mocked connection."""
         mocked_backend.close()
-        
+
         assert mocked_backend._connected is False
-        
+
         # Operations should fail after closing
         with pytest.raises(Exception, match="Not connected to PulseAudio"):
             mocked_backend.get_default_sink()
@@ -173,23 +173,23 @@ class TestMockedAudioBackend:
             assert backend._connected is True
             sink = backend.get_default_sink()
             assert sink["name"] is not None
-        
+
         # Should be closed after context
         assert backend._connected is False
 
     def test_mocked_disconnected_operations(self, mocked_backend):
         """Test operations fail when disconnected."""
         mocked_backend.close()
-        
+
         with pytest.raises(Exception, match="Not connected to PulseAudio"):
             mocked_backend.get_default_sink()
-        
+
         with pytest.raises(Exception, match="Not connected to PulseAudio"):
             mocked_backend.set_mute_state(None, True)
-        
+
         with pytest.raises(Exception, match="Not connected to PulseAudio"):
             mocked_backend.is_muted(None)
-        
+
         with pytest.raises(Exception, match="Not connected to PulseAudio"):
             mocked_backend.list_sinks()
 
@@ -197,16 +197,16 @@ class TestMockedAudioBackend:
         """Test multiple mute operations work correctly."""
         # Initial state
         assert mocked_backend.is_muted(None) is False
-        
+
         # Mute default sink
         mocked_backend.set_mute_state(None, True)
         assert mocked_backend.is_muted(None) is True
-        
+
         # Mute different sink
         mocked_backend.set_mute_state("bluez_sink.00_11_22_33_44_55.a2dp_sink", False)
         assert mocked_backend.is_muted("bluez_sink.00_11_22_33_44_55.a2dp_sink") is False
         assert mocked_backend.is_muted(None) is True  # Default sink still muted
-        
+
         # Unmute default sink
         mocked_backend.set_mute_state(None, False)
         assert mocked_backend.is_muted(None) is False
@@ -216,7 +216,7 @@ class TestMockedAudioBackend:
         # Set different mute states for different sinks
         mocked_backend.set_mute_state("alsa_output.pci-0000_00_1b.0.analog-stereo", True)
         mocked_backend.set_mute_state("bluez_sink.00_11_22_33_44_55.a2dp_sink", False)
-        
+
         # Check states are independent
         assert mocked_backend.is_muted("alsa_output.pci-0000_00_1b.0.analog-stereo") is True
         assert mocked_backend.is_muted("bluez_sink.00_11_22_33_44_55.a2dp_sink") is False
@@ -225,13 +225,13 @@ class TestMockedAudioBackend:
         """Test that list_sinks returns a copy, not reference."""
         sinks1 = mocked_backend.list_sinks()
         sinks2 = mocked_backend.list_sinks()
-        
+
         # Modify one list
         sinks1[0]["muted"] = True
-        
+
         # Other list should be unchanged
         assert sinks2[0]["muted"] is False
-        
+
         # Backend state should be unchanged
         assert mocked_backend._mock_sinks[0]["muted"] is False
 
@@ -239,6 +239,6 @@ class TestMockedAudioBackend:
         """Test mocked backend with custom configuration."""
         config = AudioConfig(sink_name="custom_sink", poll_interval=0.8)
         backend = MockedPulseAudioBackend(config)
-        
+
         assert backend.config.sink_name == "custom_sink"
         assert backend.config.poll_interval == 0.8

@@ -1,0 +1,30 @@
+# UDEV rules for MuteMe button devices
+# This file should be installed to /etc/udev/rules.d/99-muteme.rules
+# After installation, run: sudo udevadm control --reload-rules && sudo udevadm trigger
+#
+# Installation: sudo cp config/udev/99-muteme.rules /etc/udev/rules.d/99-muteme.rules
+# Or use: just install-udev
+
+# Main MuteMe device (VID:0x20A0, PID:0x42DA)
+SUBSYSTEM=="usb", ATTRS{idVendor}=="20A0", ATTRS{idProduct}=="42DA", MODE="0666", GROUP="plugdev"
+KERNEL=="hidraw*", ATTRS{idVendor}=="20A0", ATTRS{idProduct}=="42DA", MODE="0666", GROUP="plugdev"
+
+# Main MuteMe device variant (VID:0x20A0, PID:0x42DB)
+SUBSYSTEM=="usb", ATTRS{idVendor}=="20A0", ATTRS{idProduct}=="42DB", MODE="0666", GROUP="plugdev"
+KERNEL=="hidraw*", ATTRS{idVendor}=="20A0", ATTRS{idProduct}=="42DB", MODE="0666", GROUP="plugdev"
+
+# MuteMe Mini variant 1 (VID:0x3603, PID:0x0001)
+SUBSYSTEM=="usb", ATTRS{idVendor}=="3603", ATTRS{idProduct}=="0001", MODE="0666", GROUP="plugdev"
+KERNEL=="hidraw*", ATTRS{idVendor}=="3603", ATTRS{idProduct}=="0001", MODE="0666", GROUP="plugdev"
+
+# MuteMe Mini variant 2 (VID:0x3603, PID:0x0002)
+SUBSYSTEM=="usb", ATTRS{idVendor}=="3603", ATTRS{idProduct}=="0002", MODE="0666", GROUP="plugdev"
+KERNEL=="hidraw*", ATTRS{idVendor}=="3603", ATTRS{idProduct}=="0002", MODE="0666", GROUP="plugdev"
+
+# MuteMe Mini variant 3 (VID:0x3603, PID:0x0003)
+SUBSYSTEM=="usb", ATTRS{idVendor}=="3603", ATTRS{idProduct}=="0003", MODE="0666", GROUP="plugdev"
+KERNEL=="hidraw*", ATTRS{idVendor}=="3603", ATTRS{idProduct}=="0003", MODE="0666", GROUP="plugdev"
+
+# MuteMe Mini variant 4 (VID:0x3603, PID:0x0004)
+SUBSYSTEM=="usb", ATTRS{idVendor}=="3603", ATTRS{idProduct}=="0004", MODE="0666", GROUP="plugdev"
+KERNEL=="hidraw*", ATTRS{idVendor}=="3603", ATTRS{idProduct}=="0004", MODE="0666", GROUP="plugdev"

@@ -1,0 +1,39 @@
+repos:
+  # Basic file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-added-large-files
+      - id: debug-statements
+
+  # Python linting and formatting with ruff
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.4
+    hooks:
+      - id: ruff          # Linting
+        args: [--fix]
+      - id: ruff-format   # Formatting
+
+  # Type checking with ty
+  - repo: local
+    hooks:
+      - id: ty
+        name: ty check
+        entry: uv run ty check
+        language: python
+
+  # Security checks
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.8.3
+    hooks:
+      - id: bandit
+        args: [-c, pyproject.toml]
+        additional_dependencies: ["bandit[toml]"]
+
+# Default language version
+default_language_version:
+  python: python3.12
