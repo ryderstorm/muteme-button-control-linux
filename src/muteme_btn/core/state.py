@@ -43,7 +43,9 @@ class ButtonStateMachine:
         self.debounce_time_ms = debounce_time_ms
 
         logger.debug(
-            f"Initialized ButtonStateMachine with double_tap_timeout={double_tap_timeout_ms}ms, debounce_time={debounce_time_ms}ms"
+            f"Initialized ButtonStateMachine with "
+            f"double_tap_timeout={double_tap_timeout_ms}ms, "
+            f"debounce_time={debounce_time_ms}ms"
         )
 
     def process_event(self, event: ButtonEvent) -> list[str]:
@@ -122,7 +124,10 @@ class ButtonStateMachine:
 
         elif event.type == "press":
             # Another press while already pressed (could be double-tap)
-            time_since_last = (event.timestamp - self.last_press_time).total_seconds() * 1000
+            if self.last_press_time is None:
+                time_since_last = float("inf")
+            else:
+                time_since_last = (event.timestamp - self.last_press_time).total_seconds() * 1000
 
             if time_since_last < self.double_tap_timeout_ms:
                 self.press_count += 1

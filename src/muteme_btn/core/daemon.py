@@ -153,7 +153,7 @@ class MuteMeDaemon:
                 return
 
             # Read events from device
-            events = await self.device.read_events()
+            events = await self.device.read_events()  # type: ignore[call-overload]
 
             for event in events:
                 # Convert to button event
@@ -178,7 +178,7 @@ class MuteMeDaemon:
         try:
             if action == "toggle":
                 # Toggle mute state
-                current_muted = self.audio_backend.is_muted()
+                current_muted = self.audio_backend.is_muted(None)
                 new_muted = not current_muted
                 self.audio_backend.set_mute_state(None, new_muted)
 
@@ -207,7 +207,10 @@ class MuteMeDaemon:
             # Close device connection
             if hasattr(self, "device") and self.device:
                 try:
-                    self.device.close()
+                    if hasattr(self.device, "close"):
+                        self.device.close()  # type: ignore[call-overload]
+                    elif hasattr(self.device, "disconnect"):
+                        self.device.disconnect()  # type: ignore[call-overload]
                 except Exception as e:
                     logger.warning(f"Error closing device: {e}")
 

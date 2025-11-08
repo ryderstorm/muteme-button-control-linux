@@ -7,7 +7,7 @@ import stat
 from dataclasses import dataclass
 from enum import Enum
 
-import hid
+import hid  # type: ignore[import-untyped]
 import structlog
 
 logger = structlog.get_logger(__name__)
@@ -43,7 +43,7 @@ class LEDColor(Enum):
         except KeyError:
             raise ValueError(
                 f"Invalid LED color: {name}. Valid colors: {[c.name.lower() for c in cls]}"
-            )
+            ) from None
 
 
 @dataclass
@@ -125,7 +125,7 @@ class MuteMeDevice:
 
         except Exception as e:
             logger.error("Failed to enumerate HID devices", error=str(e))
-            raise DeviceError(f"Device enumeration failed: {e}")
+            raise DeviceError(f"Device enumeration failed: {e}") from e
 
         return devices
 
@@ -184,7 +184,7 @@ class MuteMeDevice:
 
         except Exception as e:
             logger.error("Failed to connect to MuteMe device", path=device_path, error=str(e))
-            raise DeviceError(f"Failed to connect to device {device_path}: {e}")
+            raise DeviceError(f"Failed to connect to device {device_path}: {e}") from e
 
     def disconnect(self) -> None:
         """Close device connection."""
@@ -232,13 +232,16 @@ class MuteMeDevice:
         if not self.is_connected():
             raise DeviceError("Device not connected")
 
+        if self._device is None:
+            raise DeviceError("Device not connected")
+
         try:
-            data = self._device.read(size, timeout_ms)
+            data = self._device.read(size, timeout_ms)  # type: ignore[union-attr]
             logger.debug("Read data from device", size=len(data), timeout_ms=timeout_ms)
             return bytes(data)
         except Exception as e:
             logger.error("Failed to read from device", error=str(e))
-            raise DeviceError(f"Device read failed: {e}")
+            raise DeviceError(f"Device read failed: {e}") from e
 
     def write(self, data: bytes) -> None:
         """Write data to device.
@@ -252,12 +255,15 @@ class MuteMeDevice:
         if not self.is_connected():
             raise DeviceError("Device not connected")
 
+        if self._device is None:
+            raise DeviceError("Device not connected")
+
         try:
-            self._device.write(list(data))
+            self._device.write(list(data))  # type: ignore[union-attr]
             logger.debug("Wrote data to device", size=len(data))
         except Exception as e:
             logger.error("Failed to write to device", error=str(e))
-            raise DeviceError(f"Device write failed: {e}")
+            raise DeviceError(f"Device write failed: {e}") from e
 
     def set_led_color(self, color: LEDColor) -> None:
         """Set LED color on the device.
@@ -280,7 +286,7 @@ class MuteMeDevice:
             logger.info("Set LED color", color=color.name, value=color.value)
         except Exception as e:
             logger.error("Failed to set LED color", color=color.name, error=str(e))
-            raise DeviceError(f"LED control failed: {e}")
+            raise DeviceError(f"LED control failed: {e}") from e
 
     def set_led_color_by_name(self, color_name: str) -> None:
         """Set LED color by name.

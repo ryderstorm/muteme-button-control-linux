@@ -115,7 +115,7 @@ class AppConfig(BaseModel):
             config_data = toml.load(config_path)
             return cls(**config_data)
         except Exception as e:
-            raise ValueError(f"Invalid configuration file {config_path}: {e}")
+            raise ValueError(f"Invalid configuration file {config_path}: {e}") from e
 
     def to_toml_file(self, config_path: Path) -> None:
         """Save configuration to a TOML file.

@@ -143,7 +143,7 @@ class TestPerformanceMeasurement:
         start_time = time.perf_counter()
 
         # Add events
-        for i in range(50):
+        for _i in range(50):
             perf_device.add_event("press")
             perf_device.add_event("release")
 
@@ -173,7 +173,7 @@ class TestPerformanceMeasurement:
         await asyncio.sleep(0.01)
 
         # Perform multiple audio operations
-        for i in range(50):
+        for _i in range(50):
             perf_audio_backend.is_muted()
             perf_audio_backend.set_mute_state(None, True)
             perf_audio_backend.is_muted()
@@ -205,7 +205,7 @@ class TestPerformanceMeasurement:
         start_time = time.perf_counter()
 
         # Trigger multiple LED updates
-        for i in range(50):
+        for _i in range(50):
             perf_daemon.led_controller.update_led_to_mute_status()
             await asyncio.sleep(0.0005)
 
@@ -242,9 +242,9 @@ class TestPerformanceMeasurement:
         await asyncio.sleep(0.01)
 
         # Simulate extended operation
-        for cycle in range(5):
+        for _cycle in range(5):
             # Add many events
-            for i in range(25):
+            for _i in range(25):
                 perf_daemon.device.add_event("press")
                 perf_daemon.device.add_event("release")
 
@@ -271,18 +271,18 @@ class TestPerformanceMeasurement:
 
         # Create concurrent tasks
         async def add_events():
-            for i in range(25):
+            for _i in range(25):
                 perf_device.add_event("press")
                 perf_device.add_event("release")
                 await asyncio.sleep(0.0005)
 
         async def check_audio():
-            for i in range(25):
+            for _i in range(25):
                 perf_audio_backend.is_muted()
                 await asyncio.sleep(0.0005)
 
         async def update_led():
-            for i in range(25):
+            for _i in range(25):
                 perf_daemon.led_controller.update_led_to_mute_status()
                 await asyncio.sleep(0.0005)
 
@@ -309,7 +309,7 @@ class TestPerformanceMeasurement:
         start_time = time.perf_counter()
 
         # Process many events
-        for i in range(1000):
+        for _i in range(1000):
             press_event = ButtonEvent("press", datetime.now())
             release_event = ButtonEvent("release", datetime.now() + timedelta(milliseconds=10))
 
@@ -368,7 +368,7 @@ class TestPerformanceMeasurement:
         state_machine = ButtonStateMachine()
 
         while time.time() - start_time < 0.1:  # Run for 100ms
-            for i in range(100):
+            for _i in range(100):
                 event = ButtonEvent("press", datetime.now())
                 state_machine.process_event(event)
             time.sleep(0.001)  # Small delay
@@ -396,7 +396,7 @@ class TestPerformanceMeasurement:
         start_time = time.perf_counter()
 
         # Run operations with errors
-        for i in range(100):
+        for _i in range(100):
             try:
                 perf_audio_backend.is_muted()
             except Exception:
@@ -425,7 +425,7 @@ class TestPerformanceMeasurement:
         # Run for extended period with periodic operations
         start_time = time.perf_counter()
 
-        for cycle in range(50):
+        for _cycle in range(50):
             # Add events
             perf_device.add_event("press")
             perf_device.add_event("release")

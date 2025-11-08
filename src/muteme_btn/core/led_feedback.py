@@ -31,10 +31,10 @@ class LEDFeedbackController:
         self.muted_color = muted_color
         self.unmuted_color = unmuted_color
 
-        logger.info(
+        logger.info(  # type: ignore[misc]
             "Initialized LED feedback controller",
-            muted_color=muted_color.name,
-            unmuted_color=unmuted_color.name,
+            muted_color=muted_color.name,  # type: ignore[call-arg]
+            unmuted_color=unmuted_color.name,  # type: ignore[call-arg]
         )
 
     def update_led_to_mute_status(self) -> None:
@@ -46,14 +46,14 @@ class LEDFeedbackController:
                 return
 
             # Get current mute status
-            is_muted = self.audio_backend.is_muted()
+            is_muted = self.audio_backend.is_muted(None)
 
             # Set appropriate LED color
             target_color = self.muted_color if is_muted else self.unmuted_color
 
             try:
                 self.device.set_led_color(target_color)
-                logger.debug("Updated LED color", muted=is_muted, color=target_color.name)
+                logger.debug("Updated LED color", muted=is_muted, color=target_color.name)  # type: ignore[call-arg]
             except Exception as e:
                 logger.error(f"Failed to set LED color: {e}")
 
@@ -99,7 +99,7 @@ class LEDFeedbackController:
             Dictionary containing current status information
         """
         try:
-            is_muted = self.audio_backend.is_muted()
+            is_muted = self.audio_backend.is_muted(None)
             current_led_color = self.muted_color if is_muted else self.unmuted_color
             device_connected = self.device.is_connected()
 

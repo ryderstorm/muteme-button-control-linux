@@ -60,7 +60,7 @@ class MockHIDDevice:
         """Get current LED color."""
         return self._led_color
 
-    def add_event(self, event_type: str, timestamp: datetime = None) -> None:
+    def add_event(self, event_type: str, timestamp: datetime | None = None) -> None:
         """Add a button event."""
         if timestamp is None:
             timestamp = datetime.now()
@@ -91,7 +91,7 @@ class MockAudioBackend:
             raise Exception("Not connected")
         self._muted = muted
 
-    def is_muted(self, sink_name: str = None) -> bool:
+    def is_muted(self, sink_name: str | None = None) -> bool:
         """Check mute state."""
         if not self._connected:
             raise Exception("Not connected")
@@ -339,7 +339,9 @@ class TestEndToEndIntegration:
             LEDColor.GREEN,
         ]
 
-        for i, (muted_state, expected_color) in enumerate(zip(states, expected_colors)):
+        for i, (muted_state, expected_color) in enumerate(
+            zip(states, expected_colors, strict=True)
+        ):
             # Set audio state directly
             mock_audio_backend._muted = muted_state
 
