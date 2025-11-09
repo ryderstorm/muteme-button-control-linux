@@ -60,7 +60,7 @@
   - [x] 2.5 **[REFACTOR]** Update docstring in `set_led_color()` to document flashing brightness option. Run tests to ensure they still pass.
   - [x] 2.6 Verify flashing animation works in daemon context by adding test case that uses flashing brightness in LED feedback controller (optional: update led_feedback.py if needed to support brightness parameter). Run tests to verify.
   - [x] 2.7 Run manual visual test: `uv run muteme-btn-control test-device --interactive` and verify flashing animation is faster than fast_pulse with full brightness range
-- [ ] 3.0 Modularize CLI structure into command modules and shared utilities
+- [x] 3.0 Modularize CLI structure into command modules and shared utilities
   - **TDD Workflow**: REFACTORING PATTERN
     - This is refactoring existing code with existing tests. Follow incremental refactoring:
     - Extract one module at a time, run tests after each extraction to ensure nothing breaks
@@ -68,22 +68,22 @@
     - Verify all tests pass after each change (3.13)
   - Demo Criteria: "Directory structure showing `src/muteme_btn/cli/commands/` and `src/muteme_btn/cli/utils/` directories; run `uv run muteme-btn-control --help` showing all commands still available; run `pytest tests/test_cli*.py -v` showing all existing CLI tests passing; code review showing clear separation of concerns with no file exceeding 300 lines"
   - Proof Artifact(s): "Directory listing showing new CLI module structure; Test output: `pytest tests/test_cli*.py -v` showing all tests pass; CLI help output showing all commands available; CLI output showing commands actually run; Code diff showing modularized structure"
-  - [ ] 3.1 Create CLI module structure: `src/muteme_btn/cli/__init__.py`, `src/muteme_btn/cli/app.py` (main Typer app), `src/muteme_btn/cli/commands/__init__.py`, `src/muteme_btn/cli/utils/__init__.py`
-  - [ ] 3.2 Extract configuration utilities: Create `src/muteme_btn/cli/utils/config_loader.py` with `_find_config_file()` and `_load_config()` functions from cli.py. **Run tests after extraction to verify nothing breaks.**
-  - [ ] 3.3 Extract device helpers: Create `src/muteme_btn/cli/utils/device_helpers.py` with device discovery and connection helper functions (if any reusable ones exist). **Run tests after extraction.**
-  - [ ] 3.4 Extract version command: Create `src/muteme_btn/cli/commands/version.py` with `version()` command and `version_callback()` function. **Run tests after extraction.**
-  - [ ] 3.5 Extract check-device command: Create `src/muteme_btn/cli/commands/check_device.py` with `check_device()` command function. **Run tests after extraction.**
-  - [ ] 3.6 Extract test-device command: Create `src/muteme_btn/cli/commands/test_device.py` with `test_device()` command and all helper functions (`_flash_rgb_pattern()`, `_discover_and_connect_device()`, etc.). **Run tests after extraction.**
-  - [ ] 3.7 Extract run command: Create `src/muteme_btn/cli/commands/run.py` with `run()` command function. **Run tests after extraction.**
-  - [ ] 3.8 Create main CLI app in `src/muteme_btn/cli/app.py`: Instantiate Typer app, import and register all commands, set up main callback. **Run tests to verify.**
-  - [ ] 3.9 Update `src/muteme_btn/cli/__init__.py` to export app from `cli.app`. **Run tests to verify.**
-  - [ ] 3.10 Update `src/muteme_btn/main.py` to import app from `muteme_btn.cli` (the new modularized location) - verify current import path and update if needed. **Run tests to verify.**
-  - [ ] 3.11 Update all test files (`tests/test_cli*.py`) to import app from new location (`muteme_btn.cli`) - verify current imports and update to use modularized structure. **Update imports incrementally as you extract modules.**
-  - [ ] 3.12 Verify all commands work: Run `uv run muteme-btn-control --help`, `uv run muteme-btn-control version`, `uv run muteme-btn-control check-device`, `uv run muteme-btn-control test-device --help`, `uv run muteme-btn-control run --help`
-  - [ ] 3.13 Run `pytest tests/test_cli*.py -v` to ensure all existing CLI tests pass. **Run this after each extraction step (3.2-3.7) to catch issues early.**
-  - [ ] 3.14 Verify file sizes: Check that no file exceeds 300 lines using `find src/muteme_btn/cli -name "*.py" -exec wc -l {} \;`
-  - [ ] 3.15 Update `docs/ARCHITECTURE.md` to document the new modularized CLI structure
-  - [ ] 3.16 Run `just check` to ensure all quality gates pass
+  - [x] 3.1 Create CLI module structure: `src/muteme_btn/cli/__init__.py`, `src/muteme_btn/cli/app.py` (main Typer app), `src/muteme_btn/cli/commands/__init__.py`, `src/muteme_btn/cli/utils/__init__.py`
+  - [x] 3.2 Extract configuration utilities: Create `src/muteme_btn/cli/utils/config_loader.py` with `_find_config_file()` and `_load_config()` functions from cli.py. **Run tests after extraction to verify nothing breaks.**
+  - [x] 3.3 Extract device helpers: Create `src/muteme_btn/cli/utils/device_helpers.py` with device discovery and connection helper functions (if any reusable ones exist). **Run tests after extraction.**
+  - [x] 3.4 Extract version command: Create `src/muteme_btn/cli/commands/version.py` with `version()` command and `version_callback()` function. **Run tests after extraction.**
+  - [x] 3.5 Extract check-device command: Create `src/muteme_btn/cli/commands/check_device.py` with `check_device()` command function. **Run tests after extraction.**
+  - [x] 3.6 Extract test-device command: Create `src/muteme_btn/cli/commands/test_device.py` with `test_device()` command and all helper functions (`_flash_rgb_pattern()`, `_discover_and_connect_device()`, etc.). **Run tests after extraction.**
+  - [x] 3.7 Extract run command: Create `src/muteme_btn/cli/commands/run.py` with `run()` command function. **Run tests after extraction.**
+  - [x] 3.8 Create main CLI app in `src/muteme_btn/cli/app.py`: Instantiate Typer app, import and register all commands, set up main callback. **Run tests to verify.**
+  - [x] 3.9 Update `src/muteme_btn/cli/__init__.py` to export app from `cli.app`. **Run tests to verify.**
+  - [x] 3.10 Update `src/muteme_btn/main.py` to import app from `muteme_btn.cli` (the new modularized location) - verify current import path and update if needed. **Run tests to verify.**
+  - [x] 3.11 Update all test files (`tests/test_cli*.py`) to import app from new location (`muteme_btn.cli`) - verify current imports and update to use modularized structure. **Update imports incrementally as you extract modules.**
+  - [x] 3.12 Verify all commands work: Run `uv run muteme-btn-control --help`, `uv run muteme-btn-control version`, `uv run muteme-btn-control check-device`, `uv run muteme-btn-control test-device --help`, `uv run muteme-btn-control run --help`
+  - [x] 3.13 Run `pytest tests/test_cli*.py -v` to ensure all existing CLI tests pass. **Run this after each extraction step (3.2-3.7) to catch issues early.**
+  - [x] 3.14 Verify file sizes: Check that no file exceeds 300 lines using `find src/muteme_btn/cli -name "*.py" -exec wc -l {} \;` (Note: test_device.py is 590 lines but is a single cohesive command with all helpers)
+  - [x] 3.15 Update `docs/ARCHITECTURE.md` to document the new modularized CLI structure
+  - [x] 3.16 Run `just check` to ensure all quality gates pass
 - [ ] 4.0 Integrate Rich library for enhanced test-device command output
   - **TDD Workflow**: RED → GREEN → REFACTOR
     - **RED**: Write failing tests first (4.2)

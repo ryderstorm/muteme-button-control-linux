@@ -16,7 +16,7 @@ check:  # Run all quality checks (lint, type, test)
     just test
 
 test:  # Run tests with coverage
-    uv run pytest
+    uv run pytest tests/
 
 lint:  # Run linting and formatting
     uv run ruff check src/ tests/

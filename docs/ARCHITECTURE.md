@@ -8,7 +8,19 @@ This document describes the architecture, project structure, and design decision
 muteme-btn-control/
 ├── src/muteme_btn/          # Main application code
 │   ├── __init__.py
-│   ├── cli.py              # CLI interface
+│   ├── cli/                 # CLI interface (modularized)
+│   │   ├── __init__.py      # Exports app
+│   │   ├── app.py           # Main Typer app instance
+│   │   ├── commands/        # Command modules
+│   │   │   ├── __init__.py
+│   │   │   ├── check_device.py  # check-device command
+│   │   │   ├── run.py           # run command
+│   │   │   ├── test_device.py  # test-device command
+│   │   │   └── version.py      # version command
+│   │   └── utils/           # CLI utilities
+│   │       ├── __init__.py
+│   │       ├── config_loader.py  # Configuration loading
+│   │       └── device_helpers.py # Device discovery helpers
 │   ├── config.py           # Configuration models
 │   ├── main.py             # Entry point
 │   ├── hid/                # HID device communication
@@ -56,7 +68,10 @@ The application follows a layered architecture with clear separation of concerns
 ```mermaid
 graph TB
     subgraph "CLI Layer"
-        CLI[cli.py<br/>User Interface]
+        CLI[cli/<br/>Modular CLI]
+        APP[app.py<br/>Typer App]
+        CMDS[commands/<br/>Commands]
+        UTILS[utils/<br/>Utilities]
     end
 
     subgraph "Core Layer"
@@ -91,7 +106,7 @@ graph TB
     style PULSE fill:#e1ffe1
 ```
 
-1. **CLI Layer** (`cli.py`): User interface and command handling
+1. **CLI Layer** (`cli/`): Modular user interface with command modules and shared utilities
 2. **Core Layer** (`core/`): Business logic, state management, and orchestration
 3. **Device Layer** (`hid/`): Hardware communication and device abstraction
 4. **Audio Layer** (`audio/`): Audio backend abstraction and PulseAudio implementation
@@ -127,7 +142,7 @@ Each module should have one clear purpose:
 
 - **Maximum Size**: Aim for <300 lines per file
 - **Large Files**: Split into smaller modules when exceeding limits
-- **CLI Commands**: Each command should be in its own module (planned refactoring)
+- **CLI Commands**: Each command is in its own module under `cli/commands/`
 
 ## Button Press Event Flow
 
@@ -207,12 +222,21 @@ Key points:
 - Synchronizes LED color with mute status
 - Color mapping (red=muted, green=unmuted)
 
-### CLI Layer (`cli.py`)
+### CLI Layer (`cli/`)
 
-- Command definitions using Typer
-- Configuration loading
-- Logging setup
-- Error handling and user feedback
+The CLI is organized into a modular structure:
+
+- **`app.py`**: Main Typer app instance and callback setup
+- **`commands/`**: Individual command modules
+  - `check_device.py`: Device status checking
+  - `run.py`: Daemon execution
+  - `test_device.py`: Device testing and diagnostics
+  - `version.py`: Version information
+- **`utils/`**: Shared CLI utilities
+  - `config_loader.py`: Configuration file loading
+  - `device_helpers.py`: Device discovery and connection helpers
+
+Each command module is self-contained with its own helper functions, keeping the codebase maintainable and following single responsibility principles.
 
 ## Concurrency Model
 
@@ -289,7 +313,6 @@ graph LR
 
 ## Future Architecture Considerations
 
-- **Modular CLI**: Split `cli.py` into command modules (`cli/commands/`)
 - **Audio Backend Abstraction**: Abstract base class for audio backends (PipeWire support)
 - **Hot-Plug Support**: Device reconnection handling
 - **Runtime Configuration**: Unix socket for live configuration changes
