@@ -115,6 +115,66 @@ class TestButtonStateMachine:
         assert state_machine.press_count == 1
         assert not actions  # No actions from debounced event
 
+    def test_press_while_pressed_state(self, state_machine):
+        """Test handling press event while already in PRESSED state.
+
+        This tests the edge case where a second press arrives before the release,
+        which can happen with hardware edge cases or missed release events.
+        """
+        now = datetime.now()
+
+        # First press - enters PRESSED state
+        press1 = ButtonEvent(type="press", timestamp=now)
+        state_machine.process_event(press1)
+        assert state_machine.current_state == ButtonState.PRESSED
+        assert state_machine.press_count == 1
+
+        # Second press while still in PRESSED state
+        # (after debounce threshold but within double-tap window)
+        # Use 50ms - enough to pass debounce (10ms) but within double-tap timeout (300ms)
+        press2 = ButtonEvent(type="press", timestamp=now + timedelta(milliseconds=50))
+        actions = state_machine.process_event(press2)
+
+        # Should increment press_count and remain in PRESSED state
+        assert state_machine.current_state == ButtonState.PRESSED
+        assert state_machine.press_count == 2
+        assert not actions  # No actions until release
+
+        # Now release - should trigger double-tap
+        release = ButtonEvent(type="release", timestamp=now + timedelta(milliseconds=100))
+        actions = state_machine.process_event(release)
+
+        # Should detect double-tap and return to IDLE
+        assert state_machine.current_state == ButtonState.IDLE
+        assert "toggle" in actions
+        assert "double_tap" in actions
+        assert state_machine.press_count == 0  # Reset after double-tap
+
+    def test_press_while_pressed_exceeds_timeout(self, state_machine):
+        """Test press while PRESSED that exceeds double-tap timeout is treated as new sequence."""
+        now = datetime.now()
+
+        # First press
+        press1 = ButtonEvent(type="press", timestamp=now)
+        state_machine.process_event(press1)
+        assert state_machine.press_count == 1
+
+        # Second press after timeout window (> 300ms)
+        press2 = ButtonEvent(type="press", timestamp=now + timedelta(milliseconds=400))
+        state_machine.process_event(press2)
+
+        # Should reset press_count to 1 (new sequence)
+        assert state_machine.current_state == ButtonState.PRESSED
+        assert state_machine.press_count == 1
+
+        # Release should only trigger single toggle, not double-tap
+        release = ButtonEvent(type="release", timestamp=now + timedelta(milliseconds=500))
+        actions = state_machine.process_event(release)
+
+        assert state_machine.current_state == ButtonState.IDLE
+        assert "toggle" in actions
+        assert "double_tap" not in actions
+
     def test_invalid_event_handling(self, state_machine):
         """Test handling of unknown event types."""
         invalid_event = ButtonEvent(type="unknown", timestamp=datetime.now())
