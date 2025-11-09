@@ -21,10 +21,10 @@ class LEDColor(Enum):
     NOCOLOR = 0x00
     RED = 0x01
     GREEN = 0x02
-    BLUE = 0x03
-    YELLOW = 0x04
-    CYAN = 0x05
-    PURPLE = 0x06
+    YELLOW = 0x03  # Swapped: was BLUE
+    BLUE = 0x04  # Swapped: was YELLOW
+    PURPLE = 0x05  # Swapped: was CYAN
+    CYAN = 0x06  # Swapped: was PURPLE
     WHITE = 0x07
 
     @classmethod
@@ -399,11 +399,29 @@ class MuteMeDevice:
 
         return events
 
-    def set_led_color(self, color: LEDColor) -> None:
+    def set_led_color(
+        self,
+        color: LEDColor,
+        use_feature_report: bool = False,
+        report_format: str = "report_id_0",
+        brightness: str = "normal",
+    ) -> None:
         """Set LED color on the device.
 
         Args:
             color: LED color to set
+            use_feature_report: If True, use send_feature_report instead of write
+            report_format: Report format to use:
+                - "standard": [0x01, color_value]
+                - "no_report_id": [color_value] (no report ID)
+                - "report_id_0": [0x00, color_value] (report ID 0) - DEFAULT (works on MuteMe)
+                - "report_id_2": [0x02, color_value] (report ID 2)
+                - "padded": [0x01, color_value, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00] (8 bytes)
+            brightness: Brightness/effect level:
+                - "normal": Base color value (default)
+                - "dim": Add 0x10 to color value
+                - "fast_pulse": Add 0x20 to color value
+                - "slow_pulse": Add 0x30 to color value
 
         Raises:
             DeviceError: If device not connected or write fails
@@ -411,13 +429,54 @@ class MuteMeDevice:
         if not self.is_connected():
             raise DeviceError("Device not connected")
 
+        if self._device is None:
+            raise DeviceError("Device not connected")
+
         try:
-            # MuteMe uses 2-byte HID reports for LED control
-            # Byte 0: Report ID (0x01 for LED control)
-            # Byte 1: Color value
-            report = bytes([0x01, color.value])
-            self.write(report)
-            logger.debug("Set LED color", color=color.name, value=color.value)
+            # Apply brightness/effect offset
+            color_value = color.value
+            if brightness == "dim":
+                color_value = color.value | 0x10
+            elif brightness == "fast_pulse":
+                color_value = color.value | 0x20
+            elif brightness == "slow_pulse":
+                color_value = color.value | 0x30
+            # else "normal" - use base color value
+
+            # Build report based on format
+            if report_format == "no_report_id":
+                report = bytes([color_value])
+            elif report_format == "report_id_0":
+                report = bytes([0x00, color_value])
+            elif report_format == "report_id_2":
+                report = bytes([0x02, color_value])
+            elif report_format == "padded":
+                report = bytes([0x01, color_value, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
+            else:  # standard
+                report = bytes([0x01, color_value])
+
+            if use_feature_report:
+                # Try feature report method
+                self._device.send_feature_report(list(report))  # type: ignore[union-attr]
+                logger.debug(
+                    "Set LED color (feature report)",
+                    color=color.name,
+                    value=color_value,
+                    format=report_format,
+                    brightness=brightness,
+                    report=report.hex(),
+                )
+            else:
+                # Standard output report method
+                self.write(report)
+                logger.debug(
+                    "Set LED color",
+                    color=color.name,
+                    value=color_value,
+                    format=report_format,
+                    brightness=brightness,
+                    report=report.hex(),
+                )
         except Exception as e:
             logger.error("Failed to set LED color", color=color.name, error=str(e))
             raise DeviceError(f"LED control failed: {e}") from e

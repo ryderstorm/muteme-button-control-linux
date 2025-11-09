@@ -100,6 +100,9 @@ class MuteMeDaemon:
             if not self.device or not self.device.is_connected():
                 await self._connect_device()
                 device_connected = True
+                # Give device a moment to initialize after connection
+                # Some HID devices need time before accepting commands
+                await asyncio.sleep(0.1)
 
             # Create LED controller if not already created
             if not self.led_controller:
@@ -310,6 +313,7 @@ class MuteMeDaemon:
         """Show startup connection pattern: flash blue-green-red 3 times."""
         try:
             if not self.device or not self.device.is_connected():
+                logger.warning("Device not connected, skipping startup pattern")
                 return
 
             colors = [LEDColor.BLUE, LEDColor.GREEN, LEDColor.RED]
@@ -317,7 +321,8 @@ class MuteMeDaemon:
             repeats = 3
 
             logger.info("Showing startup connection pattern")
-            for _ in range(repeats):
+            errors = []
+            for repeat_num in range(repeats):
                 for color in colors:
                     try:
                         self.device.set_led_color(color)
@@ -326,14 +331,26 @@ class MuteMeDaemon:
                         self.device.set_led_color(LEDColor.NOCOLOR)
                         await asyncio.sleep(0.05)
                     except Exception as e:
-                        logger.warning(f"Error in startup pattern: {e}")
+                        error_msg = (
+                            f"Error setting LED color {color.name} in repeat {repeat_num + 1}: {e}"
+                        )
+                        logger.warning(error_msg)
+                        errors.append(error_msg)
+                        # Continue trying other colors even if one fails
 
             # Brief pause before showing actual status
             await asyncio.sleep(0.1)
-            logger.info("Startup pattern complete")
+
+            if errors:
+                logger.warning(
+                    f"Startup pattern completed with {len(errors)} error(s). "
+                    "Device may not be ready or LED control may be failing."
+                )
+            else:
+                logger.info("Startup pattern complete")
 
         except Exception as e:
-            logger.error(f"Error showing startup pattern: {e}")
+            logger.error(f"Error showing startup pattern: {e}", exc_info=True)
 
     async def _update_led_feedback(self) -> None:
         """Update LED feedback based on current mute status."""
