@@ -75,3 +75,5 @@ jobs:
 
       - name: Run pre-commit hooks
         run: uv run pre-commit run --all-files
+        env:
+          SKIP: ty  # Skip type checking in pre-commit since we run it separately above
