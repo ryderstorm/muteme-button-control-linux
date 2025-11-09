@@ -70,15 +70,18 @@ skips = ["B101"]  # Skip assert_used check (common in tests)
 [tool.semantic_release]
 # Use annotated tags like v1.2.3
 tag_format = "v{version}"
+# Allow 0.x.x versions (required for pre-1.0.0 releases)
+allow_zero_version = true
 # Update the version field in pyproject.toml (single source of truth)
 version_toml = ["pyproject.toml:project.version"]
 # Ensure uv.lock stays in sync with version changes and is committed
 build_command = """
 curl -LsSf https://astral.sh/uv/install.sh | sh -s
 export PATH="$HOME/.local/bin:$PATH"
+uv sync --group packaging
 uv lock
 git add uv.lock
-python -m build --wheel --sdist
+uv build
 """
 # Generate changelog and commit version bumps
 assets = ["uv.lock"]

@@ -361,7 +361,7 @@ default_language_version:
 
 ```bash
 # Install pre-commit hooks
-uv run pre-commit install
+uv run pre-commit install --hook-type pre-commit --hook-type pre-push --hook-type commit-msg --overwrite
 
 # Run hooks on all files
 uv run pre-commit run --all-files
@@ -507,7 +507,7 @@ just test           # Run tests
 Or manually:
 
 ```bash
-uv sync && uv run pre-commit install
+uv sync && uv run pre-commit install --hook-type pre-commit --hook-type pre-push --hook-type commit-msg --overwrite
 uv run muteme-btn-control --help
 ```
 

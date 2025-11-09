@@ -7,6 +7,7 @@ from unittest.mock import patch
 import pytest
 from typer.testing import CliRunner
 
+from muteme_btn import __version__
 from muteme_btn.cli import app
 from muteme_btn.config import AppConfig
 
@@ -18,19 +19,19 @@ class TestCLI:
         """Test version command outputs correct version."""
         result = runner.invoke(app, ["version"])
         assert result.exit_code == 0
-        assert "muteme-btn-control 0.1.0" in result.stdout
+        assert f"muteme-btn-control {__version__}" in result.stdout
 
     def test_version_flag(self, runner: CliRunner) -> None:
         """Test --version flag outputs correct version."""
         result = runner.invoke(app, ["--version"])
         assert result.exit_code == 0
-        assert "muteme-btn-control 0.1.0" in result.stdout
+        assert f"muteme-btn-control {__version__}" in result.stdout
 
     def test_version_short_flag(self, runner: CliRunner) -> None:
         """Test -v flag outputs correct version."""
         result = runner.invoke(app, ["-v"])
         assert result.exit_code == 0
-        assert "muteme-btn-control 0.1.0" in result.stdout
+        assert f"muteme-btn-control {__version__}" in result.stdout
 
     def test_help_command(self, runner: CliRunner) -> None:
         """Test help command shows usage information."""

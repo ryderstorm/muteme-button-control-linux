@@ -57,7 +57,7 @@ A Linux CLI tool for controlling MuteMe button hardware with PulseAudio integrat
    Or manually:
    ```bash
    uv sync
-   uv run pre-commit install
+   uv run pre-commit install --hook-type pre-commit --hook-type pre-push --hook-type commit-msg --overwrite
    ```
 
 3. **Install UDEV rules** (required for device access):

@@ -2,7 +2,7 @@ name: CI - Tests and Linting
 
 on:
   # Avoid duplicate runs: run on PRs for branches, and on direct pushes to main
-  # Ignore changes to release-generated files
+  # Ignore changes to release-generated files and semantic-release commits
   push:
     branches: ["main"]
     paths-ignore:
@@ -10,6 +10,7 @@ on:
       - "uv.lock"
       - "dist/"
       - "htmlcov/"
+      - "pyproject.toml"  # Ignore version bumps from semantic-release
   pull_request:
   workflow_dispatch:
 
@@ -17,6 +18,8 @@ jobs:
   test:
     name: Run Tests
     runs-on: ubuntu-latest
+    # Skip CI for semantic-release commits (version bumps)
+    if: github.event_name != 'push' || github.event.head_commit.author.name != 'octo-sts[bot]'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -45,6 +48,8 @@ jobs:
   lint:
     name: Run Linting
     runs-on: ubuntu-latest
+    # Skip CI for semantic-release commits (version bumps)
+    if: github.event_name != 'push' || github.event.head_commit.author.name != 'octo-sts[bot]'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
