@@ -270,7 +270,7 @@ Before committing, run `just check` to verify all quality gates pass.
 
 Use clear, descriptive commit messages:
 
-```
+```bash
 feat: add flashing animation brightness level
 
 - Add brightness="flashing" parameter to set_led_color()
