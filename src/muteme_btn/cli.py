@@ -658,8 +658,6 @@ def test_device(
             try:
                 if test_brightness == "flashing":
                     # Flashing uses software animation - show info first, then animate
-                    typer.echo(f"Testing: Color={test_color.name}, Brightness={test_brightness}")
-                    typer.echo("")
                     typer.echo("Starting flashing animation (20 rapid on/off cycles)...")
                     typer.echo("")
 
