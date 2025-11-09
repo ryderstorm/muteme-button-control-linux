@@ -375,9 +375,46 @@ class TestTestDeviceCommand:
             assert "Testing brightness levels" in result.stdout
             assert "Dim" in result.stdout
             assert "Normal" in result.stdout
+            assert "Flashing" in result.stdout
             assert "Fast Pulse" in result.stdout
             assert "Slow Pulse" in result.stdout
             assert "Brightness test complete!" in result.stdout
+
+    @patch("muteme_btn.cli.MuteMeDevice.discover_devices")
+    def test_test_device_brightness_sequence_order(self, mock_discover):
+        """Test test-device command brightness sequence includes flashing in correct order."""
+        mock_discover.return_value = [self._create_mock_device_info()]
+
+        mock_device = self._create_mock_device()
+        with (
+            patch("muteme_btn.cli.MuteMeDevice.connect_by_vid_pid", return_value=mock_device),
+            patch("muteme_btn.cli._flash_rgb_pattern"),
+            patch("muteme_btn.cli.time.sleep"),
+        ):
+            result = self.runner.invoke(app, ["test-device"])
+
+            assert result.exit_code == 0
+            stdout = result.stdout
+            # Find brightness test section
+            brightness_section_start = stdout.find("Testing brightness levels")
+            assert brightness_section_start != -1
+
+            # Extract brightness section
+            brightness_section = stdout[brightness_section_start:]
+
+            # Verify sequence: Dim → Normal → Flashing → Fast Pulse → Slow Pulse
+            dim_pos = brightness_section.find("Setting WHITE to Dim")
+            normal_pos = brightness_section.find("Setting WHITE to Normal")
+            flashing_pos = brightness_section.find("Setting WHITE to Flashing")
+            fast_pulse_pos = brightness_section.find("Setting WHITE to Fast Pulse")
+            slow_pulse_pos = brightness_section.find("Setting WHITE to Slow Pulse")
+
+            assert dim_pos != -1
+            assert normal_pos != -1
+            assert flashing_pos != -1
+            assert fast_pulse_pos != -1
+            assert slow_pulse_pos != -1
+            assert dim_pos < normal_pos < flashing_pos < fast_pulse_pos < slow_pulse_pos
 
     @patch("muteme_btn.cli.MuteMeDevice.discover_devices")
     def test_test_device_button_communication_interactive(self, mock_discover):

@@ -294,6 +294,30 @@ class TestMuteMeDevice:
         with pytest.raises(ValueError, match="Invalid LED color"):
             device.set_led_color_by_name("invalid")
 
+    def test_set_led_color_flashing_brightness(self):
+        """Test setting LED color with flashing brightness."""
+        mock_hid_device = Mock()
+        device = MuteMeDevice(mock_hid_device)
+
+        device.set_led_color(LEDColor.RED, brightness="flashing")
+
+        # Flashing should add 0x40 offset: RED (0x01) | 0x40 = 0x41
+        mock_hid_device.write.assert_called_once_with(
+            bytes([0x00, 0x41])
+        )  # Report ID 0, Color RED with flashing (0x01 | 0x40)
+
+    def test_set_led_color_flashing_brightness_white(self):
+        """Test setting LED color to white with flashing brightness."""
+        mock_hid_device = Mock()
+        device = MuteMeDevice(mock_hid_device)
+
+        device.set_led_color(LEDColor.WHITE, brightness="flashing")
+
+        # Flashing should add 0x40 offset: WHITE (0x07) | 0x40 = 0x47
+        mock_hid_device.write.assert_called_once_with(
+            bytes([0x00, 0x47])
+        )  # Report ID 0, Color WHITE with flashing (0x07 | 0x40)
+
     def test_check_device_permissions_success(self):
         """Test successful device permission check."""
         with patch("os.access") as mock_access:

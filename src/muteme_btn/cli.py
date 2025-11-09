@@ -211,6 +211,7 @@ def _test_brightness_levels(device: MuteMeDevice, interactive: bool) -> list[str
     brightness_levels = [
         ("Dim", "dim"),
         ("Normal", "normal"),
+        ("Flashing", "flashing"),
         ("Fast Pulse", "fast_pulse"),
         ("Slow Pulse", "slow_pulse"),
     ]

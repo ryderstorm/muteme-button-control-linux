@@ -422,6 +422,7 @@ class MuteMeDevice:
                 - "dim": Add 0x10 to color value
                 - "fast_pulse": Add 0x20 to color value
                 - "slow_pulse": Add 0x30 to color value
+                - "flashing": Add 0x40 to color value
 
         Raises:
             DeviceError: If device not connected or write fails
@@ -438,6 +439,8 @@ class MuteMeDevice:
                 color_value = color.value | 0x20
             elif brightness == "slow_pulse":
                 color_value = color.value | 0x30
+            elif brightness == "flashing":
+                color_value = color.value | 0x40
             # else "normal" - use base color value
 
             # Build report based on format
