@@ -5,7 +5,9 @@ import os
 import pwd
 import stat
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
+from typing import Any
 
 import hid  # type: ignore[import-untyped]
 import structlog
@@ -149,7 +151,7 @@ class MuteMeDevice:
         """Connect to a specific MuteMe device.
 
         Args:
-            device_path: Device path (e.g., '/dev/hidraw0')
+            device_path: Device path from hid.enumerate() (USB path, not /dev/hidraw*)
 
         Returns:
             Connected MuteMeDevice instance
@@ -163,8 +165,18 @@ class MuteMeDevice:
             # Create hidapi device instance
             device = hid.device()
 
-            # Open connection to device
-            device.open_path(device_path.encode("utf-8"))
+            # Try to open using the path from enumerate()
+            # The path should be bytes
+            path_bytes = (
+                device_path.encode("utf-8") if isinstance(device_path, str) else device_path
+            )
+            logger.debug(
+                f"Attempting to open device: path_bytes={path_bytes}, path_type={type(path_bytes)}"
+            )
+
+            device.open_path(path_bytes)
+
+            logger.debug("Device opened successfully, verifying connection")
 
             # Get device info for logging
             device_info = None
@@ -183,8 +195,81 @@ class MuteMeDevice:
             return cls(device, device_info)
 
         except Exception as e:
-            logger.error("Failed to connect to MuteMe device", path=device_path, error=str(e))
-            raise DeviceError(f"Failed to connect to device {device_path}: {e}") from e
+            logger.error(
+                "Failed to connect to MuteMe device",
+                path=device_path,
+                error=str(e),
+                error_type=type(e).__name__,
+            )
+            # Provide helpful error message
+            error_msg = f"Failed to connect to device {device_path}: {e}"
+            if "open failed" in str(e).lower():
+                error_msg += "\n\nTroubleshooting:"
+                error_msg += "\n• Device may be in use by another process"
+                error_msg += "\n• Try unplugging and replugging the device"
+                error_msg += "\n• Check if another instance is running: ps aux | grep muteme"
+                error_msg += "\n• Verify device permissions: just check-device"
+                error_msg += (
+                    f"\n• Path format: {device_path} "
+                    "(should be USB path from enumerate, not /dev/hidraw*)"
+                )
+            raise DeviceError(error_msg) from e
+
+    @classmethod
+    def connect_by_vid_pid(cls, vendor_id: int, product_id: int) -> "MuteMeDevice":
+        """Connect to a MuteMe device by VID/PID (alternative method).
+
+        Args:
+            vendor_id: USB Vendor ID
+            product_id: USB Product ID
+
+        Returns:
+            Connected MuteMeDevice instance
+
+        Raises:
+            DeviceError: If connection fails
+        """
+        try:
+            logger.info(
+                "Connecting to MuteMe device by VID/PID",
+                vendor_id=f"0x{vendor_id:04x}",
+                product_id=f"0x{product_id:04x}",
+            )
+
+            # Create hidapi device instance
+            device = hid.device()
+
+            # Try to open using VID/PID
+            device.open(vendor_id, product_id)
+
+            logger.debug("Device opened successfully by VID/PID")
+
+            # Get device info for logging
+            device_info = None
+            for info in cls.discover_devices():
+                if info.vendor_id == vendor_id and info.product_id == product_id:
+                    device_info = info
+                    break
+
+            logger.info(
+                "Successfully connected to MuteMe device by VID/PID",
+                vendor_id=f"0x{vendor_id:04x}",
+                product_id=f"0x{product_id:04x}",
+                path=device_info.path if device_info else "unknown",
+            )
+
+            return cls(device, device_info)
+
+        except Exception as e:
+            logger.error(
+                "Failed to connect to MuteMe device by VID/PID",
+                vendor_id=f"0x{vendor_id:04x}",
+                product_id=f"0x{product_id:04x}",
+                error=str(e),
+            )
+            raise DeviceError(
+                f"Failed to connect to device VID:0x{vendor_id:04x} PID:0x{product_id:04x}: {e}"
+            ) from e
 
     def disconnect(self) -> None:
         """Close device connection."""
@@ -265,6 +350,55 @@ class MuteMeDevice:
             logger.error("Failed to write to device", error=str(e))
             raise DeviceError(f"Device write failed: {e}") from e
 
+    async def read_events(self) -> list[Any]:
+        """Read button events from the device (non-blocking).
+
+        Returns:
+            List of button events. Each event has:
+            - type: "press" or "release"
+            - timestamp: datetime object
+
+        Note:
+            This method reads available data without blocking. If no data is available,
+            it returns an empty list.
+        """
+        if not self.is_connected():
+            return []
+
+        if self._device is None:
+            return []
+
+        events = []
+        try:
+            # MuteMe sends 4-byte HID interrupt reports
+            # Byte 3 (index 3) contains the button state: 0x00 = released, 0x01 = pressed
+            data = self.read(size=4, timeout_ms=10)
+
+            if len(data) >= 4:
+                button_byte = data[3]
+                event_type = "press" if button_byte == 0x01 else "release"
+                timestamp = datetime.now()
+
+                # Create a simple event object
+                @dataclass
+                class DeviceEvent:
+                    type: str
+                    timestamp: datetime
+
+                events.append(DeviceEvent(type=event_type, timestamp=timestamp))
+                logger.info(
+                    f"Button event detected: {event_type} "
+                    f"(raw data: {data.hex()}, button byte: 0x{button_byte:02x})"
+                )
+
+        except DeviceError:
+            # No data available or read timeout - this is normal
+            pass
+        except Exception as e:
+            logger.warning(f"Error reading events: {e}")
+
+        return events
+
     def set_led_color(self, color: LEDColor) -> None:
         """Set LED color on the device.
 
@@ -283,7 +417,7 @@ class MuteMeDevice:
             # Byte 1: Color value
             report = bytes([0x01, color.value])
             self.write(report)
-            logger.info("Set LED color", color=color.name, value=color.value)
+            logger.debug("Set LED color", color=color.name, value=color.value)
         except Exception as e:
             logger.error("Failed to set LED color", color=color.name, error=str(e))
             raise DeviceError(f"LED control failed: {e}") from e

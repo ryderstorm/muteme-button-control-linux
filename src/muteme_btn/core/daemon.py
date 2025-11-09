@@ -8,7 +8,7 @@ from muteme_btn.audio.pulse import AudioConfig, PulseAudioBackend
 from muteme_btn.config import DeviceConfig
 from muteme_btn.core.led_feedback import LEDFeedbackController
 from muteme_btn.core.state import ButtonEvent, ButtonStateMachine
-from muteme_btn.hid.device import MuteMeDevice
+from muteme_btn.hid.device import DeviceError, LEDColor, MuteMeDevice
 
 logger = logging.getLogger(__name__)
 
@@ -39,12 +39,12 @@ class MuteMeDaemon:
         self.device_config = device_config or DeviceConfig()
         self.audio_config = audio_config or AudioConfig()
 
-        self.device = device or MuteMeDevice(self.device_config)
+        # Device will be connected in start() if not provided
+        self.device = device
         self.audio_backend = audio_backend or PulseAudioBackend(self.audio_config)
         self.state_machine = state_machine or ButtonStateMachine()
-        self.led_controller = led_controller or LEDFeedbackController(
-            device=self.device, audio_backend=self.audio_backend
-        )
+        # LED controller will be created after device is connected
+        self.led_controller = led_controller
 
         self.running: bool = False
         self._shutdown_event = asyncio.Event()
@@ -88,6 +88,21 @@ class MuteMeDaemon:
         self._shutdown_event.clear()
 
         try:
+            # Connect to device if not already connected
+            if not self.device or not self.device.is_connected():
+                await self._connect_device()
+
+            # Create LED controller if not already created
+            if not self.led_controller:
+                if not self.device:
+                    raise DeviceError("Device not connected, cannot create LED controller")
+                self.led_controller = LEDFeedbackController(
+                    device=self.device, audio_backend=self.audio_backend
+                )
+
+            # Show startup connection pattern: flash blue-green-red 3 times
+            await self._show_startup_pattern()
+
             # Initialize LED to current mute status
             await self._update_led_feedback()
 
@@ -100,6 +115,59 @@ class MuteMeDaemon:
             # Ensure cleanup is called on shutdown
             self.cleanup()
             logger.info("MuteMe daemon stopped")
+
+    async def _connect_device(self) -> None:
+        """Discover and connect to a MuteMe device."""
+        logger.info("Discovering MuteMe devices...")
+        devices = MuteMeDevice.discover_devices()
+
+        if not devices:
+            raise DeviceError(
+                "No MuteMe devices found. Please ensure your device is connected "
+                "and UDEV rules are installed."
+            )
+
+        # Filter by configured VID/PID if specified
+        matching_devices = [
+            d
+            for d in devices
+            if d.vendor_id == self.device_config.vid and d.product_id == self.device_config.pid
+        ]
+
+        if not matching_devices:
+            vid_pid = f"VID:0x{self.device_config.vid:04x} PID:0x{self.device_config.pid:04x}"
+            logger.warning(f"No devices found matching {vid_pid}")
+            # Try any discovered device
+            matching_devices = devices
+
+        # Use the first matching device
+        device_info = matching_devices[0]
+        vid_pid = f"VID:0x{device_info.vendor_id:04x} PID:0x{device_info.product_id:04x}"
+        logger.info(f"Found device: {vid_pid} Path:{device_info.path}")
+
+        # Try connecting using VID/PID first (more reliable)
+        try:
+            logger.debug("Attempting connection by VID/PID")
+            self.device = MuteMeDevice.connect_by_vid_pid(
+                device_info.vendor_id, device_info.product_id
+            )
+            logger.info("Successfully connected to device using VID/PID")
+        except DeviceError as e:
+            logger.warning(f"VID/PID connection failed: {e}, trying path-based connection")
+            # Fallback to path-based connection
+            try:
+                logger.debug(f"Attempting connection by path: {device_info.path}")
+                self.device = MuteMeDevice.connect(device_info.path)
+                logger.info(f"Successfully connected to device at {device_info.path}")
+            except DeviceError as path_error:
+                # Combine both error messages
+                vid_pid = f"VID:0x{device_info.vendor_id:04x} PID:0x{device_info.product_id:04x}"
+                raise DeviceError(
+                    f"Failed to connect using both methods:\n"
+                    f"VID/PID method: {e}\n"
+                    f"Path method: {path_error}\n\n"
+                    f"Device info: {vid_pid} Path:{device_info.path}"
+                ) from path_error
 
     async def stop(self) -> None:
         """Stop the daemon gracefully."""
@@ -191,6 +259,35 @@ class MuteMeDaemon:
 
         except Exception as e:
             logger.error(f"Error handling action '{action}': {e}")
+
+    async def _show_startup_pattern(self) -> None:
+        """Show startup connection pattern: flash blue-green-red 3 times."""
+        try:
+            if not self.device or not self.device.is_connected():
+                return
+
+            colors = [LEDColor.BLUE, LEDColor.GREEN, LEDColor.RED]
+            flash_duration = 0.15  # 150ms per color
+            repeats = 3
+
+            logger.info("Showing startup connection pattern")
+            for _ in range(repeats):
+                for color in colors:
+                    try:
+                        self.device.set_led_color(color)
+                        await asyncio.sleep(flash_duration)
+                        # Turn off briefly between colors
+                        self.device.set_led_color(LEDColor.NOCOLOR)
+                        await asyncio.sleep(0.05)
+                    except Exception as e:
+                        logger.warning(f"Error in startup pattern: {e}")
+
+            # Brief pause before showing actual status
+            await asyncio.sleep(0.1)
+            logger.info("Startup pattern complete")
+
+        except Exception as e:
+            logger.error(f"Error showing startup pattern: {e}")
 
     async def _update_led_feedback(self) -> None:
         """Update LED feedback based on current mute status."""

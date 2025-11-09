@@ -71,17 +71,22 @@ class TestMuteMeDaemon:
 
             daemon = MuteMeDaemon(device_config, audio_config)
 
-            assert daemon.device == mock_device
+            # Device is now None initially (created in start())
+            assert daemon.device is None
             assert daemon.audio_backend == mock_audio_backend
             assert daemon.running is False
-            mock_device_class.assert_called_once_with(device_config)
+            # Device class should not be called in __init__ anymore
+            mock_device_class.assert_not_called()
             mock_audio_class.assert_called_once_with(audio_config)
 
     @pytest.mark.asyncio
     async def test_start_stop_daemon(self, daemon):
         """Test starting and stopping the daemon."""
-        # Mock the main loop to avoid infinite loop
+        # Mock device connection and main loop to avoid infinite loop
+        daemon._connect_device = AsyncMock()
         daemon._main_loop = AsyncMock()
+        daemon._update_led_feedback = AsyncMock()
+        daemon._show_startup_pattern = AsyncMock()
 
         # Start daemon
         start_task = asyncio.create_task(daemon.start())
@@ -210,8 +215,10 @@ class TestMuteMeDaemon:
             mock_device_class.return_value = mock_device
             mock_audio_class.return_value = mock_audio_backend
 
-            async with MuteMeDaemon() as daemon:
+            daemon = MuteMeDaemon(device=mock_device)
+            async with daemon:
                 assert daemon is not None
 
+            # Cleanup should close device and audio backend
             mock_device.close.assert_called_once()
             mock_audio_backend.close.assert_called_once()

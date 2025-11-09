@@ -3,7 +3,7 @@
 import asyncio
 from datetime import datetime, timedelta
 from typing import Any
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
@@ -152,9 +152,12 @@ class TestEndToEndIntegration:
         # Connect device
         await mock_device.connect()
 
+        # Mock startup pattern to avoid delays
+        integration_daemon._show_startup_pattern = AsyncMock()
+
         # Start daemon
         daemon_task = asyncio.create_task(integration_daemon.start())
-        await asyncio.sleep(0.01)
+        await asyncio.sleep(0.05)  # Wait for initialization
 
         # Initial state: unmuted, green LED
         assert mock_audio_backend.is_muted() is False
@@ -183,8 +186,11 @@ class TestEndToEndIntegration:
         """Test multiple toggle cycles work correctly."""
         await mock_device.connect()
 
+        # Mock startup pattern to avoid delays
+        integration_daemon._show_startup_pattern = AsyncMock()
+
         daemon_task = asyncio.create_task(integration_daemon.start())
-        await asyncio.sleep(0.01)
+        await asyncio.sleep(0.05)  # Wait for initialization
 
         # Cycle 1: unmuted -> muted
         mock_device.add_event("press")
@@ -217,8 +223,11 @@ class TestEndToEndIntegration:
         """Test handling of device disconnection."""
         await mock_device.connect()
 
+        # Mock startup pattern to avoid delays
+        integration_daemon._show_startup_pattern = AsyncMock()
+
         daemon_task = asyncio.create_task(integration_daemon.start())
-        await asyncio.sleep(0.01)
+        await asyncio.sleep(0.05)  # Wait for initialization
 
         # Initial state
         assert mock_device.get_led_color() == LEDColor.GREEN
@@ -267,8 +276,11 @@ class TestEndToEndIntegration:
         """Test double-tap detection in integration."""
         await mock_device.connect()
 
+        # Mock startup pattern to avoid delays
+        integration_daemon._show_startup_pattern = AsyncMock()
+
         daemon_task = asyncio.create_task(integration_daemon.start())
-        await asyncio.sleep(0.01)
+        await asyncio.sleep(0.05)  # Wait for initialization
 
         # Initial state
         assert mock_audio_backend.is_muted() is False
@@ -326,8 +338,11 @@ class TestEndToEndIntegration:
         """Test LED feedback stays synchronized with audio state."""
         await mock_device.connect()
 
+        # Mock startup pattern to avoid delays
+        integration_daemon._show_startup_pattern = AsyncMock()
+
         daemon_task = asyncio.create_task(integration_daemon.start())
-        await asyncio.sleep(0.01)
+        await asyncio.sleep(0.05)  # Wait for initialization
 
         # Test various states
         states = [False, True, False, True, False]
@@ -388,8 +403,11 @@ class TestEndToEndIntegration:
         """Test system recovery after transient errors."""
         await mock_device.connect()
 
+        # Mock startup pattern to avoid delays
+        integration_daemon._show_startup_pattern = AsyncMock()
+
         daemon_task = asyncio.create_task(integration_daemon.start())
-        await asyncio.sleep(0.01)
+        await asyncio.sleep(0.05)  # Wait for initialization
 
         # Simulate transient error
         original_is_muted = mock_audio_backend.is_muted

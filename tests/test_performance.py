@@ -3,7 +3,7 @@
 import asyncio
 import time
 from datetime import datetime, timedelta
-from unittest.mock import Mock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
@@ -327,6 +327,10 @@ class TestPerformanceMeasurement:
     @pytest.mark.asyncio
     async def test_daemon_startup_shutdown_performance(self, perf_daemon, perf_device):
         """Test daemon startup and shutdown performance."""
+        # Mock startup pattern to avoid delays affecting performance test
+        perf_daemon._show_startup_pattern = AsyncMock()
+        perf_daemon._connect_device = AsyncMock()
+
         await perf_device.connect()
 
         # Measure startup time

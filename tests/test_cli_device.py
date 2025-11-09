@@ -38,9 +38,13 @@ class TestCLIDeviceCommands:
         ]
         mock_discover.return_value = mock_devices
 
-        # Mock permission check to succeed
-        with patch(
-            "muteme_btn.hid.device.MuteMeDevice.check_device_permissions", return_value=True
+        # Mock permission check and hidraw device finding to succeed
+        with (
+            patch("muteme_btn.hid.device.MuteMeDevice.check_device_permissions", return_value=True),
+            patch(
+                "muteme_btn.hid.device.MuteMeDevice._find_hidraw_device",
+                side_effect=lambda vid, pid: f"/dev/hidraw{0 if vid == 0x20A0 else 1}",
+            ),
         ):
             # Run check-device command
             result = self.runner.invoke(app, ["check-device"])
@@ -94,11 +98,16 @@ class TestCLIDeviceCommands:
         # Mock permission check
         mock_check_perms.return_value = True
 
-        result = self.runner.invoke(app, ["check-device"])
+        # Mock hidraw device finding
+        with patch(
+            "muteme_btn.hid.device.MuteMeDevice._find_hidraw_device",
+            return_value="/dev/hidraw0",
+        ):
+            result = self.runner.invoke(app, ["check-device"])
 
-        assert result.exit_code == 0
-        assert "Permissions: ✅ OK" in result.stdout
-        mock_check_perms.assert_called_once_with("/dev/hidraw0")
+            assert result.exit_code == 0
+            assert "Permissions: ✅ OK" in result.stdout
+            mock_check_perms.assert_called_once_with("/dev/hidraw0")
 
     @patch("muteme_btn.hid.device.MuteMeDevice.discover_devices")
     @patch("muteme_btn.hid.device.MuteMeDevice.check_device_permissions")
@@ -125,12 +134,17 @@ class TestCLIDeviceCommands:
         mock_check_perms.return_value = False
         mock_get_error.return_value = "Permission denied for /dev/hidraw0"
 
-        # Test with verbose flag to see error details
-        result = self.runner.invoke(app, ["check-device", "--verbose"])
+        # Mock hidraw device finding
+        with patch(
+            "muteme_btn.hid.device.MuteMeDevice._find_hidraw_device",
+            return_value="/dev/hidraw0",
+        ):
+            # Test with verbose flag to see error details
+            result = self.runner.invoke(app, ["check-device", "--verbose"])
 
-        assert result.exit_code != 0
-        assert "Permissions: ❌ FAILED" in result.stdout
-        assert "Permission denied for /dev/hidraw0" in result.stdout
+            assert result.exit_code != 0
+            assert "Permissions: ❌ FAILED" in result.stdout
+            assert "Permission denied for /dev/hidraw0" in result.stdout
 
     @patch("muteme_btn.hid.device.MuteMeDevice.discover_devices")
     def test_check_device_command_verbose_output(self, mock_discover):
@@ -150,8 +164,12 @@ class TestCLIDeviceCommands:
         mock_discover.return_value = mock_devices
 
         # Mock permission check to succeed
-        with patch(
-            "muteme_btn.hid.device.MuteMeDevice.check_device_permissions", return_value=True
+        with (
+            patch("muteme_btn.hid.device.MuteMeDevice.check_device_permissions", return_value=True),
+            patch(
+                "muteme_btn.hid.device.MuteMeDevice._find_hidraw_device",
+                return_value="/dev/hidraw0",
+            ),
         ):
             result = self.runner.invoke(app, ["check-device", "--verbose"])
 
@@ -161,4 +179,5 @@ class TestCLIDeviceCommands:
             assert "Product ID: 0x42da" in result.stdout
             assert "Manufacturer: MuteMe" in result.stdout
             assert "Product: MuteMe Button" in result.stdout
-            assert "Device Path: /dev/hidraw0" in result.stdout
+            assert "USB Path: /dev/hidraw0" in result.stdout
+            assert "HIDraw Device: /dev/hidraw0" in result.stdout

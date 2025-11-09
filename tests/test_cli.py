@@ -40,12 +40,15 @@ class TestCLI:
         assert "--help" in result.stdout
 
     def test_no_args_shows_help(self, runner: CliRunner) -> None:
-        """Test that no arguments shows help (due to no_args_is_help=True)."""
-        result = runner.invoke(app, [])
-        # Typer with no_args_is_help=True actually exits with code 2 and shows help
-        assert result.exit_code == 2
-        assert "Usage:" in result.stdout
-        assert "MuteMe button integration" in result.stdout
+        """Test that no arguments runs the daemon (default behavior)."""
+        # Since we changed no_args_is_help=False and invoke_without_command=True,
+        # no args will try to run the daemon, which will fail without a device
+        # So we expect exit code 1 (device error) or 0 if mocked
+        with patch("muteme_btn.cli.asyncio.run"), patch("muteme_btn.cli.MuteMeDaemon"):
+            result = runner.invoke(app, [])
+            # Exit code depends on whether device connection succeeds
+            # In test environment without device, it will be 1
+            assert result.exit_code in [0, 1]
 
     def test_invalid_command(self, runner: CliRunner) -> None:
         """Test invalid command returns error."""

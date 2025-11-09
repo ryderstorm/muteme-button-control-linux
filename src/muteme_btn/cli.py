@@ -1,16 +1,21 @@
 """CLI interface for MuteMe Button Control."""
 
+import asyncio
 import sys
+from pathlib import Path
 
 import typer
 
 from . import __version__
+from .config import AppConfig, LogLevel
+from .core.daemon import MuteMeDaemon
 from .hid.device import MuteMeDevice
+from .utils.logging import setup_logging
 
 app = typer.Typer(
     name="muteme-btn-control",
     help="A Linux CLI tool for MuteMe button integration with PulseAudio",
-    no_args_is_help=True,
+    no_args_is_help=False,
 )
 
 
@@ -105,8 +110,110 @@ def check_device(
         sys.exit(1)
 
 
-@app.callback()
+def _find_config_file(config_path: Path | None) -> Path | None:
+    """Find configuration file in standard locations.
+
+    Args:
+        config_path: Explicit config path from CLI (takes precedence)
+
+    Returns:
+        Path to config file if found, None otherwise
+    """
+    if config_path and config_path.exists():
+        return config_path
+
+    # Standard locations (in order of precedence)
+    standard_locations = [
+        Path("muteme.toml"),  # Current directory
+        Path.home() / ".config" / "muteme" / "muteme.toml",
+        Path("/etc/muteme/muteme.toml"),
+    ]
+
+    for location in standard_locations:
+        if location.exists():
+            return location
+
+    return None
+
+
+def _load_config(config_path: Path | None, log_level: str | None) -> AppConfig:
+    """Load application configuration.
+
+    Args:
+        config_path: Optional explicit config file path
+        log_level: Optional log level override from CLI
+
+    Returns:
+        Loaded AppConfig instance
+    """
+    found_config = _find_config_file(config_path)
+
+    if found_config:
+        try:
+            config = AppConfig.from_toml_file(found_config)
+            # Override log level if provided via CLI
+            if log_level:
+                config.logging.level = LogLevel(log_level.upper())
+            return config
+        except Exception as e:
+            typer.echo(f"❌ Failed to load configuration from {found_config}: {e}", err=True)
+            sys.exit(1)
+    else:
+        # Use defaults
+        config = AppConfig()
+        if log_level:
+            config.logging.level = LogLevel(log_level.upper())
+        return config
+
+
+@app.command()
+def run(
+    config: Path | None = typer.Option(
+        None,
+        "--config",
+        "-c",
+        help="Path to configuration file",
+    ),
+    log_level: str | None = typer.Option(
+        None,
+        "--log-level",
+        help="Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)",
+    ),
+) -> None:
+    """Run the MuteMe button control daemon."""
+    try:
+        # Load configuration
+        app_config = _load_config(config, log_level)
+
+        # Setup logging
+        setup_logging(
+            level=app_config.logging.level.value,
+            format_type=app_config.logging.format.value,
+            file_path=app_config.logging.file_path,
+            max_file_size=app_config.logging.max_file_size,
+            backup_count=app_config.logging.backup_count,
+        )
+
+        # Create and run daemon
+        daemon = MuteMeDaemon(
+            device_config=app_config.device,
+            audio_config=app_config.audio,
+        )
+
+        # Run the daemon
+        asyncio.run(daemon.start())
+
+    except KeyboardInterrupt:
+        typer.echo("\nShutting down...", err=True)
+        sys.exit(0)
+    except Exception as e:
+        typer.echo(f"❌ Failed to start daemon: {e}", err=True)
+        sys.exit(1)
+
+
+@app.callback(invoke_without_command=True)
 def main(
+    ctx: typer.Context,
     version: bool | None = typer.Option(
         False,
         "--version",
@@ -117,7 +224,9 @@ def main(
     ),
 ) -> None:
     """MuteMe Button Control - Linux CLI for MuteMe button integration."""
-    pass
+    # If no command was provided, run the daemon
+    if ctx.invoked_subcommand is None:
+        run(config=None, log_level=None)
 
 
 if __name__ == "__main__":
