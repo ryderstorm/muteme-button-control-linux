@@ -203,3 +203,4 @@ cython_debug/
 #  exclude from AI features like autocomplete and code analysis. Recommended for sensitive data.
 .cursorignore
 .cursorindexingignore
+muteme.toml
