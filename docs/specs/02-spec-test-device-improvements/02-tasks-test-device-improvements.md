@@ -34,18 +34,18 @@
 
 ## Tasks
 
-- [ ] 1.0 Refactor test-device command with proper structure and comprehensive tests
+- [x] 1.0 Refactor test-device command with proper structure and comprehensive tests
   - **TDD Workflow**: RED → GREEN → REFACTOR
     - **RED**: Write failing tests first (1.1)
     - **GREEN**: Extract helper functions to make tests pass (1.2)
     - **REFACTOR**: Refactor command to use helpers (1.3)
   - Demo Criteria: "Run `pytest tests/test_cli_device.py -v` showing >95% coverage; run `uv run muteme-btn-control test-device --help` and `uv run muteme-btn-control test-device` (non-interactive) producing same output as before; code review shows extracted functions with clear responsibilities, type hints, and docstrings"
   - Proof Artifact(s): "Test output: `pytest tests/test_cli_device.py -v` showing comprehensive test coverage; CLI output comparison showing identical behavior; Code diff showing extracted functions in cli.py with proper structure"
-  - [ ] 1.1 **[RED]** Write comprehensive unit tests for test-device command using `typer.testing.CliRunner` and mocked devices, covering: device discovery success/failure, device connection (VID/PID and path-based), LED color testing (all colors, interactive and non-interactive), brightness level testing, button communication test, error handling, and diagnostic summary output. Tests should fail initially since helper functions don't exist yet.
-  - [ ] 1.2 **[GREEN]** Extract helper functions from test_device command to make tests pass: `_discover_and_connect_device()`, `_display_device_info()`, `_test_led_colors()`, `_test_brightness_levels()`, `_test_button_communication()`, `_display_diagnostic_summary()`, `_cleanup_device()` with proper type hints and docstrings. Verify tests pass after extraction.
-  - [ ] 1.3 **[REFACTOR]** Refactor test_device command to use extracted helper functions, ensuring all existing functionality is preserved and output remains identical. Run tests to ensure they still pass.
-  - [ ] 1.4 Verify test coverage exceeds 95% for test-device command functionality using `pytest tests/test_cli_device.py --cov=muteme_btn.cli --cov-report=term-missing`
-  - [ ] 1.5 Run `just check` to ensure all quality gates pass (linting, type checking, tests)
+  - [x] 1.1 **[RED]** Write comprehensive unit tests for test-device command using `typer.testing.CliRunner` and mocked devices, covering: device discovery success/failure, device connection (VID/PID and path-based), LED color testing (all colors, interactive and non-interactive), brightness level testing, button communication test, error handling, and diagnostic summary output. Tests should fail initially since helper functions don't exist yet.
+  - [x] 1.2 **[GREEN]** Extract helper functions from test_device command to make tests pass: `_discover_and_connect_device()`, `_display_device_info()`, `_test_led_colors()`, `_test_brightness_levels()`, `_test_button_communication()`, `_display_diagnostic_summary()`, `_cleanup_device()` with proper type hints and docstrings. Verify tests pass after extraction.
+  - [x] 1.3 **[REFACTOR]** Refactor test_device command to use extracted helper functions, ensuring all existing functionality is preserved and output remains identical. Run tests to ensure they still pass.
+  - [x] 1.4 Verify test coverage exceeds 95% for test-device command functionality using `pytest tests/test_cli_device.py --cov=muteme_btn.cli --cov-report=term-missing`
+  - [x] 1.5 Run `just check` to ensure all quality gates pass (linting, type checking, tests)
 - [ ] 2.0 Add flashing animation brightness level feature
   - **TDD Workflow**: RED → GREEN → REFACTOR
     - **RED**: Write failing tests first (2.1, 2.2)
