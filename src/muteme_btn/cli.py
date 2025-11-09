@@ -1,12 +1,10 @@
 """CLI interface for MuteMe Button Control."""
 
 import asyncio
-import os
 import sys
 import time
 from pathlib import Path
 
-import psutil
 import typer
 
 from . import __version__
@@ -26,33 +24,6 @@ app = typer.Typer(
     help="A Linux CLI tool for MuteMe button integration with PulseAudio",
     no_args_is_help=False,
 )
-
-
-def _format_duration(seconds: float) -> str:
-    """Format duration in seconds to human-readable format.
-
-    Args:
-        seconds: Duration in seconds
-
-    Returns:
-        Human-readable duration string (e.g., "2h 30m", "5m 30s", "45s")
-    """
-    if seconds < 0:
-        seconds = 0
-    if seconds < 60:
-        return f"{int(seconds)}s"
-    elif seconds < 3600:
-        minutes = int(seconds // 60)
-        secs = int(seconds % 60)
-        if secs == 0:
-            return f"{minutes}m"
-        return f"{minutes}m {secs}s"
-    else:
-        hours = int(seconds // 3600)
-        minutes = int((seconds % 3600) // 60)
-        if minutes == 0:
-            return f"{hours}h"
-        return f"{hours}h {minutes}m"
 
 
 def _flash_rgb_pattern(device: MuteMeDevice, cycles: int = 1) -> None:
@@ -104,8 +75,6 @@ def _discover_and_connect_device() -> tuple[MuteMeDevice, DeviceInfo]:
         sys.exit(1)
 
     typer.echo(f"✅ Found {len(devices)} device(s)")
-    if len(devices) > 1:
-        typer.echo("   → Using first device found")
     typer.echo("")
 
     # Step 2: Connect to device
@@ -393,16 +362,12 @@ def _test_button_communication(device: MuteMeDevice, interactive: bool) -> bool:
 
 
 def _display_diagnostic_summary(
-    button_detected: bool,
-    button_test_ran: bool,
-    all_led_errors: list[str],
-    num_colors: int,
+    button_detected: bool, all_led_errors: list[str], num_colors: int
 ) -> None:
     """Display diagnostic summary.
 
     Args:
         button_detected: Whether button communication was detected
-        button_test_ran: Whether the button test was actually executed
         all_led_errors: List of LED error messages
         num_colors: Number of colors tested
     """
@@ -410,13 +375,7 @@ def _display_diagnostic_summary(
     typer.echo("Step 5: Diagnostic Summary")
     typer.echo("=" * 50)
     typer.echo("Device Connection: ✅ Connected")
-    if button_detected:
-        button_status = "✅ Working"
-    elif button_test_ran:
-        button_status = "⚠️  No button press detected"
-    else:
-        button_status = "⚠️  Not tested"
-    typer.echo(f"Button Communication: {button_status}")
+    typer.echo(f"Button Communication: {'✅ Working' if button_detected else '⚠️  Not tested'}")
     led_status = "✅ Working" if not all_led_errors else f"❌ {len(all_led_errors)} error(s)"
     typer.echo(f"LED Control: {led_status}")
     typer.echo(f"Colors Tested: {num_colors} colors")
@@ -697,32 +656,6 @@ def test_device(
             typer.echo("")
 
             try:
-                if test_brightness == "flashing":
-                    # Flashing uses software animation - show info first, then animate
-                    typer.echo("Starting flashing animation (20 rapid on/off cycles)...")
-                    typer.echo("")
-
-                    device.set_led_color(
-                        test_color,
-                        use_feature_report=False,
-                        report_format="report_id_0",
-                        brightness=test_brightness,
-                    )
-
-                    typer.echo("✅ Flashing animation complete")
-                    typer.echo("")
-                    typer.echo("Observe the device LED. Press ENTER when done...")
-                    if interactive:
-                        input()
-                    else:
-                        time.sleep(2)
-
-                    # Cleanup
-                    _cleanup_device(device)
-                    typer.echo("✅ Quick test complete")
-                    return
-
-                # For non-flashing brightness levels
                 device.set_led_color(
                     test_color,
                     use_feature_report=False,
@@ -737,6 +670,20 @@ def test_device(
                     color_value = test_color.value | 0x20
                 elif test_brightness == "slow_pulse":
                     color_value = test_color.value | 0x30
+                elif test_brightness == "flashing":
+                    # Flashing uses software animation, show info
+                    typer.echo(f"✅ Set LED to {test_color.name} with {test_brightness} brightness")
+                    typer.echo(
+                        "   Software-side flashing animation: "
+                        "20 rapid on/off cycles (faster than fast_pulse)"
+                    )
+                    typer.echo("")
+                    typer.echo("Observe the device LED. Press ENTER when done...")
+                    if interactive:
+                        input()
+                    else:
+                        time.sleep(2)  # Flashing already took ~6 seconds, just a short wait
+                    return
                 else:
                     color_value = test_color.value
 
@@ -790,15 +737,14 @@ def test_device(
         all_led_errors = _test_led_colors(device, interactive)
 
         # Test brightness levels
-        all_brightness_errors = _test_brightness_levels(device, interactive)
-        all_led_errors.extend(all_brightness_errors)
+        _test_brightness_levels(device, interactive)
 
         # Test button communication
         button_detected = _test_button_communication(device, interactive)
 
         # Display diagnostic summary
         num_colors = 8  # Number of colors tested
-        _display_diagnostic_summary(button_detected, interactive, all_led_errors, num_colors)
+        _display_diagnostic_summary(button_detected, all_led_errors, num_colors)
 
         typer.echo("✅ Test complete")
 
@@ -823,211 +769,6 @@ def test_device(
         if log_level and log_level.upper() == "DEBUG":
             typer.echo(traceback.format_exc(), err=True)
         sys.exit(1)
-
-
-@app.command()
-def kill_instances(
-    force: bool = typer.Option(  # noqa: B008
-        False,
-        "--force",
-        "-f",
-        help="Kill processes without confirmation",
-    ),
-) -> None:
-    """Find and kill all running muteme-btn-control daemon instances (run command only)."""
-    current_pid = os.getpid()
-    current_process = psutil.Process(current_pid)
-
-    # Get current process and parent process PIDs to exclude
-    exclude_pids = {current_pid}
-    try:
-        parent = current_process.parent()
-        if parent:
-            exclude_pids.add(parent.pid)
-    except (psutil.NoSuchProcess, psutil.AccessDenied):
-        pass
-
-    found_processes: list[psutil.Process] = []
-
-    # Commands that should NOT be killed (only kill 'run' daemon processes)
-    exclude_commands = {
-        "test-device",
-        "test_device",
-        "kill-instances",
-        "kill_instances",
-        "check-device",
-    }
-    # Normalize exclude commands for comparison (handle both - and _ variants)
-    normalized_exclude_commands = {cmd.replace("-", "_") for cmd in exclude_commands}
-
-    # Search for processes matching muteme-btn-control run command
-    for proc in psutil.process_iter(["pid", "name", "cmdline"]):
-        try:
-            proc_pid = proc.info["pid"]
-
-            # Skip current process and its parent
-            if proc_pid in exclude_pids:
-                continue
-
-            # Check if it's a muteme-btn-control process
-            cmdline = proc.info.get("cmdline", [])
-            if not cmdline:
-                continue
-
-            cmdline_str = " ".join(cmdline).lower()
-
-            # Must contain muteme-btn-control or muteme_btn
-            if "muteme-btn-control" not in cmdline_str and "muteme_btn" not in cmdline_str:
-                continue
-
-            # Only match 'run' command or processes without explicit command (defaults to run)
-            # Parse cmdline to explicitly check for 'run' command or no subcommand
-            has_run_command = False
-
-            # Find the index of muteme-btn-control executable or muteme_btn module in cmdline
-            muteme_index = -1
-            for i, arg in enumerate(cmdline):
-                arg_lower = arg.lower()
-                # Check for CLI entry point: muteme-btn-control
-                if "muteme-btn-control" in arg_lower or arg_lower.endswith("muteme-btn-control"):
-                    muteme_index = i
-                    break
-                # Check for Python module invocation: python -m muteme_btn.cli/main
-                if (
-                    i > 0
-                    and cmdline[i - 1].lower() == "-m"
-                    and ("muteme_btn.cli" in arg_lower or "muteme_btn.main" in arg_lower)
-                ):
-                    muteme_index = i
-                    break
-
-            # Exclude processes running other commands (test-device, kill-instances, etc.)
-            # Check only the actual subcommand token, not substrings in config paths
-            if muteme_index != -1 and muteme_index + 1 < len(cmdline):
-                # Normalize the subcommand token for comparison
-                subcommand_token = cmdline[muteme_index + 1].lower().replace("-", "_")
-                if subcommand_token in normalized_exclude_commands:
-                    continue
-            elif muteme_index == -1:
-                # If we can't find muteme entry point, skip the process to avoid false positives
-                continue
-
-            if muteme_index != -1:
-                # Check what comes after muteme-btn-control or module name
-                if muteme_index + 1 < len(cmdline):
-                    # There's an argument after muteme-btn-control/module
-                    next_arg = cmdline[muteme_index + 1].lower()
-                    # Only match if next argument is explicitly "run"
-                    if next_arg == "run":
-                        has_run_command = True
-                else:
-                    # No argument after muteme-btn-control/module - defaults to 'run'
-                    has_run_command = True
-
-            if has_run_command:
-                found_processes.append(psutil.Process(proc_pid))
-        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-            # Process may have terminated or we don't have permission
-            continue
-
-    # Filter out child processes whose parent is also in the list
-    # (uv spawns Python processes, so we only need to kill the parent)
-    parent_pids = {proc.pid for proc in found_processes}
-    filtered_processes: list[psutil.Process] = []
-    for proc in found_processes:
-        try:
-            parent = proc.parent()
-            # Include if no parent, or parent is not in our list
-            if not parent or parent.pid not in parent_pids:
-                filtered_processes.append(proc)
-        except (psutil.NoSuchProcess, psutil.AccessDenied):
-            # If we can't check parent, include it to be safe
-            filtered_processes.append(proc)
-
-    found_processes = filtered_processes
-
-    if not found_processes:
-        typer.echo("✅ No running muteme-btn-control instances found")
-        return
-
-    # Display found processes with details
-    typer.echo(f"Found {len(found_processes)} running instance(s):")
-    typer.echo("")
-    for proc in found_processes:
-        try:
-            # Get process details
-            cmdline = " ".join(proc.cmdline())
-            username = proc.username()
-            create_time = proc.create_time()
-            uptime_seconds = time.time() - create_time
-            uptime_str = _format_duration(uptime_seconds)
-
-            # Get memory info (RSS - Resident Set Size)
-            try:
-                memory_info = proc.memory_info()
-                memory_mb = memory_info.rss / (1024 * 1024)
-                memory_str = f"{memory_mb:.1f}MB"
-            except (psutil.NoSuchProcess, psutil.AccessDenied):
-                memory_str = "N/A"
-
-            typer.echo(f"  PID {proc.pid}")
-            typer.echo(f"    User: {username}")
-            typer.echo(f"    Uptime: {uptime_str}")
-            typer.echo(f"    Memory: {memory_str}")
-            typer.echo(f"    Command: {cmdline}")
-            typer.echo("")
-        except (psutil.NoSuchProcess, psutil.AccessDenied) as e:
-            typer.echo(f"  PID {proc.pid}: (unable to read process info: {e})")
-            typer.echo("")
-
-    typer.echo("")
-
-    # Confirm before killing
-    if not force:
-        typer.echo("Kill these processes? [y/N]: ", nl=False)
-        try:
-            response = input().strip().lower()
-            if response not in ("y", "yes"):
-                typer.echo("Cancelled")
-                return
-        except (EOFError, KeyboardInterrupt):
-            typer.echo("\nCancelled")
-            return
-
-    # Kill processes
-    killed_count = 0
-    failed_count = 0
-
-    for proc in found_processes:
-        try:
-            proc.terminate()  # Send SIGTERM first (graceful shutdown)
-            killed_count += 1
-            typer.echo(f"✅ Sent termination signal to PID {proc.pid}")
-        except (psutil.NoSuchProcess, psutil.AccessDenied) as e:
-            failed_count += 1
-            typer.echo(f"⚠️  Failed to kill PID {proc.pid}: {e}", err=True)
-
-    if killed_count > 0:
-        typer.echo("")
-        typer.echo("Waiting for processes to terminate...")
-        # Wait up to 5 seconds for processes to terminate gracefully
-        gone, alive = psutil.wait_procs(found_processes, timeout=5)
-
-        # Force kill any that didn't terminate
-        if alive:
-            typer.echo(f"Force killing {len(alive)} process(es) that didn't terminate...")
-            for proc in alive:
-                try:
-                    proc.kill()  # Send SIGKILL (force kill)
-                    typer.echo(f"✅ Force killed PID {proc.pid}")
-                except (psutil.NoSuchProcess, psutil.AccessDenied) as e:
-                    typer.echo(f"⚠️  Failed to force kill PID {proc.pid}: {e}", err=True)
-
-    typer.echo("")
-    if killed_count > 0:
-        typer.echo(f"✅ Successfully killed {killed_count} process(es)")
-    if failed_count > 0:
-        typer.echo(f"⚠️  Failed to kill {failed_count} process(es)", err=True)
 
 
 @app.command()
