@@ -34,6 +34,18 @@ repos:
         args: [-c, pyproject.toml]
         additional_dependencies: ["bandit[toml]"]
 
+  # Conventional Commits validation
+  - repo: https://github.com/alessandrojcm/commitlint-pre-commit-hook
+    rev: v9.23.0
+    hooks:
+      - id: commitlint
+        name: lint commit message for Conventional Commits compliance
+        additional_dependencies:
+          - '@commitlint/config-conventional'
+        stages: [commit-msg]
+        args:
+          - "--extends=@commitlint/config-conventional"
+
 # Default language version
 default_language_version:
   python: python3.12
