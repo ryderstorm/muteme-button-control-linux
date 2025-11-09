@@ -1,0 +1,12 @@
+Metadata-Version: 2.4
+Name: muteme-btn-control
+Version: 0.1.0
+Summary: Add your description here
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+Requires-Dist: hidapi>=0.14.0.post4
+Requires-Dist: pulsectl>=24.12.0
+Requires-Dist: pydantic>=2.12.4
+Requires-Dist: structlog>=25.5.0
+Requires-Dist: toml>=0.10.2
+Requires-Dist: typer>=0.20.0
