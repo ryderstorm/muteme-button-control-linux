@@ -1,10 +1,12 @@
 """CLI interface for MuteMe Button Control."""
 
 import asyncio
+import os
 import sys
 import time
 from pathlib import Path
 
+import psutil
 import typer
 
 from . import __version__
@@ -792,6 +794,105 @@ def test_device(
         if log_level and log_level.upper() == "DEBUG":
             typer.echo(traceback.format_exc(), err=True)
         sys.exit(1)
+
+
+@app.command()
+def kill_instances(
+    force: bool = typer.Option(  # noqa: B008
+        False,
+        "--force",
+        "-f",
+        help="Kill processes without confirmation",
+    ),
+) -> None:
+    """Find and kill all running muteme-btn-control instances."""
+    current_pid = os.getpid()
+    found_processes: list[psutil.Process] = []
+
+    # Search for processes matching muteme-btn-control
+    for proc in psutil.process_iter(["pid", "name", "cmdline"]):
+        try:
+            # Skip current process
+            if proc.info["pid"] == current_pid:
+                continue
+
+            # Check if it's a muteme-btn-control process
+            cmdline = proc.info.get("cmdline", [])
+            if not cmdline:
+                continue
+
+            # Match processes that have muteme-btn-control or muteme_btn in command line
+            cmdline_str = " ".join(cmdline).lower()
+            if "muteme-btn-control" in cmdline_str or (
+                "muteme_btn" in cmdline_str and len(cmdline) > 0 and "python" in cmdline[0].lower()
+            ):
+                found_processes.append(psutil.Process(proc.info["pid"]))
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            # Process may have terminated or we don't have permission
+            continue
+
+    if not found_processes:
+        typer.echo("✅ No running muteme-btn-control instances found")
+        return
+
+    # Display found processes
+    typer.echo(f"Found {len(found_processes)} running instance(s):")
+    typer.echo("")
+    for proc in found_processes:
+        try:
+            cmdline = " ".join(proc.cmdline())
+            typer.echo(f"  PID {proc.pid}: {cmdline[:80]}")
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            typer.echo(f"  PID {proc.pid}: (unable to read command line)")
+
+    typer.echo("")
+
+    # Confirm before killing
+    if not force:
+        typer.echo("Kill these processes? [y/N]: ", nl=False)
+        try:
+            response = input().strip().lower()
+            if response not in ("y", "yes"):
+                typer.echo("Cancelled")
+                return
+        except (EOFError, KeyboardInterrupt):
+            typer.echo("\nCancelled")
+            return
+
+    # Kill processes
+    killed_count = 0
+    failed_count = 0
+
+    for proc in found_processes:
+        try:
+            proc.terminate()  # Send SIGTERM first (graceful shutdown)
+            killed_count += 1
+            typer.echo(f"✅ Sent termination signal to PID {proc.pid}")
+        except (psutil.NoSuchProcess, psutil.AccessDenied) as e:
+            failed_count += 1
+            typer.echo(f"⚠️  Failed to kill PID {proc.pid}: {e}", err=True)
+
+    if killed_count > 0:
+        typer.echo("")
+        typer.echo("Waiting for processes to terminate...")
+        # Wait up to 5 seconds for processes to terminate gracefully
+        gone, alive = psutil.wait_procs(found_processes, timeout=5)
+
+        # Force kill any that didn't terminate
+        if alive:
+            typer.echo(f"Force killing {len(alive)} process(es) that didn't terminate...")
+            for proc in alive:
+                try:
+                    proc.kill()  # Send SIGKILL (force kill)
+                    typer.echo(f"✅ Force killed PID {proc.pid}")
+                except (psutil.NoSuchProcess, psutil.AccessDenied) as e:
+                    typer.echo(f"⚠️  Failed to force kill PID {proc.pid}: {e}", err=True)
+
+    typer.echo("")
+    if killed_count > 0:
+        typer.echo(f"✅ Successfully killed {killed_count} process(es)")
+    if failed_count > 0:
+        typer.echo(f"⚠️  Failed to kill {failed_count} process(es)", err=True)
 
 
 @app.command()

@@ -207,7 +207,8 @@ class MuteMeDevice:
                 error_msg += "\n\nTroubleshooting:"
                 error_msg += "\n• Device may be in use by another process"
                 error_msg += "\n• Try unplugging and replugging the device"
-                error_msg += "\n• Check if another instance is running: ps aux | grep muteme"
+                error_msg += "\n• Check if another instance is running: "
+                error_msg += "muteme-btn-control kill-instances"
                 error_msg += "\n• Verify device permissions: just check-device"
                 error_msg += (
                     f"\n• Path format: {device_path} "
