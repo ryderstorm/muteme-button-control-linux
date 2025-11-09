@@ -46,19 +46,19 @@
   - [x] 1.3 **[REFACTOR]** Refactor test_device command to use extracted helper functions, ensuring all existing functionality is preserved and output remains identical. Run tests to ensure they still pass.
   - [x] 1.4 Verify test coverage exceeds 95% for test-device command functionality using `pytest tests/test_cli_device.py --cov=muteme_btn.cli --cov-report=term-missing`
   - [x] 1.5 Run `just check` to ensure all quality gates pass (linting, type checking, tests)
-- [ ] 2.0 Add flashing animation brightness level feature
+- [x] 2.0 Add flashing animation brightness level feature
   - **TDD Workflow**: RED → GREEN → REFACTOR
     - **RED**: Write failing tests first (2.1, 2.2)
     - **GREEN**: Implement flashing support to make tests pass (2.3, 2.4)
     - **REFACTOR**: Update docstrings and verify (2.5, 2.6)
   - Demo Criteria: "Run `uv run muteme-btn-control test-device --interactive` showing flashing animation between Dim and Fast Pulse tests; visual confirmation on device showing faster animation than fast_pulse with full brightness range; code showing `brightness="flashing"` parameter support in `MuteMeDevice.set_led_color()`; test demonstrating flashing works in daemon context"
   - Proof Artifact(s): "CLI output showing flashing test in brightness sequence; Code diff showing flashing implementation in device.py (0x40 offset); Test output showing flashing animation works; Visual confirmation (screenshot/description) of device behavior"
-  - [ ] 2.1 **[RED]** Write failing unit test for flashing brightness in `tests/test_hid_device.py`: Test that `brightness="flashing"` parameter applies 0x40 offset correctly in `MuteMeDevice.set_led_color()`. Test should fail since flashing support doesn't exist yet.
-  - [ ] 2.2 **[RED]** Write failing test case in test-device tests verifying flashing appears in correct position in brightness sequence (between Dim and Fast Pulse: Dim → Normal → Flashing → Fast Pulse → Slow Pulse). Test should fail since sequence doesn't include flashing yet.
-  - [ ] 2.3 **[GREEN]** Implement `brightness="flashing"` support in `MuteMeDevice.set_led_color()` method in `device.py`, implementing 0x40 offset following existing pattern (dim=0x10, fast_pulse=0x20, slow_pulse=0x30). Verify test from 2.1 passes.
-  - [ ] 2.4 **[GREEN]** Update test-device command brightness test sequence to include flashing between Dim and Fast Pulse: Dim → Normal → Flashing → Fast Pulse → Slow Pulse. Verify test from 2.2 passes.
-  - [ ] 2.5 **[REFACTOR]** Update docstring in `set_led_color()` to document flashing brightness option. Run tests to ensure they still pass.
-  - [ ] 2.6 Verify flashing animation works in daemon context by adding test case that uses flashing brightness in LED feedback controller (optional: update led_feedback.py if needed to support brightness parameter). Run tests to verify.
+  - [x] 2.1 **[RED]** Write failing unit test for flashing brightness in `tests/test_hid_device.py`: Test that `brightness="flashing"` parameter applies 0x40 offset correctly in `MuteMeDevice.set_led_color()`. Test should fail since flashing support doesn't exist yet.
+  - [x] 2.2 **[RED]** Write failing test case in test-device tests verifying flashing appears in correct position in brightness sequence (between Dim and Fast Pulse: Dim → Normal → Flashing → Fast Pulse → Slow Pulse). Test should fail since sequence doesn't include flashing yet.
+  - [x] 2.3 **[GREEN]** Implement `brightness="flashing"` support in `MuteMeDevice.set_led_color()` method in `device.py`, implementing 0x40 offset following existing pattern (dim=0x10, fast_pulse=0x20, slow_pulse=0x30). Verify test from 2.1 passes.
+  - [x] 2.4 **[GREEN]** Update test-device command brightness test sequence to include flashing between Dim and Fast Pulse: Dim → Normal → Flashing → Fast Pulse → Slow Pulse. Verify test from 2.2 passes.
+  - [x] 2.5 **[REFACTOR]** Update docstring in `set_led_color()` to document flashing brightness option. Run tests to ensure they still pass.
+  - [x] 2.6 Verify flashing animation works in daemon context by adding test case that uses flashing brightness in LED feedback controller (optional: update led_feedback.py if needed to support brightness parameter). Run tests to verify.
   - [ ] 2.7 Run manual visual test: `uv run muteme-btn-control test-device --interactive` and verify flashing animation is faster than fast_pulse with full brightness range
 - [ ] 3.0 Modularize CLI structure into command modules and shared utilities
   - **TDD Workflow**: REFACTORING PATTERN
