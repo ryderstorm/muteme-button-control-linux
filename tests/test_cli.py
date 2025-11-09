@@ -1,5 +1,6 @@
 """CLI tests for MuteMe Button Control."""
 
+import re
 from pathlib import Path
 from unittest.mock import patch
 
@@ -37,8 +38,6 @@ class TestCLI:
         assert result.exit_code == 0
         assert "MuteMe button integration" in result.stdout
         # Strip ANSI codes for more robust checking
-        import re
-
         clean_output = re.sub(r"\x1b\[[0-9;]*m", "", result.stdout)
         assert "--version" in clean_output or "-v" in clean_output
         assert "--help" in clean_output

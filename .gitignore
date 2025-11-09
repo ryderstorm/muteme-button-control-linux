@@ -5,7 +5,6 @@ tmp/
 *.swp
 *.swo
 *~
-.DS_Store
 
 # IDE and Editor files
 .vscode/
