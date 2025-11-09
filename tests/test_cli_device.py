@@ -351,6 +351,11 @@ class TestTestDeviceCommand:
             patch("muteme_btn.cli._flash_rgb_pattern"),
             patch("muteme_btn.cli.input", return_value=""),  # Mock user input
             patch("muteme_btn.cli.time.sleep"),
+            patch("time.sleep"),  # Mock time.sleep for flashing animation in device module
+            patch("asyncio.sleep"),  # Mock asyncio.sleep for button communication test
+            patch.object(
+                mock_device, "read_events", return_value=[]
+            ),  # Mock read_events to return immediately
         ):
             result = self.runner.invoke(app, ["test-device", "--interactive"])
 
