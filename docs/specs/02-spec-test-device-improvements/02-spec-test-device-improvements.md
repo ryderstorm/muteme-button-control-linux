@@ -28,7 +28,6 @@ This specification defines improvements to the `test-device` CLI command and ove
 
 **Purpose:** Bring the test-device command up to repository standards with proper structure and test coverage
 **Demo Criteria:**
-
 - Test-device command functionality extracted into well-structured functions/modules
 - Comprehensive unit tests added covering all test-device functionality
 - Code follows repository patterns (type hints, docstrings, error handling)
@@ -43,7 +42,6 @@ This specification defines improvements to the `test-device` CLI command and ove
 
 **Purpose:** Split cli.py into maintainable command modules and extract shared utilities
 **Demo Criteria:**
-
 - CLI commands organized into separate modules (e.g., `cli/commands/test_device.py`, `cli/commands/run.py`)
 - Shared utilities extracted into helper modules (e.g., `cli/utils/`)
 - Main CLI app remains functional with all commands accessible
@@ -58,7 +56,6 @@ This specification defines improvements to the `test-device` CLI command and ove
 
 **Purpose:** Add a new "flashing" brightness level that's faster than fast_pulse with full brightness range
 **Demo Criteria:**
-
 - Flashing animation available as brightness option in `set_led_color()` method
 - Flashing animation runs between Dim and Fast Pulse tests in test-device command
 - Animation demonstrates gradual brightness change from completely off to full brightness
@@ -72,17 +69,16 @@ This specification defines improvements to the `test-device` CLI command and ove
 
 ### Unit 4: Rich Library Integration
 
-**Purpose:** Enhance test-device command output with Rich library for better visual feedback
+**Purpose:** Enhance interactive test output with Rich library for better visual feedback
 **Demo Criteria:**
-
 - Rich library added as dependency to project
-- Test-device command uses Rich components (progress bars, colored text, tables) for output in both interactive and non-interactive modes
-- Other CLI commands remain unchanged (still use Typer/logging)
+- Interactive test mode uses Rich components (progress bars, colored text, tables) for output
+- Non-interactive mode and other CLI commands remain unchanged (still use Typer/logging)
 - Enhanced visual feedback improves user understanding of test progress
 **Proof Artifacts:**
 - `pyproject.toml` showing Rich dependency
 - `uv run muteme-btn-control test-device --interactive` showing Rich-enhanced output (progress bars, colored status, formatted tables)
-- `uv run muteme-btn-control test-device` (non-interactive) showing Rich-enhanced output with automatic test execution
+- `uv run muteme-btn-control test-device` (non-interactive) showing standard output unchanged
 - `uv run muteme-btn-control --help` showing standard Typer help (unchanged)
 
 ## Functional Requirements
@@ -107,17 +103,18 @@ This specification defines improvements to the `test-device` CLI command and ove
 13. **The system shall** use appropriate HID report value offset for flashing brightness level (following existing pattern: dim=0x10, fast_pulse=0x20, slow_pulse=0x30)
 
 14. **The system shall** add Rich library as a project dependency (`rich>=14.0.0`)
-15. **The system shall** use Rich components (Console, Progress, Table, Panel) in test-device command (both interactive and non-interactive modes)
+15. **The system shall** use Rich components (Console, Progress, Table, Panel) in interactive test-device mode only
 16. **The system shall** use `rich.console.Console` as the primary interface for all Rich output
-17. **The system shall** use `console.status()` for indeterminate operations (e.g., waiting for button press in interactive mode)
+17. **The system shall** use `console.status()` for indeterminate operations (e.g., waiting for button press)
 18. **The system shall** use Progress bars with context managers for test step progress indication
-19. **The system shall** preserve standard Typer/logging output for all other CLI commands (check-device, run, version, etc.)
-20. **The system shall** use Rich to enhance visual feedback for test progress, status indicators, and diagnostic summaries
-21. **The system shall** gracefully fall back to standard Typer output if Rich is unavailable
+19. **The system shall** preserve standard Typer output for non-interactive test-device mode
+20. **The system shall** preserve standard Typer/logging output for all other CLI commands (check-device, run, version, etc.)
+21. **The system shall** use Rich to enhance visual feedback for test progress, status indicators, and diagnostic summaries
+22. **The system shall** gracefully fall back to standard Typer output if Rich is unavailable
 
 ## Non-Goals (Out of Scope)
 
-1. **Rich library for all CLI output**: Rich will only be used for test-device command; all other commands use Typer/logging
+1. **Rich library for all CLI output**: Rich will only be used for interactive test-device mode; all other commands use Typer/logging
 2. **Breaking CLI changes**: All existing CLI interfaces and behavior must remain unchanged
 3. **New CLI commands**: This spec focuses on improving existing commands, not adding new ones
 4. **Animation timing configuration**: Flashing animation timing will be fixed (not user-configurable)
@@ -147,16 +144,16 @@ This specification defines improvements to the `test-device` CLI command and ove
   - Gradual brightness change (not instant on/off)
   - Full range: completely off to full brightness
   - Device firmware handles actual animation timing
-- **Test Sequence**: Brightness tests should run in order: Dim → Normal → Flashing → Fast Pulse → Slow Pulse
+- **Test Sequence**: Brightness tests should run in order: Dim → Flashing → Normal → Fast Pulse → Slow Pulse
 
 ### Rich Library Integration
 
-- **Selective Usage**: Rich components only in test-device command (both interactive and non-interactive modes)
+- **Selective Usage**: Rich components only in interactive test-device mode
 - **Primary Interface**: Use `rich.console.Console` object as the primary interface for all Rich output
 - **Components to Use**:
   - `rich.console.Console` - Main console object for styled output and logging
   - `rich.progress.Progress` - Progress bars for test steps (use context manager: `with Progress() as progress:`)
-  - `rich.console.Console.status()` - Spinner animations for indeterminate operations (e.g., waiting for button press in interactive mode)
+  - `rich.console.Console.status()` - Spinner animations for indeterminate operations (e.g., waiting for button press)
   - `rich.table.Table` - Diagnostic summaries and structured data display
   - `rich.panel.Panel` - Section headers and grouped content
   - `rich.console.Console.log()` - Timestamped logging with syntax highlighting
@@ -164,7 +161,7 @@ This specification defines improvements to the `test-device` CLI command and ove
   - Use `console.print()` instead of standard `print()` for all Rich output
   - Use context managers for Progress bars (`with Progress() as progress:`)
   - Use transient progress bars (`transient=True`) for operations that complete quickly
-  - Use `console.status()` for operations without known progress (e.g., waiting for user input in interactive mode)
+  - Use `console.status()` for operations without known progress (e.g., waiting for user input)
   - Create a single `Console` instance and reuse it throughout the command
 - **Fallback**: If Rich is unavailable, fall back to standard Typer output gracefully using try/except around Rich imports
 - **Terminal Compatibility**: Rich automatically handles terminal compatibility; no special handling needed
@@ -189,7 +186,6 @@ This implementation must follow the standards documented in [CONTRIBUTING.md](..
 ### Development Methodology
 
 This spec follows **Spec-Driven Development (SDD)** methodology. Implementation must follow **Test-Driven Development (TDD)** workflow as documented in [CONTRIBUTING.md](../../../CONTRIBUTING.md#development-methodology):
-
 1. Write failing tests first (Red phase)
 2. Implement minimal code to pass tests (Green phase)
 3. Refactor while keeping tests green
@@ -213,8 +209,7 @@ This spec follows **Spec-Driven Development (SDD)** methodology. Implementation 
 ### Rich Library Integration
 
 - **Dependency Management**: Add `rich>=14.0.0` to `pyproject.toml` dependencies (latest stable version)
-- **Conditional Import**: Import Rich only when needed (test-device command) with graceful fallback:
-
+- **Conditional Import**: Import Rich only when needed (interactive test-device mode) with graceful fallback:
   ```python
   try:
       from rich.console import Console
@@ -225,7 +220,6 @@ This spec follows **Spec-Driven Development (SDD)** methodology. Implementation 
   except ImportError:
       RICH_AVAILABLE = False
   ```
-
 - **Console Instance**: Create a single `Console` instance per command execution and reuse it
 - **Output Consistency**: Ensure Rich output maintains same information as current output
 - **Terminal Compatibility**: Rich handles terminal compatibility automatically (no special handling needed)
