@@ -25,6 +25,13 @@ repos:
         name: ty check
         entry: uv run ty check
         language: python
+      - id: pytest
+        name: Run test suite
+        entry: uv run pytest
+        language: system
+        stages: [pre-push]
+        pass_filenames: false
+        always_run: true
 
   # Security checks
   - repo: https://github.com/PyCQA/bandit

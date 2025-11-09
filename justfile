@@ -8,7 +8,7 @@ _default:
 setup:  # Install dependencies and pre-commit hooks
     #!/usr/bin/env bash
     uv sync
-    uv run pre-commit install
+    uv run pre-commit install --hook-type pre-commit --hook-type pre-push --hook-type commit-msg
 
 check:  # Run all quality checks (lint, type, test)
     just lint
