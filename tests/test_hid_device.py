@@ -222,6 +222,7 @@ class TestMuteMeDevice:
         device = MuteMeDevice(mock_hid_device, device_info)
 
         info = device.get_device_info()
+        assert info is not None
 
         assert info.vendor_id == 0x20A0
         assert info.product_id == 0x42DA

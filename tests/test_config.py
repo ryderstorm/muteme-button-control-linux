@@ -161,7 +161,7 @@ class TestAppConfig:
     def test_app_config_extra_fields_forbidden(self) -> None:
         """Test that extra fields are forbidden in AppConfig."""
         with pytest.raises(ValueError):
-            AppConfig(invalid_field="should_fail")
+            AppConfig(invalid_field="should_fail")  # type: ignore[call-arg]
 
     def test_from_toml_file_success(self, temp_dir: Path) -> None:
         """Test successful loading from TOML file."""

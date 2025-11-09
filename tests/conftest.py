@@ -1,6 +1,7 @@
 """Pytest fixtures and configuration for muteme-btn-control tests."""
 
 import tempfile
+from collections.abc import Iterator
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -17,7 +18,7 @@ def runner() -> CliRunner:
 
 
 @pytest.fixture
-def temp_dir() -> Path:
+def temp_dir() -> Iterator[Path]:
     """Create a temporary directory for test files."""
     with tempfile.TemporaryDirectory() as tmp_dir:
         yield Path(tmp_dir)
