@@ -53,14 +53,14 @@ class TestAudioConfig:
         """Test default audio configuration values."""
         config = AudioConfig()
         assert config.backend == "pulseaudio"
-        assert config.sink_name is None
+        assert config.source_name is None
         assert config.poll_interval == 0.1
 
     def test_custom_audio_config(self) -> None:
         """Test custom audio configuration values."""
-        config = AudioConfig(backend="pipewire", sink_name="custom_sink", poll_interval=0.5)
+        config = AudioConfig(backend="pipewire", source_name="custom_source", poll_interval=0.5)
         assert config.backend == "pipewire"
-        assert config.sink_name == "custom_sink"
+        assert config.source_name == "custom_source"
         assert config.poll_interval == 0.5
 
     def test_audio_config_validation(self) -> None:
@@ -171,7 +171,7 @@ class TestAppConfig:
         test_config = {
             "daemon": True,
             "device": {"vid": 0x1234, "pid": 0x5678, "timeout": 10.0},
-            "audio": {"backend": "pipewire", "sink_name": "test_sink", "poll_interval": 0.5},
+            "audio": {"backend": "pipewire", "source_name": "test_source", "poll_interval": 0.5},
             "logging": {
                 "level": "DEBUG",
                 "format": "json",
@@ -191,7 +191,7 @@ class TestAppConfig:
         assert config.device.pid == 0x5678
         assert config.device.timeout == 10.0
         assert config.audio.backend == "pipewire"
-        assert config.audio.sink_name == "test_sink"
+        assert config.audio.source_name == "test_source"
         assert config.audio.poll_interval == 0.5
         assert config.logging.level == LogLevel.DEBUG
         assert config.logging.format == LogFormat.JSON

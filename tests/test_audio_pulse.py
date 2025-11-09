@@ -33,119 +33,119 @@ class TestPulseAudioBackend:
             mock_pulse.assert_called_once_with("muteme-btn-control")
             assert backend.config == audio_config
 
-    def test_get_default_sink_success(self, backend):
-        """Test getting default sink information."""
-        # Mock sink object
-        mock_sink = Mock()
-        mock_sink.name = "alsa_output.pci-0000_00_1b.0.analog-stereo"
-        mock_sink.description = "Built-in Audio Analog Stereo"
-        mock_sink.mute = 0
-        mock_sink.index = 0
+    def test_get_default_source_success(self, backend):
+        """Test getting default source information."""
+        # Mock source object
+        mock_source = Mock()
+        mock_source.name = "alsa_input.pci-0000_00_1b.0.analog-stereo"
+        mock_source.description = "Built-in Audio Analog Stereo"
+        mock_source.mute = 0
+        mock_source.index = 0
 
-        backend._pulse.get_sink_by_name.return_value = mock_sink
+        backend._pulse.get_source_by_name.return_value = mock_source
 
-        result = backend.get_default_sink()
+        result = backend.get_default_source()
 
-        assert result["name"] == mock_sink.name
-        assert result["description"] == mock_sink.description
+        assert result["name"] == mock_source.name
+        assert result["description"] == mock_source.description
         assert result["muted"] is False
         assert result["index"] == 0
 
-    def test_get_default_sink_not_found(self, backend):
-        """Test handling when default sink is not found."""
-        backend._pulse.get_sink_by_name.side_effect = Exception("Sink not found")
+    def test_get_default_source_not_found(self, backend):
+        """Test handling when default source is not found."""
+        backend._pulse.get_source_by_name.side_effect = Exception("Source not found")
 
-        with pytest.raises(Exception, match="Sink not found"):
-            backend.get_default_sink()
+        with pytest.raises(Exception, match="Source not found"):
+            backend.get_default_source()
 
     def test_set_mute_state_mute(self, backend):
-        """Test muting a sink."""
-        mock_sink = Mock()
-        mock_sink.index = 0
-        backend._pulse.get_sink_by_name.return_value = mock_sink
+        """Test muting a source."""
+        mock_source = Mock()
+        mock_source.index = 0
+        backend._pulse.get_source_by_name.return_value = mock_source
 
-        backend.set_mute_state("test_sink", True)
+        backend.set_mute_state("test_source", True)
 
-        backend._pulse.get_sink_by_name.assert_called_once_with("test_sink")
-        backend._pulse.sink_mute.assert_called_once_with(mock_sink.index, True)
+        backend._pulse.get_source_by_name.assert_called_once_with("test_source")
+        backend._pulse.source_mute.assert_called_once_with(mock_source.index, True)
 
     def test_set_mute_state_unmute(self, backend):
-        """Test unmuting a sink."""
-        mock_sink = Mock()
-        mock_sink.index = 1
-        backend._pulse.get_sink_by_name.return_value = mock_sink
+        """Test unmuting a source."""
+        mock_source = Mock()
+        mock_source.index = 1
+        backend._pulse.get_source_by_name.return_value = mock_source
 
-        backend.set_mute_state("test_sink", False)
+        backend.set_mute_state("test_source", False)
 
-        backend._pulse.get_sink_by_name.assert_called_once_with("test_sink")
-        backend._pulse.sink_mute.assert_called_once_with(mock_sink.index, False)
+        backend._pulse.get_source_by_name.assert_called_once_with("test_source")
+        backend._pulse.source_mute.assert_called_once_with(mock_source.index, False)
 
-    def test_set_mute_state_default_sink(self, backend):
-        """Test muting/unmuting default sink when no sink specified."""
-        mock_sink = Mock()
-        mock_sink.name = "default_sink"
-        mock_sink.index = 2
-        backend._pulse.get_sink_by_name.return_value = mock_sink
+    def test_set_mute_state_default_source(self, backend):
+        """Test muting/unmuting default source when no source specified."""
+        mock_source = Mock()
+        mock_source.name = "default_source"
+        mock_source.index = 2
+        backend._pulse.get_source_by_name.return_value = mock_source
 
-        # Mock the default sink lookup
-        with patch.object(backend, "get_default_sink", return_value={"name": "default_sink"}):
+        # Mock the default source lookup
+        with patch.object(backend, "get_default_source", return_value={"name": "default_source"}):
             backend.set_mute_state(None, True)
 
-        backend._pulse.sink_mute.assert_called_once_with(2, True)
+        backend._pulse.source_mute.assert_called_once_with(2, True)
 
     def test_is_muted_true(self, backend):
-        """Test checking if sink is muted (returns True)."""
-        mock_sink = Mock()
-        mock_sink.mute = 1  # pulsectl uses 1 for muted
-        backend._pulse.get_sink_by_name.return_value = mock_sink
+        """Test checking if source is muted (returns True)."""
+        mock_source = Mock()
+        mock_source.mute = 1  # pulsectl uses 1 for muted
+        backend._pulse.get_source_by_name.return_value = mock_source
 
-        result = backend.is_muted("test_sink")
+        result = backend.is_muted("test_source")
 
         assert result is True
 
     def test_is_muted_false(self, backend):
-        """Test checking if sink is muted (returns False)."""
-        mock_sink = Mock()
-        mock_sink.mute = 0  # pulsectl uses 0 for unmuted
-        backend._pulse.get_sink_by_name.return_value = mock_sink
+        """Test checking if source is muted (returns False)."""
+        mock_source = Mock()
+        mock_source.mute = 0  # pulsectl uses 0 for unmuted
+        backend._pulse.get_source_by_name.return_value = mock_source
 
-        result = backend.is_muted("test_sink")
+        result = backend.is_muted("test_source")
 
         assert result is False
 
-    def test_is_muted_default_sink(self, backend):
-        """Test checking mute status of default sink."""
-        mock_sink = Mock()
-        mock_sink.mute = 1
-        backend._pulse.get_sink_by_name.return_value = mock_sink
+    def test_is_muted_default_source(self, backend):
+        """Test checking mute status of default source."""
+        mock_source = Mock()
+        mock_source.mute = 1
+        backend._pulse.get_source_by_name.return_value = mock_source
 
-        with patch.object(backend, "get_default_sink", return_value={"name": "default_sink"}):
+        with patch.object(backend, "get_default_source", return_value={"name": "default_source"}):
             result = backend.is_muted(None)
 
         assert result is True
 
-    def test_list_sinks(self, backend):
-        """Test listing all available sinks."""
-        mock_sink1 = Mock()
-        mock_sink1.name = "sink1"
-        mock_sink1.description = "Test Sink 1"
-        mock_sink1.mute = 0
-        mock_sink1.index = 0
+    def test_list_sources(self, backend):
+        """Test listing all available sources."""
+        mock_source1 = Mock()
+        mock_source1.name = "source1"
+        mock_source1.description = "Test Source 1"
+        mock_source1.mute = 0
+        mock_source1.index = 0
 
-        mock_sink2 = Mock()
-        mock_sink2.name = "sink2"
-        mock_sink2.description = "Test Sink 2"
-        mock_sink2.mute = 1
-        mock_sink2.index = 1
+        mock_source2 = Mock()
+        mock_source2.name = "source2"
+        mock_source2.description = "Test Source 2"
+        mock_source2.mute = 1
+        mock_source2.index = 1
 
-        backend._pulse.sink_list.return_value = [mock_sink1, mock_sink2]
+        backend._pulse.source_list.return_value = [mock_source1, mock_source2]
 
-        result = backend.list_sinks()
+        result = backend.list_sources()
 
         assert len(result) == 2
-        assert result[0]["name"] == "sink1"
+        assert result[0]["name"] == "source1"
         assert result[0]["muted"] is False
-        assert result[1]["name"] == "sink2"
+        assert result[1]["name"] == "source2"
         assert result[1]["muted"] is True
 
     def test_context_manager(self, audio_config):
@@ -167,10 +167,10 @@ class TestPulseAudioBackend:
             with pytest.raises(Exception, match="Connection failed"):
                 PulseAudioBackend(audio_config)
 
-    def test_specific_sink_config(self):
-        """Test backend with specific sink configuration."""
-        config = AudioConfig(sink_name="specific_sink")
+    def test_specific_source_config(self):
+        """Test backend with specific source configuration."""
+        config = AudioConfig(source_name="specific_source")
 
         with patch("muteme_btn.audio.pulse.pulsectl.Pulse"):
             backend = PulseAudioBackend(config)
-            assert backend.config.sink_name == "specific_sink"
+            assert backend.config.source_name == "specific_source"

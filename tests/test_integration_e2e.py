@@ -79,29 +79,29 @@ class MockAudioBackend:
         self._muted = False
         self._connected = True
 
-    def get_default_sink(self) -> dict[str, Any]:
-        """Get default sink info."""
+    def get_default_source(self) -> dict[str, Any]:
+        """Get default source info."""
         if not self._connected:
             raise Exception("Not connected")
-        return {"name": "default_sink", "muted": self._muted}
+        return {"name": "default_source", "muted": self._muted}
 
-    def set_mute_state(self, sink_name: str, muted: bool) -> None:
+    def set_mute_state(self, source_name: str, muted: bool) -> None:
         """Set mute state."""
         if not self._connected:
             raise Exception("Not connected")
         self._muted = muted
 
-    def is_muted(self, sink_name: str | None = None) -> bool:
+    def is_muted(self, source_name: str | None = None) -> bool:
         """Check mute state."""
         if not self._connected:
             raise Exception("Not connected")
         return self._muted
 
-    def list_sinks(self) -> list[dict[str, Any]]:
-        """List sinks."""
+    def list_sources(self) -> list[dict[str, Any]]:
+        """List sources."""
         if not self._connected:
             raise Exception("Not connected")
-        return [self.get_default_sink()]
+        return [self.get_default_source()]
 
     def close(self) -> None:
         """Close backend."""
@@ -443,7 +443,7 @@ class TestEndToEndIntegration:
     async def test_configuration_integration(self):
         """Test system with custom configurations."""
         custom_device_config = DeviceConfig(vid=0x1234, pid=0x5678, timeout=10.0)
-        custom_audio_config = AudioConfig(sink_name="custom_sink", poll_interval=0.8)
+        custom_audio_config = AudioConfig(source_name="custom_source", poll_interval=0.8)
 
         with (
             patch("muteme_btn.core.daemon.MuteMeDevice") as mock_device_class,
@@ -457,7 +457,7 @@ class TestEndToEndIntegration:
 
             async with MuteMeDaemon(custom_device_config, custom_audio_config) as daemon:
                 assert daemon.device_config.vid == 0x1234
-                assert daemon.audio_config.sink_name == "custom_sink"
+                assert daemon.audio_config.source_name == "custom_source"
 
                 # Should start and stop cleanly
                 await asyncio.sleep(0.01)

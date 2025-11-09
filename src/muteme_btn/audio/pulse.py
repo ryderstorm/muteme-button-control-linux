@@ -17,105 +17,107 @@ class PulseAudioBackend:
         """Initialize PulseAudio backend.
 
         Args:
-            config: Audio configuration containing sink settings
+            config: Audio configuration containing source settings
         """
         self.config = config
         self._pulse: pulsectl.Pulse = pulsectl.Pulse("muteme-btn-control")
-        logger.info(f"Initialized PulseAudio backend with sink: {config.sink_name or 'default'}")
+        logger.info(
+            f"Initialized PulseAudio backend with source: {config.source_name or 'default'}"
+        )
 
-    def get_default_sink(self) -> dict[str, Any]:
-        """Get information about the default sink.
+    def get_default_source(self) -> dict[str, Any]:
+        """Get information about the default source (microphone input).
 
         Returns:
-            Dictionary containing sink information (name, description, muted, index)
+            Dictionary containing source information (name, description, muted, index)
 
         Raises:
-            Exception: If default sink cannot be found or accessed
+            Exception: If default source cannot be found or accessed
         """
         try:
-            # Get the server info to find default sink name
+            # Get the server info to find default source name
             server_info = self._pulse.server_info()
-            default_sink_name = server_info.default_sink_name
+            default_source_name = server_info.default_source_name
 
-            # Get the sink object
-            sink = self._pulse.get_sink_by_name(default_sink_name)
+            # Get the source object
+            source = self._pulse.get_source_by_name(default_source_name)
 
             return {
-                "name": sink.name,
-                "description": sink.description,
-                "muted": bool(sink.mute),
-                "index": sink.index,
+                "name": source.name,
+                "description": source.description,
+                "muted": bool(source.mute),
+                "index": source.index,
             }
         except Exception as e:
-            logger.error(f"Failed to get default sink: {e}")
+            logger.error(f"Failed to get default source: {e}")
             raise
 
-    def set_mute_state(self, sink_name: str | None, muted: bool) -> None:
-        """Set mute state for a specific sink or default sink.
+    def set_mute_state(self, source_name: str | None, muted: bool) -> None:
+        """Set mute state for a specific source or default source (microphone input).
 
         Args:
-            sink_name: Name of sink to control, or None for default sink
+            source_name: Name of source to control, or None for default source
             muted: True to mute, False to unmute
         """
         try:
-            # Use specified sink, configured sink, or get default sink
-            target_sink = sink_name or self.config.sink_name
-            if target_sink is None:
-                default_info = self.get_default_sink()
-                target_sink = default_info["name"]
+            # Use specified source, configured source, or get default source
+            target_source = source_name or self.config.source_name
+            if target_source is None:
+                default_info = self.get_default_source()
+                target_source = default_info["name"]
 
-            # Get the sink and set mute state
-            sink = self._pulse.get_sink_by_name(target_sink)
-            self._pulse.sink_mute(sink.index, int(muted))
+            # Get the source and set mute state
+            source = self._pulse.get_source_by_name(target_source)
+            self._pulse.source_mute(source.index, int(muted))
 
-            logger.debug(f"Set mute state for sink '{target_sink}': {muted}")
+            logger.debug(f"Set mute state for source '{target_source}': {muted}")
         except Exception as e:
-            logger.error(f"Failed to set mute state for sink '{sink_name}': {e}")
+            logger.error(f"Failed to set mute state for source '{source_name}': {e}")
             raise
 
-    def is_muted(self, sink_name: str | None) -> bool:
-        """Check if a sink is currently muted.
+    def is_muted(self, source_name: str | None) -> bool:
+        """Check if a source is currently muted.
 
         Args:
-            sink_name: Name of sink to check, or None for default sink
+            source_name: Name of source to check, or None for default source
 
         Returns:
-            True if sink is muted, False otherwise
+            True if source is muted, False otherwise
         """
         try:
-            # Use specified sink, configured sink, or get default sink
-            target_sink = sink_name or self.config.sink_name
-            if target_sink is None:
-                default_info = self.get_default_sink()
-                target_sink = default_info["name"]
+            # Use specified source, configured source, or get default source
+            target_source = source_name or self.config.source_name
+            if target_source is None:
+                default_info = self.get_default_source()
+                target_source = default_info["name"]
 
-            # Get the sink and check mute state
-            sink = self._pulse.get_sink_by_name(target_sink)
-            return bool(sink.mute)
+            # Get the source and check mute state
+            source = self._pulse.get_source_by_name(target_source)
+            return bool(source.mute)
         except Exception as e:
-            logger.error(f"Failed to get mute state for sink '{sink_name}': {e}")
+            logger.error(f"Failed to get mute state for source '{source_name}': {e}")
             raise
 
-    def list_sinks(self) -> list[dict[str, Any]]:
-        """List all available audio sinks.
+    def list_sources(self) -> list[dict[str, Any]]:
+        """List all available audio sources (microphone inputs).
 
         Returns:
-            List of dictionaries containing sink information
+            List of dictionaries containing source information
         """
         try:
-            sinks = []
-            for sink in self._pulse.sink_list():
-                sinks.append(
+            sources = []
+            for source in self._pulse.source_list():
+                sources.append(
                     {
-                        "name": sink.name,
-                        "description": sink.description,
-                        "muted": bool(sink.mute),
-                        "index": sink.index,
+                        "name": source.name,
+                        "description": source.description,
+                        "muted": bool(source.mute),
+                        "index": source.index,
                     }
                 )
-            return sinks
+            return sources
         except Exception as e:
-            logger.error(f"Failed to list sinks: {e}")
+            logger.error(f"Failed to list sources: {e}")
             raise
 
     def __enter__(self):

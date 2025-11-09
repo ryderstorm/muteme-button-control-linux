@@ -53,8 +53,8 @@ class AudioConfig(BaseModel):
     model_config = ConfigDict(validate_assignment=True)
 
     backend: str = Field(default="pulseaudio", description="Audio backend to use")
-    sink_name: str | None = Field(
-        default=None, description="Specific PulseAudio sink name to control"
+    source_name: str | None = Field(
+        default=None, description="Specific PulseAudio source name to control (microphone input)"
     )
     poll_interval: float = Field(
         default=0.1, ge=0.01, le=1.0, description="Audio state polling interval in seconds"
