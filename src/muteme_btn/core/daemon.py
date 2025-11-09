@@ -259,7 +259,7 @@ class MuteMeDaemon:
     async def _process_button_events(self) -> None:
         """Process button events from the device."""
         try:
-            if not self.device.is_connected():
+            if self.device is None or not self.device.is_connected():
                 logger.info("Device not connected, skipping event processing")
                 return
 

@@ -2,6 +2,7 @@
 
 import asyncio
 import sys
+import time
 from pathlib import Path
 
 import typer
@@ -9,14 +10,46 @@ import typer
 from . import __version__
 from .config import AppConfig, LogLevel
 from .core.daemon import MuteMeDaemon
-from .hid.device import MuteMeDevice
+from .hid.device import LEDColor, MuteMeDevice
 from .utils.logging import setup_logging
+
+# LED timing constants (seconds)
+LED_COLOR_HOLD_DURATION = 0.3  # Duration to hold each color
+LED_COLOR_TRANSITION_DURATION = 0.1  # Duration for transitions/off periods
+LED_COLOR_VISIBLE_DURATION = 0.5  # Duration for color testing
+LED_BRIGHTNESS_TEST_DURATION = 3.0  # Duration for brightness level tests
 
 app = typer.Typer(
     name="muteme-btn-control",
     help="A Linux CLI tool for MuteMe button integration with PulseAudio",
     no_args_is_help=False,
 )
+
+
+def _flash_rgb_pattern(device: MuteMeDevice, cycles: int = 1) -> None:
+    """Flash a gentle RGB pattern on device with dim brightness.
+
+    Uses a single RGB cycle with longer holds and dim brightness to avoid
+    seizure-inducing flashing patterns.
+
+    Args:
+        device: MuteMe device to control
+        cycles: Number of RGB cycles to flash (default: 1 for gentle pattern)
+    """
+    rgb_colors = [LEDColor.RED, LEDColor.GREEN, LEDColor.BLUE]
+    for _ in range(cycles):
+        for color in rgb_colors:
+            device.set_led_color(
+                color,
+                use_feature_report=False,
+                report_format="report_id_0",
+                brightness="dim",
+            )
+            time.sleep(LED_COLOR_HOLD_DURATION)
+            device.set_led_color(
+                LEDColor.NOCOLOR, use_feature_report=False, report_format="report_id_0"
+            )
+            time.sleep(LED_COLOR_TRANSITION_DURATION)
 
 
 def version_callback(value: bool) -> None:
@@ -171,84 +204,6 @@ def _load_config(config_path: Path | None, log_level: str | None) -> AppConfig:
         return config
 
 
-async def _test_device_async(
-    device: MuteMeDevice,
-    skip_button_test: bool = False,
-    interactive: bool = False,
-) -> tuple[bool, list[str], list[str]]:
-    """Async helper for device testing.
-
-    Returns:
-        Tuple of (button_detected, led_errors, formats_tried)
-    """
-    from muteme_btn.hid.device import LEDColor
-
-    # Give device a moment to initialize
-    await asyncio.sleep(0.1)
-
-    # Test button reading (quick, 1 second max)
-    button_detected = False
-    if not skip_button_test:
-        try:
-            for _ in range(10):  # 10 * 100ms = 1 second
-                events = await device.read_events()  # type: ignore[call-overload]
-                if events:
-                    button_detected = True
-                    break
-                await asyncio.sleep(0.1)
-        except Exception:  # nosec B110
-            pass  # Expected in test - device may not be ready
-
-    # Test LED control with different report formats
-    test_colors = [
-        ("RED", LEDColor.RED),
-        ("GREEN", LEDColor.GREEN),
-        ("BLUE", LEDColor.BLUE),
-    ]
-
-    # Try different report formats
-    formats_to_try = [
-        ("standard", False),  # [0x01, color] output report
-        ("standard", True),  # [0x01, color] feature report
-        ("no_report_id", False),  # [color] output report
-        ("report_id_0", False),  # [0x00, color] output report
-        ("report_id_2", False),  # [0x02, color] output report
-        ("padded", False),  # [0x01, color, 0x00...] 8 bytes output report
-    ]
-
-    formats_tried = []
-    for format_name, use_feature in formats_to_try:
-        format_desc = f"{format_name} ({'feature' if use_feature else 'output'})"
-        formats_tried.append(format_desc)
-
-        if interactive:
-            # In interactive mode, we'll pause after each format
-            # The main function will handle the pause before/after
-            pass
-
-        led_errors = []
-        for color_name, color in test_colors:
-            try:
-                device.set_led_color(
-                    color, use_feature_report=use_feature, report_format=format_name
-                )
-                await asyncio.sleep(0.2)  # 200ms per color - more visible
-            except Exception as e:
-                led_errors.append(f"{color_name}: {e}")
-
-    # If no format worked, return errors from standard format
-    if not led_errors:
-        led_errors = []
-        for color_name, color in test_colors:
-            try:
-                device.set_led_color(color, use_feature_report=False, report_format="standard")
-                await asyncio.sleep(0.2)
-            except Exception as e:
-                led_errors.append(f"{color_name}: {e}")
-
-    return button_detected, led_errors, formats_tried
-
-
 @app.command()
 def test_device(
     config: Path | None = typer.Option(  # noqa: B008
@@ -333,24 +288,10 @@ def test_device(
         typer.echo(f"  USB Path: {device_info.path}")
         typer.echo("")
 
-        # Flash RGB pattern at start (3 cycles)
-        typer.echo("Flashing RGB pattern (3 cycles)...")
+        # Flash gentle RGB pattern at start (single cycle with dim brightness)
+        typer.echo("Flashing RGB pattern...")
         try:
-            import time
-
-            from muteme_btn.hid.device import LEDColor
-
-            rgb_colors = [LEDColor.RED, LEDColor.GREEN, LEDColor.BLUE]
-            for _ in range(3):
-                for color in rgb_colors:
-                    device.set_led_color(
-                        color, use_feature_report=False, report_format="report_id_0"
-                    )
-                    time.sleep(0.08)  # Faster: 80ms per color
-                    device.set_led_color(
-                        LEDColor.NOCOLOR, use_feature_report=False, report_format="report_id_0"
-                    )
-                    time.sleep(0.02)  # Faster: 20ms off between colors
+            _flash_rgb_pattern(device, cycles=1)
             typer.echo("✅ Start pattern complete")
         except Exception as e:
             typer.echo(f"⚠️  Failed to flash start pattern: {e}")
@@ -359,8 +300,6 @@ def test_device(
         # Set device to dim white after RGB pattern
         typer.echo("Setting device to dim white...")
         try:
-            from muteme_btn.hid.device import LEDColor
-
             device.set_led_color(
                 LEDColor.WHITE,
                 use_feature_report=False,
@@ -376,10 +315,6 @@ def test_device(
         typer.echo("Step 3: Testing LED control...")
         typer.echo("   Testing with format: report_id_0 (output) - [0x00, color_value]")
         typer.echo("")
-
-        import time
-
-        from muteme_btn.hid.device import LEDColor
 
         # Test all available colors in order
         all_colors = [
@@ -422,7 +357,7 @@ def test_device(
                     else:
                         typer.echo("      → (Last color - test complete)")
                 else:
-                    time.sleep(0.5)  # 500ms per color - visible duration
+                    time.sleep(LED_COLOR_VISIBLE_DURATION)  # Visible duration per color
             except Exception as e:
                 typer.echo(f" ❌ Error: {e}")
                 all_led_errors.append(f"{color_name}: {e}")
@@ -484,9 +419,7 @@ def test_device(
                         typer.echo("      → Press ENTER to continue to button test...")
                         input()
                 else:
-                    import time
-
-                    time.sleep(3.0)  # 3 seconds per brightness level - visible duration
+                    time.sleep(LED_BRIGHTNESS_TEST_DURATION)  # Duration per brightness level
             except Exception as e:
                 typer.echo(f" ❌ Error: {e}")
                 all_brightness_errors.append(f"{level_name}: {e}")
@@ -555,11 +488,11 @@ def test_device(
                                 )
                                 typer.echo(f"   ✅ Button event detected: {event.type}")
                                 typer.echo(
-                                    "   LED set to bright green fast pulse "
-                                    "(will stay on for 3 seconds)"
+                                    f"   LED set to bright green fast pulse "
+                                    f"(will stay on for {LED_BRIGHTNESS_TEST_DURATION} seconds)"
                                 )
-                                # Keep the green fast pulse for 3 seconds
-                                await asyncio.sleep(3.0)
+                                # Keep the green fast pulse for duration
+                                await asyncio.sleep(LED_BRIGHTNESS_TEST_DURATION)
                             except Exception as e:
                                 typer.echo(f"   ⚠️  Failed to set LED to green: {e}")
                             break
@@ -606,25 +539,11 @@ def test_device(
 
         typer.echo("✅ Test complete")
 
-        # Flash RGB pattern at end (3 cycles)
+        # Flash gentle RGB pattern at end (single cycle with dim brightness)
         typer.echo("")
-        typer.echo("Flashing RGB pattern (3 cycles)...")
+        typer.echo("Flashing RGB pattern...")
         try:
-            import time
-
-            from muteme_btn.hid.device import LEDColor
-
-            rgb_colors = [LEDColor.RED, LEDColor.GREEN, LEDColor.BLUE]
-            for _ in range(3):
-                for color in rgb_colors:
-                    device.set_led_color(
-                        color, use_feature_report=False, report_format="report_id_0"
-                    )
-                    time.sleep(0.08)  # Faster: 80ms per color
-                    device.set_led_color(
-                        LEDColor.NOCOLOR, use_feature_report=False, report_format="report_id_0"
-                    )
-                    time.sleep(0.02)  # Faster: 20ms off between colors
+            _flash_rgb_pattern(device, cycles=1)
             typer.echo("✅ End pattern complete")
         except Exception as e:
             typer.echo(f"⚠️  Failed to flash end pattern: {e}")
@@ -633,8 +552,6 @@ def test_device(
         typer.echo("")
         typer.echo("Turning LED off...")
         try:
-            from muteme_btn.hid.device import LEDColor
-
             device.set_led_color(
                 LEDColor.NOCOLOR, use_feature_report=False, report_format="report_id_0"
             )

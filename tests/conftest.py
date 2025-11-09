@@ -1,6 +1,7 @@
 """Pytest fixtures and configuration for muteme-btn-control tests."""
 
 import tempfile
+from collections.abc import Iterator
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -17,7 +18,7 @@ def runner() -> CliRunner:
 
 
 @pytest.fixture
-def temp_dir() -> Path:
+def temp_dir() -> Iterator[Path]:
     """Create a temporary directory for test files."""
     with tempfile.TemporaryDirectory() as tmp_dir:
         yield Path(tmp_dir)
@@ -52,10 +53,10 @@ def mock_hid_device():
 def mock_pulseaudio():
     """Create a mock PulseAudio controller for testing."""
     mock_pulse = MagicMock()
-    mock_pulse.get_sink_list.return_value = [
-        MagicMock(name="alsa_output.pci-0000_00_1b.0.analog-stereo", index=0),
-        MagicMock(name="alsa_output.usb-MuteMe_Button-00.analog-stereo", index=1),
+    mock_pulse.get_source_list.return_value = [
+        MagicMock(name="alsa_input.pci-0000_00_1b.0.analog-stereo", index=0),
+        MagicMock(name="alsa_input.usb-MuteMe_Button-00.analog-stereo", index=1),
     ]
-    mock_pulse.sink_input_list.return_value = []
-    mock_pulse.sink_mute.return_value = False
+    mock_pulse.source_output_list.return_value = []
+    mock_pulse.source_mute.return_value = False
     return mock_pulse

@@ -15,8 +15,8 @@ timeout = 5.0
 [audio]
 # Audio backend to use (default: "pulseaudio")
 backend = "pulseaudio"
-# Specific PulseAudio sink name to control (optional, None = use default)
-# sink_name = null
+# Specific PulseAudio source name to control (optional, None = use default microphone input)
+# source_name = null
 # Audio state polling interval in seconds (default: 0.1, range: 0.01-1.0)
 poll_interval = 0.1
 

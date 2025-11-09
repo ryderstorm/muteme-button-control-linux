@@ -429,9 +429,6 @@ class MuteMeDevice:
         if not self.is_connected():
             raise DeviceError("Device not connected")
 
-        if self._device is None:
-            raise DeviceError("Device not connected")
-
         try:
             # Apply brightness/effect offset
             color_value = color.value

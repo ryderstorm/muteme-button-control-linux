@@ -67,29 +67,29 @@ class MockPerformanceAudioBackend:
         self._connected = True
         self._operation_times = []
 
-    def get_default_sink(self):
+    def get_default_source(self):
         start_time = time.perf_counter()
-        result = {"name": "default_sink", "muted": self._muted}
+        result = {"name": "default_source", "muted": self._muted}
         end_time = time.perf_counter()
         self._operation_times.append(end_time - start_time)
         return result
 
-    def set_mute_state(self, sink_name, muted):
+    def set_mute_state(self, source_name, muted):
         start_time = time.perf_counter()
         self._muted = muted
         end_time = time.perf_counter()
         self._operation_times.append(end_time - start_time)
 
-    def is_muted(self, sink_name=None):
+    def is_muted(self, source_name=None):
         start_time = time.perf_counter()
         result = self._muted
         end_time = time.perf_counter()
         self._operation_times.append(end_time - start_time)
         return result
 
-    def list_sinks(self):
+    def list_sources(self):
         start_time = time.perf_counter()
-        result = [self.get_default_sink()]
+        result = [self.get_default_source()]
         end_time = time.perf_counter()
         self._operation_times.append(end_time - start_time)
         return result
