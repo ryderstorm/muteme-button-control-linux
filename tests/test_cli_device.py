@@ -1,10 +1,12 @@
 """Tests for CLI device status checking functionality."""
 
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from typer.testing import CliRunner
 
 from muteme_btn.cli import app
+from muteme_btn.hid.device import DeviceInfo
+from muteme_btn.hid.events import ButtonEvent, ButtonState
 
 
 class TestCLIDeviceCommands:
@@ -181,3 +183,309 @@ class TestCLIDeviceCommands:
             assert "Product: MuteMe Button" in result.stdout
             assert "USB Path: /dev/hidraw0" in result.stdout
             assert "HIDraw Device: /dev/hidraw0" in result.stdout
+
+
+class TestTestDeviceCommand:
+    """Test cases for test-device command."""
+
+    def setup_method(self):
+        """Set up test runner."""
+        self.runner = CliRunner()
+
+    def _create_mock_device(self) -> MagicMock:
+        """Create a mock MuteMeDevice instance."""
+        mock_device = MagicMock()
+        mock_device.is_connected.return_value = True
+        mock_device.set_led_color.return_value = None
+        mock_device.disconnect.return_value = None
+        mock_device.read_events = AsyncMock(return_value=[])
+        return mock_device
+
+    def _create_mock_device_info(self) -> DeviceInfo:
+        """Create a mock DeviceInfo instance."""
+        return DeviceInfo(
+            vendor_id=0x20A0,
+            product_id=0x42DA,
+            path="/dev/hidraw0",
+            manufacturer="MuteMe",
+            product="MuteMe Button",
+        )
+
+    @patch("muteme_btn.cli.MuteMeDevice.discover_devices")
+    def test_test_device_discovery_success(self, mock_discover):
+        """Test test-device command when device discovery succeeds."""
+        mock_discover.return_value = [self._create_mock_device_info()]
+
+        mock_device = self._create_mock_device()
+        with (
+            patch("muteme_btn.cli.MuteMeDevice.connect_by_vid_pid", return_value=mock_device),
+            patch("muteme_btn.cli._flash_rgb_pattern"),
+            patch("muteme_btn.cli.time.sleep"),
+        ):
+            result = self.runner.invoke(app, ["test-device"])
+
+            assert result.exit_code == 0
+            assert "Found 1 device(s)" in result.stdout
+            assert "Step 1: Discovering devices" in result.stdout
+
+    @patch("muteme_btn.cli.MuteMeDevice.discover_devices")
+    def test_test_device_discovery_failure(self, mock_discover):
+        """Test test-device command when no devices are found."""
+        mock_discover.return_value = []
+
+        result = self.runner.invoke(app, ["test-device"])
+
+        assert result.exit_code == 1
+        assert "No MuteMe devices found" in result.stdout
+        assert "Make sure your MuteMe device is connected" in result.stdout
+
+    @patch("muteme_btn.cli.MuteMeDevice.discover_devices")
+    def test_test_device_connection_vid_pid(self, mock_discover):
+        """Test test-device command connects using VID/PID."""
+        mock_discover.return_value = [self._create_mock_device_info()]
+
+        mock_device = self._create_mock_device()
+        with (
+            patch("muteme_btn.cli.MuteMeDevice.connect_by_vid_pid", return_value=mock_device),
+            patch("muteme_btn.cli._flash_rgb_pattern"),
+            patch("muteme_btn.cli.time.sleep"),
+        ):
+            result = self.runner.invoke(app, ["test-device"])
+
+            assert result.exit_code == 0
+            assert "Connected successfully using VID/PID" in result.stdout
+
+    @patch("muteme_btn.cli.MuteMeDevice.discover_devices")
+    def test_test_device_connection_path_fallback(self, mock_discover):
+        """Test test-device command falls back to path-based connection."""
+        mock_discover.return_value = [self._create_mock_device_info()]
+
+        mock_device = self._create_mock_device()
+        with (
+            patch(
+                "muteme_btn.cli.MuteMeDevice.connect_by_vid_pid",
+                side_effect=Exception("VID/PID connection failed"),
+            ),
+            patch("muteme_btn.cli.MuteMeDevice.connect", return_value=mock_device),
+            patch("muteme_btn.cli._flash_rgb_pattern"),
+            patch("muteme_btn.cli.time.sleep"),
+        ):
+            result = self.runner.invoke(app, ["test-device"])
+
+            assert result.exit_code == 0
+            assert "VID/PID connection failed" in result.stdout
+            assert "Connected successfully using path" in result.stdout
+
+    @patch("muteme_btn.cli.MuteMeDevice.discover_devices")
+    def test_test_device_connection_both_fail(self, mock_discover):
+        """Test test-device command when both connection methods fail."""
+        mock_discover.return_value = [self._create_mock_device_info()]
+
+        with (
+            patch(
+                "muteme_btn.cli.MuteMeDevice.connect_by_vid_pid",
+                side_effect=Exception("VID/PID failed"),
+            ),
+            patch("muteme_btn.cli.MuteMeDevice.connect", side_effect=Exception("Path failed")),
+        ):
+            result = self.runner.invoke(app, ["test-device"])
+
+            assert result.exit_code == 1
+            assert "Connection failed" in result.stdout
+
+    @patch("muteme_btn.cli.MuteMeDevice.discover_devices")
+    def test_test_device_display_info(self, mock_discover):
+        """Test test-device command displays device information."""
+        device_info = self._create_mock_device_info()
+        mock_discover.return_value = [device_info]
+
+        mock_device = self._create_mock_device()
+        with (
+            patch("muteme_btn.cli.MuteMeDevice.connect_by_vid_pid", return_value=mock_device),
+            patch("muteme_btn.cli._flash_rgb_pattern"),
+            patch("muteme_btn.cli.time.sleep"),
+        ):
+            result = self.runner.invoke(app, ["test-device"])
+
+            assert result.exit_code == 0
+            assert "Device Information:" in result.stdout
+            assert "Vendor ID: 0x20a0" in result.stdout
+            assert "Product ID: 0x42da" in result.stdout
+            assert "Manufacturer: MuteMe" in result.stdout
+            assert "Product: MuteMe Button" in result.stdout
+
+    @patch("muteme_btn.cli.MuteMeDevice.discover_devices")
+    def test_test_device_led_colors_non_interactive(self, mock_discover):
+        """Test test-device command tests all LED colors in non-interactive mode."""
+        mock_discover.return_value = [self._create_mock_device_info()]
+
+        mock_device = self._create_mock_device()
+        with (
+            patch("muteme_btn.cli.MuteMeDevice.connect_by_vid_pid", return_value=mock_device),
+            patch("muteme_btn.cli._flash_rgb_pattern"),
+            patch("muteme_btn.cli.time.sleep"),
+        ):
+            result = self.runner.invoke(app, ["test-device"])
+
+            assert result.exit_code == 0
+            assert "Testing all colors:" in result.stdout
+            # Check that all colors are tested
+            assert "OFF" in result.stdout or "Setting LED to OFF" in result.stdout
+            assert "RED" in result.stdout
+            assert "GREEN" in result.stdout
+            assert "BLUE" in result.stdout
+            assert "YELLOW" in result.stdout
+            assert "CYAN" in result.stdout
+            assert "PURPLE" in result.stdout
+            assert "WHITE" in result.stdout
+            assert "Color test complete!" in result.stdout
+
+    @patch("muteme_btn.cli.MuteMeDevice.discover_devices")
+    def test_test_device_led_colors_interactive(self, mock_discover):
+        """Test test-device command tests all LED colors in interactive mode."""
+        mock_discover.return_value = [self._create_mock_device_info()]
+
+        mock_device = self._create_mock_device()
+        with (
+            patch("muteme_btn.cli.MuteMeDevice.connect_by_vid_pid", return_value=mock_device),
+            patch("muteme_btn.cli._flash_rgb_pattern"),
+            patch("muteme_btn.cli.input", return_value=""),  # Mock user input
+            patch("muteme_btn.cli.time.sleep"),
+        ):
+            result = self.runner.invoke(app, ["test-device", "--interactive"])
+
+            assert result.exit_code == 0
+            assert "Colors will be tested in this order:" in result.stdout
+            assert "Press ENTER to begin color tests" in result.stdout
+
+    @patch("muteme_btn.cli.MuteMeDevice.discover_devices")
+    def test_test_device_brightness_levels(self, mock_discover):
+        """Test test-device command tests brightness levels."""
+        mock_discover.return_value = [self._create_mock_device_info()]
+
+        mock_device = self._create_mock_device()
+        with (
+            patch("muteme_btn.cli.MuteMeDevice.connect_by_vid_pid", return_value=mock_device),
+            patch("muteme_btn.cli._flash_rgb_pattern"),
+            patch("muteme_btn.cli.time.sleep"),
+        ):
+            result = self.runner.invoke(app, ["test-device"])
+
+            assert result.exit_code == 0
+            assert "Testing brightness levels" in result.stdout
+            assert "Dim" in result.stdout
+            assert "Normal" in result.stdout
+            assert "Fast Pulse" in result.stdout
+            assert "Slow Pulse" in result.stdout
+            assert "Brightness test complete!" in result.stdout
+
+    @patch("muteme_btn.cli.MuteMeDevice.discover_devices")
+    def test_test_device_button_communication_interactive(self, mock_discover):
+        """Test test-device command tests button communication in interactive mode."""
+        mock_discover.return_value = [self._create_mock_device_info()]
+
+        mock_device = self._create_mock_device()
+        # Mock button event
+        button_event = ButtonEvent(
+            state=ButtonState.PRESSED, timestamp=1234567890.0, device_path="/dev/hidraw0"
+        )
+        mock_device.read_events = AsyncMock(return_value=[button_event])
+
+        with (
+            patch("muteme_btn.cli.MuteMeDevice.connect_by_vid_pid", return_value=mock_device),
+            patch("muteme_btn.cli._flash_rgb_pattern"),
+            patch("muteme_btn.cli.input", return_value=""),  # Mock user input
+            patch("muteme_btn.cli.time.sleep"),
+        ):
+            result = self.runner.invoke(app, ["test-device", "--interactive"])
+
+            assert result.exit_code == 0
+            assert "Testing button communication" in result.stdout
+            assert (
+                "Button event detected" in result.stdout or "Button Communication" in result.stdout
+            )
+
+    @patch("muteme_btn.cli.MuteMeDevice.discover_devices")
+    def test_test_device_button_skipped_non_interactive(self, mock_discover):
+        """Test test-device command skips button test in non-interactive mode."""
+        mock_discover.return_value = [self._create_mock_device_info()]
+
+        mock_device = self._create_mock_device()
+        with (
+            patch("muteme_btn.cli.MuteMeDevice.connect_by_vid_pid", return_value=mock_device),
+            patch("muteme_btn.cli._flash_rgb_pattern"),
+            patch("muteme_btn.cli.time.sleep"),
+        ):
+            result = self.runner.invoke(app, ["test-device"])
+
+            assert result.exit_code == 0
+            assert "Button test skipped in non-interactive mode" in result.stdout
+
+    @patch("muteme_btn.cli.MuteMeDevice.discover_devices")
+    def test_test_device_diagnostic_summary(self, mock_discover):
+        """Test test-device command displays diagnostic summary."""
+        mock_discover.return_value = [self._create_mock_device_info()]
+
+        mock_device = self._create_mock_device()
+        with (
+            patch("muteme_btn.cli.MuteMeDevice.connect_by_vid_pid", return_value=mock_device),
+            patch("muteme_btn.cli._flash_rgb_pattern"),
+            patch("muteme_btn.cli.time.sleep"),
+        ):
+            result = self.runner.invoke(app, ["test-device"])
+
+            assert result.exit_code == 0
+            assert "Diagnostic Summary" in result.stdout
+            assert "Device Connection:" in result.stdout
+            assert "Button Communication:" in result.stdout
+            assert "LED Control:" in result.stdout
+            assert "Colors Tested:" in result.stdout
+            assert "Report Format:" in result.stdout
+
+    @patch("muteme_btn.cli.MuteMeDevice.discover_devices")
+    def test_test_device_led_error_handling(self, mock_discover):
+        """Test test-device command handles LED errors gracefully."""
+        mock_discover.return_value = [self._create_mock_device_info()]
+
+        mock_device = self._create_mock_device()
+        # Make set_led_color fail for some colors
+        call_count = 0
+
+        def side_effect(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 3:  # Fail on third call
+                raise Exception("LED write failed")
+            return None
+
+        mock_device.set_led_color.side_effect = side_effect
+
+        with (
+            patch("muteme_btn.cli.MuteMeDevice.connect_by_vid_pid", return_value=mock_device),
+            patch("muteme_btn.cli._flash_rgb_pattern"),
+            patch("muteme_btn.cli.time.sleep"),
+        ):
+            result = self.runner.invoke(app, ["test-device"])
+
+            assert result.exit_code == 1  # Should exit with error if LED errors occur
+            assert (
+                "Some colors failed" in result.stdout or "Some LED commands failed" in result.stdout
+            )
+
+    @patch("muteme_btn.cli.MuteMeDevice.discover_devices")
+    def test_test_device_cleanup(self, mock_discover):
+        """Test test-device command cleans up device connection."""
+        mock_discover.return_value = [self._create_mock_device_info()]
+
+        mock_device = self._create_mock_device()
+        with (
+            patch("muteme_btn.cli.MuteMeDevice.connect_by_vid_pid", return_value=mock_device),
+            patch("muteme_btn.cli._flash_rgb_pattern"),
+            patch("muteme_btn.cli.time.sleep"),
+        ):
+            result = self.runner.invoke(app, ["test-device"])
+
+            assert result.exit_code == 0
+            # Verify cleanup was called
+            mock_device.disconnect.assert_called_once()
+            assert "LED turned off" in result.stdout or "Turning LED off" in result.stdout
