@@ -1,0 +1,108 @@
+# 02-tasks-test-device-improvements.md
+
+## Relevant Files
+
+- `src/muteme_btn/cli.py` - Main CLI file containing all commands (741 lines, needs refactoring and modularization)
+- `src/muteme_btn/hid/device.py` - Device class with `set_led_color()` method that needs flashing brightness support
+- `src/muteme_btn/core/led_feedback.py` - LED feedback controller that may use flashing brightness
+- `tests/test_cli_device.py` - Existing tests for check-device command (needs expansion for test-device)
+- `tests/test_cli.py` - General CLI tests
+- `tests/test_hid_device.py` - Device tests that may need flashing brightness tests
+- `pyproject.toml` - Project configuration (needs Rich dependency added)
+- `src/muteme_btn/cli/commands/__init__.py` - New file: Command modules package init
+- `src/muteme_btn/cli/commands/test_device.py` - New file: Extracted test-device command implementation
+- `src/muteme_btn/cli/commands/check_device.py` - New file: Extracted check-device command implementation
+- `src/muteme_btn/cli/commands/run.py` - New file: Extracted run command implementation
+- `src/muteme_btn/cli/commands/version.py` - New file: Extracted version command implementation
+- `src/muteme_btn/cli/utils/__init__.py` - New file: CLI utilities package init
+- `src/muteme_btn/cli/utils/config_loader.py` - New file: Configuration loading utilities
+- `src/muteme_btn/cli/utils/device_helpers.py` - New file: Device discovery and connection helpers
+- `src/muteme_btn/cli/app.py` - New file: Main Typer app instance
+- `src/muteme_btn/cli/__init__.py` - New file: CLI package init (exports main app)
+- `tests/test_cli_commands/__init__.py` - New file: Test package for command modules
+- `tests/test_cli_commands/test_test_device.py` - New file: Comprehensive tests for test-device command
+
+### Notes
+
+- **TDD Workflow**: All tasks must follow strict Test-Driven Development: **RED** (write failing test) → **GREEN** (implement minimal code) → **REFACTOR** (improve while keeping tests green)
+- Unit tests should be placed alongside the code files they are testing or in the `tests/` directory following existing patterns
+- Use `pytest tests/[path]` to run specific test files
+- Follow the repository's established testing patterns using `typer.testing.CliRunner` and mocked devices
+- Follow repository code organization, naming conventions (snake_case for modules), and style guidelines (ruff, type hints, docstrings)
+- Adhere to quality gates: `just check` must pass before committing
+- File size target: <300 lines per file per ARCHITECTURE.md guidelines
+
+## Tasks
+
+- [ ] 1.0 Refactor test-device command with proper structure and comprehensive tests
+  - **TDD Workflow**: RED → GREEN → REFACTOR
+    - **RED**: Write failing tests first (1.1)
+    - **GREEN**: Extract helper functions to make tests pass (1.2)
+    - **REFACTOR**: Refactor command to use helpers (1.3)
+  - Demo Criteria: "Run `pytest tests/test_cli_device.py -v` showing >95% coverage; run `uv run muteme-btn-control test-device --help` and `uv run muteme-btn-control test-device` (non-interactive) producing same output as before; code review shows extracted functions with clear responsibilities, type hints, and docstrings"
+  - Proof Artifact(s): "Test output: `pytest tests/test_cli_device.py -v` showing comprehensive test coverage; CLI output comparison showing identical behavior; Code diff showing extracted functions in cli.py with proper structure"
+  - [ ] 1.1 **[RED]** Write comprehensive unit tests for test-device command using `typer.testing.CliRunner` and mocked devices, covering: device discovery success/failure, device connection (VID/PID and path-based), LED color testing (all colors, interactive and non-interactive), brightness level testing, button communication test, error handling, and diagnostic summary output. Tests should fail initially since helper functions don't exist yet.
+  - [ ] 1.2 **[GREEN]** Extract helper functions from test_device command to make tests pass: `_discover_and_connect_device()`, `_display_device_info()`, `_test_led_colors()`, `_test_brightness_levels()`, `_test_button_communication()`, `_display_diagnostic_summary()`, `_cleanup_device()` with proper type hints and docstrings. Verify tests pass after extraction.
+  - [ ] 1.3 **[REFACTOR]** Refactor test_device command to use extracted helper functions, ensuring all existing functionality is preserved and output remains identical. Run tests to ensure they still pass.
+  - [ ] 1.4 Verify test coverage exceeds 95% for test-device command functionality using `pytest tests/test_cli_device.py --cov=muteme_btn.cli --cov-report=term-missing`
+  - [ ] 1.5 Run `just check` to ensure all quality gates pass (linting, type checking, tests)
+- [ ] 2.0 Add flashing animation brightness level feature
+  - **TDD Workflow**: RED → GREEN → REFACTOR
+    - **RED**: Write failing tests first (2.1, 2.2)
+    - **GREEN**: Implement flashing support to make tests pass (2.3, 2.4)
+    - **REFACTOR**: Update docstrings and verify (2.5, 2.6)
+  - Demo Criteria: "Run `uv run muteme-btn-control test-device --interactive` showing flashing animation between Dim and Fast Pulse tests; visual confirmation on device showing faster animation than fast_pulse with full brightness range; code showing `brightness="flashing"` parameter support in `MuteMeDevice.set_led_color()`; test demonstrating flashing works in daemon context"
+  - Proof Artifact(s): "CLI output showing flashing test in brightness sequence; Code diff showing flashing implementation in device.py (0x40 offset); Test output showing flashing animation works; Visual confirmation (screenshot/description) of device behavior"
+  - [ ] 2.1 **[RED]** Write failing unit test for flashing brightness in `tests/test_hid_device.py`: Test that `brightness="flashing"` parameter applies 0x40 offset correctly in `MuteMeDevice.set_led_color()`. Test should fail since flashing support doesn't exist yet.
+  - [ ] 2.2 **[RED]** Write failing test case in test-device tests verifying flashing appears in correct position in brightness sequence (between Dim and Fast Pulse: Dim → Normal → Flashing → Fast Pulse → Slow Pulse). Test should fail since sequence doesn't include flashing yet.
+  - [ ] 2.3 **[GREEN]** Implement `brightness="flashing"` support in `MuteMeDevice.set_led_color()` method in `device.py`, implementing 0x40 offset following existing pattern (dim=0x10, fast_pulse=0x20, slow_pulse=0x30). Verify test from 2.1 passes.
+  - [ ] 2.4 **[GREEN]** Update test-device command brightness test sequence to include flashing between Dim and Fast Pulse: Dim → Normal → Flashing → Fast Pulse → Slow Pulse. Verify test from 2.2 passes.
+  - [ ] 2.5 **[REFACTOR]** Update docstring in `set_led_color()` to document flashing brightness option. Run tests to ensure they still pass.
+  - [ ] 2.6 Verify flashing animation works in daemon context by adding test case that uses flashing brightness in LED feedback controller (optional: update led_feedback.py if needed to support brightness parameter). Run tests to verify.
+  - [ ] 2.7 Run manual visual test: `uv run muteme-btn-control test-device --interactive` and verify flashing animation is faster than fast_pulse with full brightness range
+- [ ] 3.0 Modularize CLI structure into command modules and shared utilities
+  - **TDD Workflow**: REFACTORING PATTERN
+    - This is refactoring existing code with existing tests. Follow incremental refactoring:
+    - Extract one module at a time, run tests after each extraction to ensure nothing breaks
+    - Update test imports as you go (3.11)
+    - Verify all tests pass after each change (3.13)
+  - Demo Criteria: "Directory structure showing `src/muteme_btn/cli/commands/` and `src/muteme_btn/cli/utils/` directories; run `uv run muteme-btn-control --help` showing all commands still available; run `pytest tests/test_cli*.py -v` showing all existing CLI tests passing; code review showing clear separation of concerns with no file exceeding 300 lines"
+  - Proof Artifact(s): "Directory listing showing new CLI module structure; Test output: `pytest tests/test_cli*.py -v` showing all tests pass; CLI help output showing all commands available; CLI output showing commands actually run; Code diff showing modularized structure"
+  - [ ] 3.1 Create CLI module structure: `src/muteme_btn/cli/__init__.py`, `src/muteme_btn/cli/app.py` (main Typer app), `src/muteme_btn/cli/commands/__init__.py`, `src/muteme_btn/cli/utils/__init__.py`
+  - [ ] 3.2 Extract configuration utilities: Create `src/muteme_btn/cli/utils/config_loader.py` with `_find_config_file()` and `_load_config()` functions from cli.py. **Run tests after extraction to verify nothing breaks.**
+  - [ ] 3.3 Extract device helpers: Create `src/muteme_btn/cli/utils/device_helpers.py` with device discovery and connection helper functions (if any reusable ones exist). **Run tests after extraction.**
+  - [ ] 3.4 Extract version command: Create `src/muteme_btn/cli/commands/version.py` with `version()` command and `version_callback()` function. **Run tests after extraction.**
+  - [ ] 3.5 Extract check-device command: Create `src/muteme_btn/cli/commands/check_device.py` with `check_device()` command function. **Run tests after extraction.**
+  - [ ] 3.6 Extract test-device command: Create `src/muteme_btn/cli/commands/test_device.py` with `test_device()` command and all helper functions (`_flash_rgb_pattern()`, `_discover_and_connect_device()`, etc.). **Run tests after extraction.**
+  - [ ] 3.7 Extract run command: Create `src/muteme_btn/cli/commands/run.py` with `run()` command function. **Run tests after extraction.**
+  - [ ] 3.8 Create main CLI app in `src/muteme_btn/cli/app.py`: Instantiate Typer app, import and register all commands, set up main callback. **Run tests to verify.**
+  - [ ] 3.9 Update `src/muteme_btn/cli/__init__.py` to export app from `cli.app`. **Run tests to verify.**
+  - [ ] 3.10 Update `src/muteme_btn/main.py` to import app from `muteme_btn.cli` (the new modularized location) - verify current import path and update if needed. **Run tests to verify.**
+  - [ ] 3.11 Update all test files (`tests/test_cli*.py`) to import app from new location (`muteme_btn.cli`) - verify current imports and update to use modularized structure. **Update imports incrementally as you extract modules.**
+  - [ ] 3.12 Verify all commands work: Run `uv run muteme-btn-control --help`, `uv run muteme-btn-control version`, `uv run muteme-btn-control check-device`, `uv run muteme-btn-control test-device --help`, `uv run muteme-btn-control run --help`
+  - [ ] 3.13 Run `pytest tests/test_cli*.py -v` to ensure all existing CLI tests pass. **Run this after each extraction step (3.2-3.7) to catch issues early.**
+  - [ ] 3.14 Verify file sizes: Check that no file exceeds 300 lines using `find src/muteme_btn/cli -name "*.py" -exec wc -l {} \;`
+  - [ ] 3.15 Update `docs/ARCHITECTURE.md` to document the new modularized CLI structure
+  - [ ] 3.16 Run `just check` to ensure all quality gates pass
+- [ ] 4.0 Integrate Rich library for enhanced test-device command output
+  - **TDD Workflow**: RED → GREEN → REFACTOR
+    - **RED**: Write failing tests first (4.2)
+    - **GREEN**: Implement Rich features incrementally to make tests pass (4.3-4.9)
+    - **REFACTOR**: Add fallback and verify (4.10, 4.11)
+  - Demo Criteria: "Run `uv run muteme-btn-control test-device --interactive` showing Rich-enhanced output (progress bars, colored status, formatted tables); run `uv run muteme-btn-control test-device` (non-interactive) showing Rich-enhanced output with automatic test execution; run `uv run muteme-btn-control --help` showing standard Typer help (unchanged); `pyproject.toml` showing Rich dependency added"
+  - Proof Artifact(s): "CLI output screenshots showing Rich components (progress bars, colored text, tables); `pyproject.toml` diff showing Rich>=14.0.0 dependency; Test output showing Rich integration works; Help output showing other commands unchanged; CLI output of `test-device` (non-interactive); manual test of `test-device --interactive`"
+  - [ ] 4.1 Add Rich dependency to `pyproject.toml`: Add `rich>=14.0.0` to dependencies list (not dev dependencies). **Setup step - required before tests can run.**
+  - [ ] 4.2 **[RED]** Write failing tests for Rich output in test-device command: Test that `console.print()` is used instead of `typer.echo()`, test that Progress bars appear in non-interactive mode, test that Rich Table is used for diagnostic summary, test that Rich Panel is used for section headers, test that colored status indicators work, test graceful fallback when Rich unavailable. Tests should fail since Rich integration doesn't exist yet.
+  - [ ] 4.3 **[GREEN]** Add conditional Rich import in test-device command module with graceful fallback: `try: from rich.console import Console; from rich.progress import Progress; from rich.table import Table; from rich.panel import Panel; RICH_AVAILABLE = True; except ImportError: RICH_AVAILABLE = False`. Verify import tests pass.
+  - [ ] 4.4 **[GREEN]** Create Rich Console instance in test-device command: Initialize single `Console()` instance at start of command execution. Verify tests still pass.
+  - [ ] 4.5 **[GREEN]** Replace typer.echo with Rich console.print() for test-device command output: Update all output statements to use `console.print()` instead of `typer.echo()`. Verify console.print() tests pass.
+  - [ ] 4.6 **[GREEN]** Add Rich Progress bars for test steps: Use `with Progress() as progress:` context manager for color testing and brightness testing steps in non-interactive mode. Verify Progress bar tests pass.
+  - [ ] 4.7 **[GREEN]** Add Rich console.status() for indeterminate operations: Use `with console.status():` for waiting for button press in interactive mode. Verify tests pass.
+  - [ ] 4.8 **[GREEN]** Add Rich Table for diagnostic summary: Replace text-based diagnostic summary with Rich Table showing device connection status, button communication, LED control, colors tested, and report format. Verify Table tests pass.
+  - [ ] 4.9 **[GREEN]** Add Rich Panel for section headers: Use Panel for "Step 1: Discovering devices", "Step 2: Connecting to device", etc. Verify Panel tests pass.
+  - [ ] 4.10 **[GREEN]** Add colored status indicators: Use Rich markup for success (green ✅), warnings (yellow ⚠️), errors (red ❌). Verify colored indicator tests pass.
+  - [ ] 4.11 **[REFACTOR]** Implement graceful fallback: If Rich unavailable, fall back to standard typer.echo() output (maintain backward compatibility). Verify fallback tests pass. Run all tests to ensure they still pass.
+  - [ ] 4.12 Update test-device tests to handle Rich output: Use `console.capture()` context manager in tests to capture Rich output for assertions, or mock Rich components. Ensure all tests pass with Rich output.
+  - [ ] 4.13 Verify other commands unchanged: Run `uv run muteme-btn-control --help`, `uv run muteme-btn-control version`, `uv run muteme-btn-control check-device` to ensure they still use standard Typer output
+  - [ ] 4.14 Run manual tests: Test `uv run muteme-btn-control test-device` (non-interactive) and `uv run muteme-btn-control test-device --interactive` to verify Rich output displays correctly
+  - [ ] 4.15 Run `just check` to ensure all quality gates pass
