@@ -33,6 +33,18 @@ class DeviceConfig(BaseModel):
     timeout: float = Field(
         default=5.0, ge=0.1, le=60.0, description="Device connection timeout in seconds"
     )
+    poll_interval_ms: int = Field(
+        default=10,
+        ge=1,
+        le=1000,
+        description="Main loop poll interval in milliseconds (default: 10ms)",
+    )
+    poll_timeout_ms: int = Field(
+        default=100,
+        ge=10,
+        le=5000,
+        description="Main loop poll timeout in milliseconds (default: 100ms)",
+    )
 
 
 class AudioConfig(BaseModel):

@@ -3,6 +3,8 @@
 import asyncio
 import logging
 import signal
+import traceback
+from types import FrameType
 
 from muteme_btn.audio.pulse import AudioConfig, PulseAudioBackend
 from muteme_btn.config import DeviceConfig
@@ -48,6 +50,10 @@ class MuteMeDaemon:
 
         self.running: bool = False
         self._shutdown_event = asyncio.Event()
+        # Lock for thread-safe access to running flag
+        # Note: Signal handlers run in the main thread, so GIL provides protection,
+        # but this lock ensures explicit synchronization for async operations
+        self._running_lock = asyncio.Lock()
 
         # Setup signal handlers
         self._setup_signal_handlers()
@@ -64,12 +70,12 @@ class MuteMeDaemon:
         except Exception as e:
             logger.warning(f"Failed to setup signal handlers: {e}")
 
-    def _signal_handler(self, signum: int, frame) -> None:
+    def _signal_handler(self, signum: int, frame: FrameType | None) -> None:
         """Handle shutdown signals.
 
         Args:
             signum: Signal number
-            frame: Current stack frame
+            frame: Current stack frame (may be None in some contexts)
         """
         logger.info(f"Received signal {signum}, initiating graceful shutdown")
         try:
@@ -79,18 +85,21 @@ class MuteMeDaemon:
 
     async def start(self) -> None:
         """Start the daemon main loop."""
-        if self.running:
-            logger.warning("Daemon is already running")
-            return
+        async with self._running_lock:
+            if self.running:
+                logger.warning("Daemon is already running")
+                return
 
-        logger.info("Starting MuteMe daemon")
-        self.running = True
-        self._shutdown_event.clear()
+            logger.info("Starting MuteMe daemon")
+            self.running = True
+            self._shutdown_event.clear()
 
+        device_connected = False
         try:
             # Connect to device if not already connected
             if not self.device or not self.device.is_connected():
                 await self._connect_device()
+                device_connected = True
 
             # Create LED controller if not already created
             if not self.led_controller:
@@ -110,8 +119,21 @@ class MuteMeDaemon:
             await self._main_loop()
         except Exception as e:
             logger.error(f"Daemon error: {e}")
+            # Log traceback in debug mode for better debugging
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(f"Exception traceback:\n{traceback.format_exc()}")
+            # Ensure device cleanup on exception
+            if device_connected and self.device:
+                try:
+                    if hasattr(self.device, "close"):
+                        self.device.close()  # type: ignore[call-overload]
+                    elif hasattr(self.device, "disconnect"):
+                        self.device.disconnect()  # type: ignore[call-overload]
+                except Exception as cleanup_error:
+                    logger.warning(f"Error cleaning up device after exception: {cleanup_error}")
         finally:
-            self.running = False
+            async with self._running_lock:
+                self.running = False
             # Ensure cleanup is called on shutdown
             self.cleanup()
             logger.info("MuteMe daemon stopped")
@@ -171,9 +193,10 @@ class MuteMeDaemon:
 
     async def stop(self) -> None:
         """Stop the daemon gracefully."""
-        if not self.running:
-            logger.debug("Daemon is not running")
-            return
+        async with self._running_lock:
+            if not self.running:
+                logger.debug("Daemon is not running")
+                return
 
         logger.info("Stopping MuteMe daemon")
         self._shutdown_event.set()
@@ -184,11 +207,25 @@ class MuteMeDaemon:
         except TimeoutError:
             logger.warning("Graceful shutdown timeout, forcing stop")
         finally:
-            self.running = False
+            async with self._running_lock:
+                self.running = False
 
     async def _main_loop(self) -> None:
         """Main daemon loop."""
-        while self.running and not self._shutdown_event.is_set():
+        # Use configurable poll interval and timeout from device config
+        poll_interval = self.device_config.poll_interval_ms / 1000.0
+        poll_timeout = self.device_config.poll_timeout_ms / 1000.0
+
+        while True:
+            # Thread-safe check of running flag
+            async with self._running_lock:
+                if not self.running:
+                    break
+                running_state = self.running
+
+            if not running_state or self._shutdown_event.is_set():
+                break
+
             try:
                 # Process button events
                 await self._process_button_events()
@@ -199,8 +236,8 @@ class MuteMeDaemon:
                 # Small delay to prevent busy waiting
                 try:
                     await asyncio.wait_for(
-                        asyncio.sleep(0.01),  # 10ms poll interval
-                        timeout=0.1,
+                        asyncio.sleep(poll_interval),
+                        timeout=poll_timeout,
                     )
                 except TimeoutError:
                     # Continue loop if sleep times out
@@ -211,13 +248,16 @@ class MuteMeDaemon:
                 break
             except Exception as e:
                 logger.error(f"Error in main loop: {e}")
+                # Log traceback in debug mode
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug(f"Exception traceback:\n{traceback.format_exc()}")
                 # Continue running despite errors
 
     async def _process_button_events(self) -> None:
         """Process button events from the device."""
         try:
             if not self.device.is_connected():
-                logger.debug("Device not connected, skipping event processing")
+                logger.info("Device not connected, skipping event processing")
                 return
 
             # Read events from device
@@ -236,6 +276,9 @@ class MuteMeDaemon:
 
         except Exception as e:
             logger.error(f"Error processing button events: {e}")
+            # Log traceback in debug mode for better debugging
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(f"Exception traceback:\n{traceback.format_exc()}")
 
     async def _handle_action(self, action: str) -> None:
         """Handle an action from the state machine.
@@ -259,6 +302,9 @@ class MuteMeDaemon:
 
         except Exception as e:
             logger.error(f"Error handling action '{action}': {e}")
+            # Log traceback in debug mode for better debugging
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(f"Exception traceback:\n{traceback.format_exc()}")
 
     async def _show_startup_pattern(self) -> None:
         """Show startup connection pattern: flash blue-green-red 3 times."""
@@ -292,9 +338,21 @@ class MuteMeDaemon:
     async def _update_led_feedback(self) -> None:
         """Update LED feedback based on current mute status."""
         try:
+            # Check if device and LED controller are available
+            if not self.device or not self.device.is_connected():
+                logger.info("Device not connected, skipping LED feedback update")
+                return
+
+            if not self.led_controller:
+                logger.debug("LED controller not initialized, skipping LED feedback update")
+                return
+
             self.led_controller.update_led_to_mute_status()
         except Exception as e:
             logger.error(f"Error updating LED feedback: {e}")
+            # Log traceback in debug mode for better debugging
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(f"Exception traceback:\n{traceback.format_exc()}")
 
     def cleanup(self) -> None:
         """Clean up resources on shutdown."""

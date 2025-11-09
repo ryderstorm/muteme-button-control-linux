@@ -41,7 +41,7 @@ class LEDFeedbackController:
         try:
             # Check if device is connected
             if not self.device.is_connected():
-                logger.debug("Device not connected, skipping LED update")
+                logger.info("Device not connected, skipping LED update")
                 return
 
             # Get current mute status
