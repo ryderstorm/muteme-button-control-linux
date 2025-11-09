@@ -62,7 +62,7 @@ class TestSignalHandling:
         # Make main loop wait so daemon stays running
         async def mock_main_loop():
             while daemon.running:
-                await asyncio.sleep(0.1)
+                await asyncio.sleep(0.01)  # Reduced from 0.1s for faster tests
 
         daemon._main_loop = mock_main_loop
 
@@ -70,7 +70,7 @@ class TestSignalHandling:
         start_task = asyncio.create_task(daemon.start())
 
         # Give it a moment to start
-        await asyncio.sleep(0.05)
+        await asyncio.sleep(0.01)  # Reduced from 0.05s for faster tests
         assert daemon.running is True
 
         # Send SIGINT signal
@@ -78,7 +78,7 @@ class TestSignalHandling:
 
         # Wait for daemon to stop (may raise CancelledError which is expected)
         try:
-            await asyncio.wait_for(start_task, timeout=1.0)
+            await asyncio.wait_for(start_task, timeout=0.2)  # Reduced from 1.0s for faster tests
         except (asyncio.CancelledError, TimeoutError):
             # Cancellation is expected when signal handler stops the daemon
             pass
@@ -97,7 +97,7 @@ class TestSignalHandling:
         # Make main loop wait so daemon stays running
         async def mock_main_loop():
             while daemon.running:
-                await asyncio.sleep(0.1)
+                await asyncio.sleep(0.01)  # Reduced from 0.1s for faster tests
 
         daemon._main_loop = mock_main_loop
 
@@ -105,7 +105,7 @@ class TestSignalHandling:
         start_task = asyncio.create_task(daemon.start())
 
         # Give it a moment to start
-        await asyncio.sleep(0.05)
+        await asyncio.sleep(0.01)  # Reduced from 0.05s for faster tests
         assert daemon.running is True
 
         # Send SIGTERM signal
@@ -113,7 +113,7 @@ class TestSignalHandling:
 
         # Wait for daemon to stop (may raise CancelledError which is expected)
         try:
-            await asyncio.wait_for(start_task, timeout=1.0)
+            await asyncio.wait_for(start_task, timeout=0.2)  # Reduced from 1.0s for faster tests
         except (asyncio.CancelledError, TimeoutError):
             # Cancellation is expected when signal handler stops the daemon
             pass

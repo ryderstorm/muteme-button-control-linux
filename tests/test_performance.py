@@ -124,12 +124,16 @@ class TestPerformanceMeasurement:
     def perf_daemon(self, perf_device, perf_audio_backend):
         state_machine = ButtonStateMachine()
         led_controller = LEDFeedbackController(device=perf_device, audio_backend=perf_audio_backend)
-        return MuteMeDaemon(
+        daemon = MuteMeDaemon(
             device=perf_device,
             audio_backend=perf_audio_backend,
             state_machine=state_machine,
             led_controller=led_controller,
         )
+        # Mock startup methods to avoid delays in performance tests
+        daemon._show_startup_pattern = AsyncMock()  # type: ignore[assignment]
+        daemon._connect_device = AsyncMock()  # type: ignore[assignment]
+        return daemon
 
     @pytest.mark.asyncio
     async def test_button_event_processing_latency(self, perf_daemon, perf_device):
@@ -327,10 +331,6 @@ class TestPerformanceMeasurement:
     @pytest.mark.asyncio
     async def test_daemon_startup_shutdown_performance(self, perf_daemon, perf_device):
         """Test daemon startup and shutdown performance."""
-        # Mock startup pattern to avoid delays affecting performance test
-        perf_daemon._show_startup_pattern = AsyncMock()
-        perf_daemon._connect_device = AsyncMock()
-
         await perf_device.connect()
 
         # Measure startup time

@@ -157,7 +157,7 @@ class TestEndToEndIntegration:
 
         # Start daemon
         daemon_task = asyncio.create_task(integration_daemon.start())
-        await asyncio.sleep(0.05)  # Wait for initialization
+        await asyncio.sleep(0.01)  # Wait for initialization
 
         # Initial state: unmuted, green LED
         assert mock_audio_backend.is_muted() is False
@@ -254,6 +254,9 @@ class TestEndToEndIntegration:
         """Test handling of audio backend errors."""
         await mock_device.connect()
 
+        # Mock startup pattern to avoid delays
+        integration_daemon._show_startup_pattern = AsyncMock()
+
         daemon_task = asyncio.create_task(integration_daemon.start())
         await asyncio.sleep(0.01)
 
@@ -316,6 +319,9 @@ class TestEndToEndIntegration:
         """Test graceful shutdown with cleanup."""
         await mock_device.connect()
 
+        # Mock startup pattern to avoid delays
+        integration_daemon._show_startup_pattern = AsyncMock()
+
         daemon_task = asyncio.create_task(integration_daemon.start())
         await asyncio.sleep(0.01)
 
@@ -377,6 +383,9 @@ class TestEndToEndIntegration:
     ):
         """Test handling of concurrent events."""
         await mock_device.connect()
+
+        # Mock startup pattern to avoid delays
+        integration_daemon._show_startup_pattern = AsyncMock()
 
         daemon_task = asyncio.create_task(integration_daemon.start())
         await asyncio.sleep(0.01)
