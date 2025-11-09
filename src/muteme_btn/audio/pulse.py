@@ -58,8 +58,8 @@ class PulseAudioBackend:
             muted: True to mute, False to unmute
         """
         try:
-            # Use specified sink or get default sink
-            target_sink = sink_name
+            # Use specified sink, configured sink, or get default sink
+            target_sink = sink_name or self.config.sink_name
             if target_sink is None:
                 default_info = self.get_default_sink()
                 target_sink = default_info["name"]
@@ -83,8 +83,8 @@ class PulseAudioBackend:
             True if sink is muted, False otherwise
         """
         try:
-            # Use specified sink or get default sink
-            target_sink = sink_name
+            # Use specified sink, configured sink, or get default sink
+            target_sink = sink_name or self.config.sink_name
             if target_sink is None:
                 default_info = self.get_default_sink()
                 target_sink = default_info["name"]

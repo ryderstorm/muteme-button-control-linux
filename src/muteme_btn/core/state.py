@@ -96,10 +96,20 @@ class ButtonStateMachine:
         actions: list[str] = []
 
         if event.type == "press":
+            now = event.timestamp
+            # Check if this press is within the double-tap timeout window
+            if (
+                self.last_press_time
+                and (now - self.last_press_time).total_seconds() * 1000
+                <= self.double_tap_timeout_ms
+            ):
+                self.press_count += 1
+                logger.debug(f"Double-tap window hit (press #{self.press_count})")
+            else:
+                self.press_count = 1
+            self.last_press_time = now
             self.current_state = ButtonState.PRESSED
-            self.last_press_time = event.timestamp
-            self.press_count += 1
-            self.state_entry_time = event.timestamp
+            self.state_entry_time = now
             logger.debug(f"Transitioned to PRESSED state (press #{self.press_count})")
 
         elif event.type == "timeout":
@@ -117,6 +127,12 @@ class ButtonStateMachine:
         if event.type == "release":
             # Trigger toggle action on release
             actions.append("toggle")
+
+            # Check for double-tap
+            if self.press_count >= 2:
+                actions.append("double_tap")
+                self.press_count = 0
+                self.last_press_time = None
 
             # Return to idle state
             self.current_state = ButtonState.IDLE

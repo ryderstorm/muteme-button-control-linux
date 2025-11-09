@@ -344,7 +344,7 @@ class MuteMeDevice:
             raise DeviceError("Device not connected")
 
         try:
-            self._device.write(list(data))  # type: ignore[union-attr]
+            self._device.write(data)  # type: ignore[union-attr]
             logger.debug("Wrote data to device", size=len(data))
         except Exception as e:
             logger.error("Failed to write to device", error=str(e))

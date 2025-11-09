@@ -77,13 +77,13 @@ class TestMockedHIDIntegration:
 
         # Test LED color changes
         device.set_led_color(LEDColor.RED)
-        mock_device.write.assert_called_with([0x01, 0x01])
+        mock_device.write.assert_called_with(bytes([0x01, 0x01]))
 
         device.set_led_color(LEDColor.GREEN)
-        mock_device.write.assert_called_with([0x01, 0x02])
+        mock_device.write.assert_called_with(bytes([0x01, 0x02]))
 
         device.set_led_color_by_name("blue")
-        mock_device.write.assert_called_with([0x01, 0x03])
+        mock_device.write.assert_called_with(bytes([0x01, 0x03]))
 
         # Disconnect
         device.disconnect()

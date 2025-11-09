@@ -148,6 +148,11 @@ def _load_config(config_path: Path | None, log_level: str | None) -> AppConfig:
     """
     found_config = _find_config_file(config_path)
 
+    # Fail fast if explicit config path was provided but doesn't exist
+    if config_path and found_config is None:
+        typer.echo(f"❌ Configuration file not found: {config_path}", err=True)
+        sys.exit(1)
+
     if found_config:
         try:
             config = AppConfig.from_toml_file(found_config)

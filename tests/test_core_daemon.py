@@ -315,18 +315,22 @@ class TestMuteMeDaemon:
             daemon = MuteMeDaemon(device_config, audio_config)
 
             # Simulate exception during LED controller creation
+            # First, ensure device is connected
+            daemon.device = mock_device
+            mock_device.is_connected.return_value = True
+
             with patch(
                 "muteme_btn.core.daemon.LEDFeedbackController",
                 side_effect=Exception("LED controller creation failed"),
             ):
-                try:
-                    await daemon.start()
-                except Exception:
-                    pass
+                # The daemon catches exceptions internally, so it won't raise
+                # but we can verify cleanup happened
+                await daemon.start()
 
             # Device should be cleaned up even if exception occurs
-            # The cleanup happens in finally block, so device should be closed
             assert daemon.running is False
+            # Verify cleanup was actually called (cleanup() calls device.close())
+            mock_device.close.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_main_loop_with_configurable_timing(self, daemon):

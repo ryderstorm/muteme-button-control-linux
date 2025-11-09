@@ -393,9 +393,8 @@ class TestPerformanceMeasurement:
 
         # Simulate errors and measure performance impact
         original_is_muted = perf_audio_backend.is_muted
-
-        def error_is_muted():
-            raise Exception("Simulated error")
+        error_mock = Mock(side_effect=Exception("Simulated error"))
+        perf_audio_backend.is_muted = error_mock  # type: ignore[assignment]
 
         start_time = time.perf_counter()
 

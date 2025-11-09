@@ -77,9 +77,11 @@ class TestButtonStateMachine:
         release2 = ButtonEvent(type="release", timestamp=now + timedelta(milliseconds=300))
         actions = state_machine.process_event(release2)
 
-        assert state_machine.press_count == 2
-        # Should still trigger toggle for now (basic toggle mode)
+        # After double-tap detection, press_count is reset to 0
+        assert state_machine.press_count == 0
+        # Should trigger both toggle and double_tap actions
         assert "toggle" in actions
+        assert "double_tap" in actions
 
     def test_timeout_handling(self, state_machine):
         """Test timeout resets press count."""

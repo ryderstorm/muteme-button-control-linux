@@ -235,7 +235,7 @@ class TestMuteMeDevice:
         device.set_led_color(LEDColor.RED)
 
         # Verify the correct HID report was sent
-        mock_hid_device.write.assert_called_once_with([0x01, 0x01])  # Report ID 1, Color RED
+        mock_hid_device.write.assert_called_once_with(bytes([0x01, 0x01]))  # Report ID 1, Color RED
 
     def test_set_led_color_green(self):
         """Test setting LED to green."""
@@ -244,7 +244,9 @@ class TestMuteMeDevice:
 
         device.set_led_color(LEDColor.GREEN)
 
-        mock_hid_device.write.assert_called_once_with([0x01, 0x02])  # Report ID 1, Color GREEN
+        mock_hid_device.write.assert_called_once_with(
+            bytes([0x01, 0x02])
+        )  # Report ID 1, Color GREEN
 
     def test_set_led_color_no_color(self):
         """Test setting LED to no color."""
@@ -253,7 +255,9 @@ class TestMuteMeDevice:
 
         device.set_led_color(LEDColor.NOCOLOR)
 
-        mock_hid_device.write.assert_called_once_with([0x01, 0x00])  # Report ID 1, Color NOCOLOR
+        mock_hid_device.write.assert_called_once_with(
+            bytes([0x01, 0x00])
+        )  # Report ID 1, Color NOCOLOR
 
     def test_set_led_color_not_connected(self):
         """Test setting LED color when device not connected."""
@@ -278,7 +282,9 @@ class TestMuteMeDevice:
 
         device.set_led_color_by_name("blue")
 
-        mock_hid_device.write.assert_called_once_with([0x01, 0x03])  # Report ID 1, Color BLUE
+        mock_hid_device.write.assert_called_once_with(
+            bytes([0x01, 0x03])
+        )  # Report ID 1, Color BLUE
 
     def test_set_led_color_by_name_invalid(self):
         """Test setting LED color by invalid name."""

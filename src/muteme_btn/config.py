@@ -78,6 +78,27 @@ class LoggingConfig(BaseModel):
         default=5, ge=1, le=20, description="Number of backup log files to keep"
     )
 
+    @field_validator("level", mode="before")
+    @classmethod
+    def normalize_level(cls, value: LogLevel | str) -> LogLevel:
+        """Normalize log level string to uppercase before enum validation.
+
+        Args:
+            value: Log level value (enum or string)
+
+        Returns:
+            LogLevel enum value
+
+        Raises:
+            ValueError: If log level is not supported
+        """
+        if isinstance(value, LogLevel):
+            return value
+        try:
+            return LogLevel(value.upper())
+        except ValueError as exc:
+            raise ValueError(f"Unsupported log level: {value}") from exc
+
     @field_validator("file_path")
     @classmethod
     def validate_file_path(cls, v) -> Path | None:
