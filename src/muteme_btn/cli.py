@@ -656,6 +656,45 @@ def test_device(
             typer.echo("")
 
             try:
+                if test_brightness == "flashing":
+                    # Flashing uses software animation - show info first, then animate
+                    typer.echo(f"Testing: Color={test_color.name}, Brightness={test_brightness}")
+                    typer.echo("")
+                    typer.echo("Starting flashing animation (20 rapid on/off cycles)...")
+                    typer.echo("")
+
+                    device.set_led_color(
+                        test_color,
+                        use_feature_report=False,
+                        report_format="report_id_0",
+                        brightness=test_brightness,
+                    )
+
+                    typer.echo("✅ Flashing animation complete")
+                    typer.echo("")
+                    typer.echo("Observe the device LED. Press ENTER when done...")
+                    if interactive:
+                        input()
+                    else:
+                        time.sleep(2)
+
+                    # Cleanup before returning
+                    typer.echo("")
+                    typer.echo("Turning LED off...")
+                    try:
+                        device.set_led_color(
+                            LEDColor.NOCOLOR,
+                            use_feature_report=False,
+                            report_format="report_id_0",
+                        )
+                        typer.echo("✅ LED turned off")
+                    except Exception as e:
+                        typer.echo(f"⚠️  Failed to turn LED off: {e}")
+                    device.disconnect()
+                    typer.echo("✅ Quick test complete")
+                    return
+
+                # For non-flashing brightness levels
                 device.set_led_color(
                     test_color,
                     use_feature_report=False,
@@ -670,20 +709,6 @@ def test_device(
                     color_value = test_color.value | 0x20
                 elif test_brightness == "slow_pulse":
                     color_value = test_color.value | 0x30
-                elif test_brightness == "flashing":
-                    # Flashing uses software animation, show info
-                    typer.echo(f"✅ Set LED to {test_color.name} with {test_brightness} brightness")
-                    typer.echo(
-                        "   Software-side flashing animation: "
-                        "20 rapid on/off cycles (faster than fast_pulse)"
-                    )
-                    typer.echo("")
-                    typer.echo("Observe the device LED. Press ENTER when done...")
-                    if interactive:
-                        input()
-                    else:
-                        time.sleep(2)  # Flashing already took ~6 seconds, just a short wait
-                    return
                 else:
                     color_value = test_color.value
 
