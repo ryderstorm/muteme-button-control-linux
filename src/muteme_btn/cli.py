@@ -671,7 +671,21 @@ def test_device(
                 elif test_brightness == "slow_pulse":
                     color_value = test_color.value | 0x30
                 elif test_brightness == "flashing":
-                    color_value = test_color.value | 0x40
+                    # Flashing uses software animation, show info
+                    typer.echo(f"✅ Set LED to {test_color.name} with {test_brightness} brightness")
+                    typer.echo(
+                        "   Software-side flashing animation: "
+                        "20 rapid on/off cycles (faster than fast_pulse)"
+                    )
+                    typer.echo("")
+                    typer.echo("Observe the device LED. Press ENTER when done...")
+                    if interactive:
+                        input()
+                    else:
+                        time.sleep(2)  # Flashing already took ~6 seconds, just a short wait
+                    return
+                else:
+                    color_value = test_color.value
 
                 typer.echo(f"✅ Set LED to {test_color.name} with {test_brightness} brightness")
                 offset_val = color_value - test_color.value

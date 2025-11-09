@@ -422,7 +422,9 @@ class MuteMeDevice:
                 - "dim": Add 0x10 to color value
                 - "fast_pulse": Add 0x20 to color value
                 - "slow_pulse": Add 0x30 to color value
-                - "flashing": Add 0x40 to color value
+                - "flashing": Software-side animation (rapid on/off cycles)
+                  Note: Hardware flashing (0x40 offset) may not be supported by all devices.
+                  This implementation uses software animation for reliability.
 
         Raises:
             DeviceError: If device not connected or write fails
@@ -440,43 +442,73 @@ class MuteMeDevice:
             elif brightness == "slow_pulse":
                 color_value = color.value | 0x30
             elif brightness == "flashing":
-                color_value = color.value | 0x40
-            # else "normal" - use base color value
+                # Software-side flashing animation (device firmware may not support 0x40 offset)
+                # This creates a rapid on/off flashing effect
+                import time
 
-            # Build report based on format
-            if report_format == "no_report_id":
-                report = bytes([color_value])
-            elif report_format == "report_id_0":
-                report = bytes([0x00, color_value])
-            elif report_format == "report_id_2":
-                report = bytes([0x02, color_value])
-            elif report_format == "padded":
-                report = bytes([0x01, color_value, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
-            else:  # standard
-                report = bytes([0x01, color_value])
+                flash_duration = 0.15  # Duration for each flash cycle (faster than fast_pulse)
+                flash_cycles = 20  # Number of cycles for flashing animation
 
-            if use_feature_report:
-                # Try feature report method
-                self._device.send_feature_report(list(report))  # type: ignore[union-attr]
+                for _ in range(flash_cycles):
+                    # Turn LED on with full brightness
+                    self.write(bytes([0x00, color.value]))
+                    time.sleep(flash_duration)
+                    # Turn LED off
+                    self.write(bytes([0x00, LEDColor.NOCOLOR.value]))
+                    time.sleep(flash_duration * 0.3)  # Shorter off period for faster flash
+
+                # Leave LED on at end of flashing
+                color_value = color.value
                 logger.debug(
-                    "Set LED color (feature report)",
+                    "Set LED color (software flashing)",
                     color=color.name,
                     value=color_value,
                     format=report_format,
                     brightness=brightness,
-                    report=report.hex(),
                 )
             else:
-                # Standard output report method
-                self.write(report)
-                logger.debug(
-                    "Set LED color",
-                    color=color.name,
-                    value=color_value,
-                    format=report_format,
-                    brightness=brightness,
-                    report=report.hex(),
-                )
+                # Normal brightness or other modes
+                pass
+
+            # Only build report if not flashing (flashing handles its own writes)
+            if brightness != "flashing":
+                # Build report based on format
+                if report_format == "no_report_id":
+                    report = bytes([color_value])
+                elif report_format == "report_id_0":
+                    report = bytes([0x00, color_value])
+                elif report_format == "report_id_2":
+                    report = bytes([0x02, color_value])
+                elif report_format == "padded":
+                    report = bytes([0x01, color_value, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
+                else:  # standard
+                    report = bytes([0x01, color_value])
+
+                if use_feature_report:
+                    # Try feature report method
+                    self._device.send_feature_report(list(report))  # type: ignore[union-attr]
+                    logger.debug(
+                        "Set LED color (feature report)",
+                        color=color.name,
+                        value=color_value,
+                        format=report_format,
+                        brightness=brightness,
+                        report=report.hex(),
+                    )
+                else:
+                    # Standard output report method
+                    self.write(report)
+                    logger.debug(
+                        "Set LED color",
+                        color=color.name,
+                        value=color_value,
+                        format=report_format,
+                        brightness=brightness,
+                        report=report.hex(),
+                    )
+            else:
+                # Flashing already handled above, just set final state
+                self.write(bytes([0x00, color.value]))
         except Exception as e:
             logger.error("Failed to set LED color", color=color.name, error=str(e))
             raise DeviceError(f"LED control failed: {e}") from e

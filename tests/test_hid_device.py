@@ -301,10 +301,15 @@ class TestMuteMeDevice:
 
         device.set_led_color(LEDColor.RED, brightness="flashing")
 
-        # Flashing should add 0x40 offset: RED (0x01) | 0x40 = 0x41
-        mock_hid_device.write.assert_called_once_with(
-            bytes([0x00, 0x41])
-        )  # Report ID 0, Color RED with flashing (0x01 | 0x40)
+        # Flashing uses software-side animation (rapid on/off cycles)
+        # Should have multiple write calls: 20 cycles * 2 (on/off) + 1 final on = 41 calls
+        assert mock_hid_device.write.call_count >= 20  # At least 20 cycles
+        # Verify it alternates between RED and NOCOLOR
+        calls = mock_hid_device.write.call_args_list
+        assert bytes([0x00, 0x01]) in [call[0][0] for call in calls]  # RED
+        assert bytes([0x00, 0x00]) in [call[0][0] for call in calls]  # NOCOLOR
+        # Final call should be RED
+        assert calls[-1][0][0] == bytes([0x00, 0x01])
 
     def test_set_led_color_flashing_brightness_white(self):
         """Test setting LED color to white with flashing brightness."""
@@ -313,10 +318,15 @@ class TestMuteMeDevice:
 
         device.set_led_color(LEDColor.WHITE, brightness="flashing")
 
-        # Flashing should add 0x40 offset: WHITE (0x07) | 0x40 = 0x47
-        mock_hid_device.write.assert_called_once_with(
-            bytes([0x00, 0x47])
-        )  # Report ID 0, Color WHITE with flashing (0x07 | 0x40)
+        # Flashing uses software-side animation (rapid on/off cycles)
+        # Should have multiple write calls: 20 cycles * 2 (on/off) + 1 final on = 41 calls
+        assert mock_hid_device.write.call_count >= 20  # At least 20 cycles
+        # Verify it alternates between WHITE and NOCOLOR
+        calls = mock_hid_device.write.call_args_list
+        assert bytes([0x00, 0x07]) in [call[0][0] for call in calls]  # WHITE
+        assert bytes([0x00, 0x00]) in [call[0][0] for call in calls]  # NOCOLOR
+        # Final call should be WHITE
+        assert calls[-1][0][0] == bytes([0x00, 0x07])
 
     def test_check_device_permissions_success(self):
         """Test successful device permission check."""
