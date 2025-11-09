@@ -25,6 +25,13 @@ repos:
         name: ty check
         entry: uv run ty check
         language: python
+      - id: pytest
+        name: Run test suite
+        entry: uv run pytest
+        language: system
+        stages: [pre-push]
+        pass_filenames: false
+        always_run: true
 
   # Security checks
   - repo: https://github.com/PyCQA/bandit
@@ -33,6 +40,18 @@ repos:
       - id: bandit
         args: [-c, pyproject.toml]
         additional_dependencies: ["bandit[toml]"]
+
+  # Conventional Commits validation
+  - repo: https://github.com/alessandrojcm/commitlint-pre-commit-hook
+    rev: v9.23.0
+    hooks:
+      - id: commitlint
+        name: lint commit message for Conventional Commits compliance
+        additional_dependencies:
+          - '@commitlint/config-conventional'
+        stages: [commit-msg]
+        args:
+          - "--extends=@commitlint/config-conventional"
 
 # Default language version
 default_language_version:

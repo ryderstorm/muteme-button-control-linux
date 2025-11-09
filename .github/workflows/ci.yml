@@ -1,0 +1,74 @@
+name: CI - Tests and Linting
+
+on:
+  # Avoid duplicate runs: run on PRs for branches, and on direct pushes to main
+  # Ignore changes to release-generated files
+  push:
+    branches: ["main"]
+    paths-ignore:
+      - "CHANGELOG.md"
+      - "uv.lock"
+      - "dist/"
+      - "htmlcov/"
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpulse-dev
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run tests
+        run: uv run pytest
+
+  lint:
+    name: Run Linting
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run linting
+        run: |
+          uv run ruff check src/ tests/
+          uv run ruff format src/ tests/ --check
+
+      - name: Run type checking
+        run: uv run ty check src/muteme_btn/
+
+      - name: Run security checks
+        run: uv run bandit -c pyproject.toml -r src/

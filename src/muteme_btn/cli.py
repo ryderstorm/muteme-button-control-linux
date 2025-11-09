@@ -6,7 +6,7 @@ from pathlib import Path
 
 import typer
 
-from . import __version__
+from . import __version__  # Version is read from package metadata (pyproject.toml)
 from .config import AppConfig, LogLevel
 from .core.daemon import MuteMeDaemon
 from .hid.device import MuteMeDevice
@@ -34,7 +34,7 @@ def version() -> None:
 
 @app.command()
 def check_device(
-    verbose: bool = typer.Option(False, "--verbose", "-V", help="Show detailed device information"),
+    verbose: bool = typer.Option(False, "--verbose", "-V", help="Show detailed device information"),  # noqa: B008
 ) -> None:
     """Check MuteMe device status and permissions."""
     try:
@@ -173,13 +173,13 @@ def _load_config(config_path: Path | None, log_level: str | None) -> AppConfig:
 
 @app.command()
 def run(
-    config: Path | None = typer.Option(
+    config: Path | None = typer.Option(  # noqa: B008
         None,
         "--config",
         "-c",
         help="Path to configuration file",
     ),
-    log_level: str | None = typer.Option(
+    log_level: str | None = typer.Option(  # noqa: B008
         None,
         "--log-level",
         help="Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)",
@@ -219,7 +219,7 @@ def run(
 @app.callback(invoke_without_command=True)
 def main(
     ctx: typer.Context,
-    version: bool | None = typer.Option(
+    version: bool | None = typer.Option(  # noqa: B008
         False,
         "--version",
         "-v",

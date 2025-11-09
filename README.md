@@ -1,5 +1,8 @@
 # MuteMe Button Control
 
+[![CI Status](https://github.com/ryderstorm/muteme-button-control-linux/actions/workflows/ci.yml/badge.svg)](https://github.com/ryderstorm/muteme-button-control-linux/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 A Linux CLI tool for controlling MuteMe button hardware with PulseAudio integration. This Python application provides reliable toggle-mode control for microphone mute/unmute operations.
 
 ## Features
@@ -321,7 +324,7 @@ just check  # Runs all quality gates
 
 ## License
 
-[Add license information here]
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## Acknowledgments
 

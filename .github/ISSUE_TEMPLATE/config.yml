@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/ryderstorm/muteme-button-control-linux#readme
+    about: Refer to the README and documentation for setup and usage guidance.

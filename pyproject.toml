@@ -66,3 +66,27 @@ known-first-party = ["muteme_btn"]
 [tool.bandit]
 exclude_dirs = ["tests", "htmlcov", ".venv", "venv"]
 skips = ["B101"]  # Skip assert_used check (common in tests)
+
+[tool.semantic_release]
+# Use annotated tags like v1.2.3
+tag_format = "v{version}"
+# Update the version field in pyproject.toml (single source of truth)
+version_toml = ["pyproject.toml:project.version"]
+# Ensure uv.lock stays in sync with version changes and is committed
+build_command = """
+curl -LsSf https://astral.sh/uv/install.sh | sh -s
+export PATH="$HOME/.local/bin:$PATH"
+uv lock
+git add uv.lock
+python -m build --wheel --sdist
+"""
+# Generate changelog and commit version bumps
+assets = ["uv.lock"]
+
+[tool.semantic_release.changelog]
+# Generate CHANGELOG.md in Markdown
+default_templates = { changelog_file = "CHANGELOG.md", output_format = "md" }
+
+[tool.semantic_release.branches]
+# Release from the main branch
+main = { match = "main" }

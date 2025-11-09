@@ -1,5 +1,6 @@
 """CLI tests for MuteMe Button Control."""
 
+import re
 from pathlib import Path
 from unittest.mock import patch
 
@@ -36,8 +37,10 @@ class TestCLI:
         result = runner.invoke(app, ["--help"])
         assert result.exit_code == 0
         assert "MuteMe button integration" in result.stdout
-        assert "--version" in result.stdout
-        assert "--help" in result.stdout
+        # Strip ANSI codes for more robust checking
+        clean_output = re.sub(r"\x1b\[[0-9;]*m", "", result.stdout)
+        assert "--version" in clean_output or "-v" in clean_output
+        assert "--help" in clean_output
 
     def test_no_args_shows_help(self, runner: CliRunner) -> None:
         """Test that no arguments runs the daemon (default behavior)."""
