@@ -873,6 +873,22 @@ def kill_instances(
             # Process may have terminated or we don't have permission
             continue
 
+    # Filter out child processes whose parent is also in the list
+    # (uv spawns Python processes, so we only need to kill the parent)
+    parent_pids = {proc.pid for proc in found_processes}
+    filtered_processes: list[psutil.Process] = []
+    for proc in found_processes:
+        try:
+            parent = proc.parent()
+            # Include if no parent, or parent is not in our list
+            if not parent or parent.pid not in parent_pids:
+                filtered_processes.append(proc)
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            # If we can't check parent, include it to be safe
+            filtered_processes.append(proc)
+
+    found_processes = filtered_processes
+
     if not found_processes:
         typer.echo("✅ No running muteme-btn-control instances found")
         return
