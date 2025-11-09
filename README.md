@@ -29,6 +29,8 @@ A Linux CLI tool for controlling MuteMe button hardware with PulseAudio integrat
 
 1. **Install `uv`** (Python package manager):
    ```bash
+   brew install uv
+   # or
    curl -LsSf https://astral.sh/uv/install.sh | sh
    ```
 
@@ -81,42 +83,19 @@ A Linux CLI tool for controlling MuteMe button hardware with PulseAudio integrat
 
 ### Basic Usage
 
-**Run the application**:
-```bash
-just run
-```
-
-Or directly:
-```bash
-uv run muteme-btn-control
-```
-
-**Run with debug logging**:
-```bash
-just run-debug
-```
+| Action | Command |
+|--------|---------|
+| Run the application | `just run` or `uv run muteme-btn-control` |
+| Run with debug logging | `just run-debug` |
 
 ### CLI Commands
 
-**Show version**:
-```bash
-uv run muteme-btn-control --version
-```
-
-**Check device status**:
-```bash
-uv run muteme-btn-control check-device
-```
-
-**Check device with verbose output**:
-```bash
-uv run muteme-btn-control check-device --verbose
-```
-
-**Show help**:
-```bash
-uv run muteme-btn-control --help
-```
+| Command | Description |
+|---------|-------------|
+| `uv run muteme-btn-control --version` | Show version information |
+| `uv run muteme-btn-control check-device` | Check device status |
+| `uv run muteme-btn-control check-device --verbose` | Check device status with detailed output |
+| `uv run muteme-btn-control --help` | Show help information |
 
 ### Configuration
 
@@ -152,78 +131,30 @@ Configuration file locations (checked in order):
 
 ## Development
 
-### Development Workflow
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed development standards and guidelines.
 
-**Run all quality checks**:
-```bash
-just check
-```
+This project uses **Spec-Driven Development (SDD)** methodology, where features are developed through a structured workflow: **idea → specification → tasks → implementation → validation**. Specifications are defined in [`docs/specs/`](docs/specs/) before implementation begins. All code follows **strict Test-Driven Development (TDD)** methodology.
 
-**Run tests**:
-```bash
-just test
-```
-
-**Run tests with coverage**:
-```bash
-just coverage
-```
-
-**Run linting**:
-```bash
-just lint
-```
-
-**Fix linting issues automatically**:
-```bash
-just lint-fix
-```
-
-**Run type checking**:
-```bash
-just type-check
-```
-
-**Clean build artifacts**:
-```bash
-just clean
-```
-
-### Available Just Recipes
-
-- `just setup` - Install dependencies and pre-commit hooks
-- `just check` - Run all quality checks (lint, type, test)
-- `just test` - Run tests with coverage
-- `just lint` - Run linting and formatting checks
-- `just lint-fix` - Auto-fix linting issues
-- `just type-check` - Run type checking
-- `just coverage` - Show coverage report
-- `just coverage-html` - Generate HTML coverage report
-- `just run` - Run the application
-- `just run-debug` - Run with debug logging
-- `just check-device` - Verify device connection
-- `just install-udev` - Install UDEV rules
-- `just clean` - Clean build artifacts
-
-### Testing
-
-The project follows strict Test-Driven Development (TDD) methodology:
+### Quick Start
 
 ```bash
-# Run all tests
-just test
-
-# Run specific test file
-uv run pytest tests/test_cli.py -v
-
-# Run with coverage
-just coverage
-
-# Generate HTML coverage report
-just coverage-html
+just setup    # Install dependencies and pre-commit hooks
+just check    # Run all quality checks (lint, type, test)
+just test     # Run tests with coverage
 ```
 
-Test coverage is maintained above 85% (currently 87%).
+Run `just` or view the [justfile](./justfile) to see additional recipes.
+
+### Testing & Quality
+
+The project maintains >85% test coverage. All code must pass quality gates:
+- **Linting**: Ruff (zero errors/warnings)
+- **Type Checking**: ty (zero type errors)
+- **Test Coverage**: >85% overall
+- **Security**: Bandit (zero high/critical findings)
+- **Pre-commit Hooks**: Automatic checks on commit
+
+Run `just check` to verify all quality gates pass.
 
 ## Troubleshooting
 
@@ -289,38 +220,19 @@ If audio control doesn't work:
 
 ## Project Structure
 
-```
-muteme-btn-control/
-├── src/muteme_btn/          # Main application code
-│   ├── cli.py              # CLI interface
-│   ├── config.py           # Configuration models
-│   ├── hid/                # HID device communication
-│   ├── audio/              # Audio backend (PulseAudio)
-│   ├── core/               # Core logic and daemon
-│   └── utils/              # Utilities (logging)
-├── tests/                  # Test suite
-├── config/                 # Configuration files
-│   ├── muteme.toml.example # Example configuration
-│   └── udev/               # UDEV rules
-├── docs/                   # Documentation
-├── justfile                # Task runner recipes
-└── pyproject.toml          # Project configuration
-```
+See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed architecture and project structure documentation.
 
 ## Contributing
 
-This project follows strict TDD methodology:
+Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for detailed development standards, coding guidelines, and workflow instructions.
 
-1. Write failing tests first
-2. Implement minimal code to pass tests
-3. Refactor while keeping tests green
-4. Maintain >85% test coverage
-
-Before committing:
-
-```bash
-just check  # Runs all quality gates
-```
+**Quick checklist**:
+- Use Spec-Driven Development (SDD) methodology
+- Follow Test-Driven Development (TDD) methodology
+- Maintain >85% test coverage
+- Run `just check` before committing
+- Update documentation alongside code changes
+- Follow code style guidelines (ruff formatting)
 
 ## License
 

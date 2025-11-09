@@ -75,15 +75,15 @@ class TestMockedHIDIntegration:
         assert device is not None
         assert device.is_connected()
 
-        # Test LED color changes
+        # Test LED color changes (default format is report_id_0: [0x00, color])
         device.set_led_color(LEDColor.RED)
-        mock_device.write.assert_called_with(bytes([0x01, 0x01]))
+        mock_device.write.assert_called_with(bytes([0x00, 0x01]))
 
         device.set_led_color(LEDColor.GREEN)
-        mock_device.write.assert_called_with(bytes([0x01, 0x02]))
+        mock_device.write.assert_called_with(bytes([0x00, 0x02]))
 
         device.set_led_color_by_name("blue")
-        mock_device.write.assert_called_with(bytes([0x01, 0x03]))
+        mock_device.write.assert_called_with(bytes([0x00, 0x04]))  # BLUE is now 0x04
 
         # Disconnect
         device.disconnect()
