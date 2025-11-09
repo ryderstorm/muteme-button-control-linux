@@ -938,14 +938,11 @@ def kill_instances(
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 memory_str = "N/A"
 
-            # Truncate command line if too long
-            cmdline_display = cmdline[:70] + "..." if len(cmdline) > 70 else cmdline
-
             typer.echo(f"  PID {proc.pid}")
             typer.echo(f"    User: {username}")
             typer.echo(f"    Uptime: {uptime_str}")
             typer.echo(f"    Memory: {memory_str}")
-            typer.echo(f"    Command: {cmdline_display}")
+            typer.echo(f"    Command: {cmdline}")
             typer.echo("")
         except (psutil.NoSuchProcess, psutil.AccessDenied) as e:
             typer.echo(f"  PID {proc.pid}: (unable to read process info: {e})")
