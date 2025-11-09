@@ -70,27 +70,7 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install dependencies
-        run: uv sync --group packaging
-
-      - name: Build package
-        run: uv build
-
-      - name: Setup Node.js (for semantic-release)
-        uses: actions/setup-node@v4
+      - name: Semantic Release
+        uses: python-semantic-release/python-semantic-release@v10
         with:
-          node-version: 'lts/*'
-
-      - name: Install semantic-release
-        run: |
-          npm install -g \
-            semantic-release@24 \
-            @semantic-release/changelog@6 \
-            @semantic-release/git@10 \
-            @semantic-release/github@11 \
-            conventional-changelog-conventionalcommits@8
-
-      - name: Run semantic-release
-        run: npx semantic-release
-        env:
-          GITHUB_TOKEN: ${{ steps.octo-sts.outputs.token }}
+          github_token: ${{ steps.octo-sts.outputs.token }}

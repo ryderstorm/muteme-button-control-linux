@@ -6,7 +6,7 @@ from pathlib import Path
 
 import typer
 
-from . import __version__
+from . import __version__  # Version is read from package metadata (pyproject.toml)
 from .config import AppConfig, LogLevel
 from .core.daemon import MuteMeDaemon
 from .hid.device import MuteMeDevice
