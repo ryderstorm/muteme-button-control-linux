@@ -136,6 +136,7 @@ class ButtonStateMachine:
 
             # Return to idle state
             self.current_state = ButtonState.IDLE
+            self.state_entry_time = event.timestamp
             logger.debug("Toggle action triggered, returned to IDLE state")
 
         elif event.type == "press":
