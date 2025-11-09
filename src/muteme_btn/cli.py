@@ -599,6 +599,20 @@ def test_device(
         "-i",
         help="Interactive mode: pause before changing to each color",
     ),
+    color: str | None = typer.Option(  # noqa: B008
+        None,
+        "--color",
+        help="Test specific color only (e.g., 'red', 'blue', 'white'). Skips full test suite.",
+    ),
+    brightness: str | None = typer.Option(  # noqa: B008
+        None,
+        "--brightness",
+        help=(
+            "Test specific brightness only "
+            "(e.g., 'dim', 'normal', 'fast_pulse', 'slow_pulse', 'flashing'). "
+            "Requires --color."
+        ),
+    ),
 ) -> None:
     """Test device communication and LED control with diagnostic output."""
     try:
@@ -623,6 +637,64 @@ def test_device(
 
         # Display device information
         _display_device_info(device_info)
+
+        # If color/brightness flags are provided, do quick test only
+        if color or brightness:
+            if brightness and not color:
+                typer.echo("❌ --brightness requires --color to be specified", err=True)
+                sys.exit(1)
+
+            # Quick test mode
+            typer.echo("Quick Test Mode")
+            typer.echo("=" * 50)
+            typer.echo("")
+
+            test_color = LEDColor.from_name(color) if color else LEDColor.WHITE
+            test_brightness = brightness if brightness else "normal"
+
+            typer.echo(f"Testing: Color={test_color.name}, Brightness={test_brightness}")
+            typer.echo("")
+
+            try:
+                device.set_led_color(
+                    test_color,
+                    use_feature_report=False,
+                    report_format="report_id_0",
+                    brightness=test_brightness,
+                )
+                # Calculate and show the actual HID value being sent
+                color_value = test_color.value
+                if test_brightness == "dim":
+                    color_value = test_color.value | 0x10
+                elif test_brightness == "fast_pulse":
+                    color_value = test_color.value | 0x20
+                elif test_brightness == "slow_pulse":
+                    color_value = test_color.value | 0x30
+                elif test_brightness == "flashing":
+                    color_value = test_color.value | 0x40
+
+                typer.echo(f"✅ Set LED to {test_color.name} with {test_brightness} brightness")
+                offset_val = color_value - test_color.value
+                typer.echo(
+                    f"   HID report: [0x00, 0x{color_value:02x}] "
+                    f"(color=0x{test_color.value:02x}, offset=0x{offset_val:02x})"
+                )
+                typer.echo("")
+                typer.echo("Observe the device LED. Press ENTER when done...")
+                if interactive:
+                    input()
+                else:
+                    time.sleep(5)
+            except Exception as e:
+                typer.echo(f"❌ Failed to set LED: {e}", err=True)
+                sys.exit(1)
+
+            # Cleanup
+            _cleanup_device(device)
+            typer.echo("✅ Quick test complete")
+            return
+
+        # Full test suite (existing behavior)
 
         # Flash gentle RGB pattern at start (single cycle with dim brightness)
         typer.echo("Flashing RGB pattern...")
