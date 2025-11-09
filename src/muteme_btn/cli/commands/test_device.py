@@ -1,56 +1,23 @@
-"""CLI interface for MuteMe Button Control."""
+"""Test-device command implementation."""
 
 import asyncio
-import os
 import sys
 import time
 from pathlib import Path
 
-import psutil
 import typer
 
-from . import __version__
-from .config import AppConfig, LogLevel
-from .core.daemon import MuteMeDaemon
-from .hid.device import DeviceInfo, LEDColor, MuteMeDevice
-from .utils.logging import setup_logging
+from ...cli import app
+from ...hid.device import DeviceInfo, LEDColor, MuteMeDevice
+from ...utils.logging import setup_logging
+from ..utils.config_loader import load_config
+from ..utils.device_helpers import discover_and_connect_device
 
 # LED timing constants (seconds)
 LED_COLOR_HOLD_DURATION = 0.3  # Duration to hold each color
 LED_COLOR_TRANSITION_DURATION = 0.1  # Duration for transitions/off periods
 LED_COLOR_VISIBLE_DURATION = 0.5  # Duration for color testing
 LED_BRIGHTNESS_TEST_DURATION = 3.0  # Duration for brightness level tests
-
-app = typer.Typer(
-    name="muteme-btn-control",
-    help="A Linux CLI tool for MuteMe button integration with PulseAudio",
-    no_args_is_help=False,
-)
-
-
-def _format_duration(seconds: float) -> str:
-    """Format duration in seconds to human-readable format.
-
-    Args:
-        seconds: Duration in seconds
-
-    Returns:
-        Human-readable duration string (e.g., "2h 30m", "5m 30s", "45s")
-    """
-    if seconds < 60:
-        return f"{int(seconds)}s"
-    elif seconds < 3600:
-        minutes = int(seconds // 60)
-        secs = int(seconds % 60)
-        if secs == 0:
-            return f"{minutes}m"
-        return f"{minutes}m {secs}s"
-    else:
-        hours = int(seconds // 3600)
-        minutes = int((seconds % 3600) // 60)
-        if minutes == 0:
-            return f"{hours}h"
-        return f"{hours}h {minutes}m"
 
 
 def _flash_rgb_pattern(device: MuteMeDevice, cycles: int = 1) -> None:
@@ -77,55 +44,6 @@ def _flash_rgb_pattern(device: MuteMeDevice, cycles: int = 1) -> None:
                 LEDColor.NOCOLOR, use_feature_report=False, report_format="report_id_0"
             )
             time.sleep(LED_COLOR_TRANSITION_DURATION)
-
-
-def _discover_and_connect_device() -> tuple[MuteMeDevice, DeviceInfo]:
-    """Discover and connect to a MuteMe device.
-
-    Returns:
-        Tuple of (connected device, device info)
-
-    Raises:
-        SystemExit: If no devices found or connection fails
-    """
-    # Step 1: Discover devices
-    typer.echo("Step 1: Discovering devices...")
-    devices = MuteMeDevice.discover_devices()
-
-    if not devices:
-        typer.echo("❌ No MuteMe devices found")
-        typer.echo("")
-        typer.echo("Troubleshooting:")
-        typer.echo("• Make sure your MuteMe device is connected")
-        typer.echo("• Check USB cable connection")
-        typer.echo("• Try a different USB port")
-        sys.exit(1)
-
-    typer.echo(f"✅ Found {len(devices)} device(s)")
-    typer.echo("")
-
-    # Step 2: Connect to device
-    typer.echo("Step 2: Connecting to device...")
-    device_info = devices[0]
-    vid_pid = f"VID:0x{device_info.vendor_id:04x} PID:0x{device_info.product_id:04x}"
-    typer.echo(f"   Device: {vid_pid}")
-    typer.echo(f"   Path: {device_info.path}")
-
-    try:
-        # Try VID/PID connection first
-        device = MuteMeDevice.connect_by_vid_pid(device_info.vendor_id, device_info.product_id)
-        typer.echo("✅ Connected successfully using VID/PID")
-    except Exception as e:
-        typer.echo(f"⚠️  VID/PID connection failed: {e}")
-        typer.echo("   Trying path-based connection...")
-        try:
-            device = MuteMeDevice.connect(device_info.path)
-            typer.echo("✅ Connected successfully using path")
-        except Exception as path_error:
-            typer.echo(f"❌ Connection failed: {path_error}")
-            sys.exit(1)
-
-    return device, device_info
 
 
 def _display_device_info(device_info: DeviceInfo) -> None:
@@ -455,158 +373,6 @@ def _cleanup_device(device: MuteMeDevice) -> None:
     device.disconnect()
 
 
-def version_callback(value: bool) -> None:
-    """Callback for version option."""
-    if value:
-        typer.echo(f"muteme-btn-control {__version__}")
-        raise typer.Exit()
-
-
-@app.command()
-def version() -> None:
-    """Show version information."""
-    typer.echo(f"muteme-btn-control {__version__}")
-
-
-@app.command()
-def check_device(
-    verbose: bool = typer.Option(False, "--verbose", "-V", help="Show detailed device information"),
-) -> None:
-    """Check MuteMe device status and permissions."""
-    try:
-        # Discover devices
-        devices = MuteMeDevice.discover_devices()
-
-        if not devices:
-            typer.echo("❌ No MuteMe devices found")
-            typer.echo("")
-            typer.echo("Troubleshooting:")
-            typer.echo("• Make sure your MuteMe device is connected")
-            typer.echo("• Check USB cable connection")
-            typer.echo("• Try a different USB port")
-            typer.echo("• Install UDEV rules for device permissions")
-            sys.exit(1)
-
-        typer.echo(f"✅ Found {len(devices)} MuteMe device(s)")
-        typer.echo("")
-
-        # Check each device
-        for i, device in enumerate(devices, 1):
-            typer.echo(f"Device {i}:")
-            typer.echo(f"  VID:PID: 0x{device.vendor_id:04x}:0x{device.product_id:04x}")
-
-            if verbose:
-                typer.echo("  Device Details:")
-                typer.echo(f"    Vendor ID: 0x{device.vendor_id:04x}")
-                typer.echo(f"    Product ID: 0x{device.product_id:04x}")
-                typer.echo(f"    Manufacturer: {device.manufacturer or 'Unknown'}")
-                typer.echo(f"    Product: {device.product or 'Unknown'}")
-                typer.echo(f"    USB Path: {device.path}")
-
-            # Find the corresponding hidraw device
-            hidraw_path = MuteMeDevice._find_hidraw_device(device.vendor_id, device.product_id)
-            if not hidraw_path:
-                typer.echo("  Permissions: ❌ FAILED")
-                typer.echo("  Error: Could not find corresponding /dev/hidraw* device")
-                typer.echo("  Troubleshooting:")
-                typer.echo("    • Try unplugging and replugging the device")
-                typer.echo("    • Check if UDEV rules are installed: just install-udev")
-                sys.exit(1)
-
-            # At this point, hidraw_path is guaranteed to be a string
-            assert hidraw_path is not None
-
-            if verbose:
-                typer.echo(f"    HIDraw Device: {hidraw_path}")
-
-            # Check permissions on the hidraw device
-            if MuteMeDevice.check_device_permissions(hidraw_path):
-                typer.echo("  Permissions: ✅ OK")
-            else:
-                typer.echo("  Permissions: ❌ FAILED")
-                if verbose:
-                    error_msg = MuteMeDevice.get_device_permissions_error(hidraw_path)
-                    typer.echo("  Error Details:")
-                    for line in error_msg.split("\n"):
-                        if line.strip():
-                            typer.echo(f"    {line}")
-                sys.exit(1)
-
-            typer.echo("")
-
-        typer.echo("All devices are accessible and ready to use!")
-
-    except Exception as e:
-        typer.echo(f"❌ Device discovery failed: {e}")
-        typer.echo("")
-        typer.echo("This could indicate:")
-        typer.echo("• Missing HID library dependencies")
-        typer.echo("• System permission issues")
-        typer.echo("• Hardware problems")
-        sys.exit(1)
-
-
-def _find_config_file(config_path: Path | None) -> Path | None:
-    """Find configuration file in standard locations.
-
-    Args:
-        config_path: Explicit config path from CLI (takes precedence)
-
-    Returns:
-        Path to config file if found, None otherwise
-    """
-    if config_path and config_path.exists():
-        return config_path
-
-    # Standard locations (in order of precedence)
-    standard_locations = [
-        Path("muteme.toml"),  # Current directory
-        Path.home() / ".config" / "muteme" / "muteme.toml",
-        Path("/etc/muteme/muteme.toml"),
-    ]
-
-    for location in standard_locations:
-        if location.exists():
-            return location
-
-    return None
-
-
-def _load_config(config_path: Path | None, log_level: str | None) -> AppConfig:
-    """Load application configuration.
-
-    Args:
-        config_path: Optional explicit config file path
-        log_level: Optional log level override from CLI
-
-    Returns:
-        Loaded AppConfig instance
-    """
-    found_config = _find_config_file(config_path)
-
-    # Fail fast if explicit config path was provided but doesn't exist
-    if config_path and found_config is None:
-        typer.echo(f"❌ Configuration file not found: {config_path}", err=True)
-        sys.exit(1)
-
-    if found_config:
-        try:
-            config = AppConfig.from_toml_file(found_config)
-            # Override log level if provided via CLI
-            if log_level:
-                config.logging.level = LogLevel(log_level.upper())
-            return config
-        except Exception as e:
-            typer.echo(f"❌ Failed to load configuration from {found_config}: {e}", err=True)
-            sys.exit(1)
-    else:
-        # Use defaults
-        config = AppConfig()
-        if log_level:
-            config.logging.level = LogLevel(log_level.upper())
-        return config
-
-
 @app.command()
 def test_device(
     config: Path | None = typer.Option(  # noqa: B008
@@ -644,7 +410,7 @@ def test_device(
     """Test device communication and LED control with diagnostic output."""
     try:
         # Load configuration
-        app_config = _load_config(config, log_level)
+        app_config = load_config(config, log_level)
 
         # Setup logging (use INFO level for cleaner output, but allow override)
         setup_logging(
@@ -660,7 +426,7 @@ def test_device(
         typer.echo("")
 
         # Discover and connect to device
-        device, device_info = _discover_and_connect_device()
+        device, device_info = discover_and_connect_device()
 
         # Display device information
         _display_device_info(device_info)
@@ -787,8 +553,7 @@ def test_device(
         all_led_errors = _test_led_colors(device, interactive)
 
         # Test brightness levels
-        all_brightness_errors = _test_brightness_levels(device, interactive)
-        all_led_errors.extend(all_brightness_errors)
+        _test_brightness_levels(device, interactive)
 
         # Test button communication
         button_detected = _test_button_communication(device, interactive)
@@ -820,278 +585,3 @@ def test_device(
         if log_level and log_level.upper() == "DEBUG":
             typer.echo(traceback.format_exc(), err=True)
         sys.exit(1)
-
-
-@app.command()
-def kill_instances(
-    force: bool = typer.Option(  # noqa: B008
-        False,
-        "--force",
-        "-f",
-        help="Kill processes without confirmation",
-    ),
-) -> None:
-    """Find and kill all running muteme-btn-control daemon instances (run command only)."""
-    current_pid = os.getpid()
-    current_process = psutil.Process(current_pid)
-
-    # Get current process and parent process PIDs to exclude
-    exclude_pids = {current_pid}
-    try:
-        parent = current_process.parent()
-        if parent:
-            exclude_pids.add(parent.pid)
-    except (psutil.NoSuchProcess, psutil.AccessDenied):
-        pass
-
-    found_processes: list[psutil.Process] = []
-
-    # Commands that should NOT be killed (only kill 'run' daemon processes)
-    exclude_commands = {
-        "test-device",
-        "test_device",
-        "kill-instances",
-        "kill_instances",
-        "check-device",
-    }
-    # Normalize exclude commands for comparison (handle both - and _ variants)
-    normalized_exclude_commands = {cmd.replace("-", "_") for cmd in exclude_commands}
-
-    # Search for processes matching muteme-btn-control run command
-    for proc in psutil.process_iter(["pid", "name", "cmdline"]):
-        try:
-            proc_pid = proc.info["pid"]
-
-            # Skip current process and its parent
-            if proc_pid in exclude_pids:
-                continue
-
-            # Check if it's a muteme-btn-control process
-            cmdline = proc.info.get("cmdline", [])
-            if not cmdline:
-                continue
-
-            cmdline_str = " ".join(cmdline).lower()
-
-            # Must contain muteme-btn-control or muteme_btn
-            if "muteme-btn-control" not in cmdline_str and "muteme_btn" not in cmdline_str:
-                continue
-
-            # Only match 'run' command or processes without explicit command (defaults to run)
-            # Parse cmdline to explicitly check for 'run' command or no subcommand
-            has_run_command = False
-
-            # Find the index of muteme-btn-control executable or muteme_btn module in cmdline
-            muteme_index = -1
-            for i, arg in enumerate(cmdline):
-                arg_lower = arg.lower()
-                # Check for CLI entry point: muteme-btn-control
-                if "muteme-btn-control" in arg_lower or arg_lower.endswith("muteme-btn-control"):
-                    muteme_index = i
-                    break
-                # Check for Python module invocation: python -m muteme_btn.cli/main
-                if (
-                    i > 0
-                    and cmdline[i - 1].lower() == "-m"
-                    and ("muteme_btn.cli" in arg_lower or "muteme_btn.main" in arg_lower)
-                ):
-                    muteme_index = i
-                    break
-
-            # Exclude processes running other commands (test-device, kill-instances, etc.)
-            # Check only the actual subcommand token, not substrings in config paths
-            if muteme_index != -1 and muteme_index + 1 < len(cmdline):
-                # Normalize the subcommand token for comparison
-                subcommand_token = cmdline[muteme_index + 1].lower().replace("-", "_")
-                if subcommand_token in normalized_exclude_commands:
-                    continue
-            elif muteme_index == -1:
-                # If we can't find muteme entry point, skip the process to avoid false positives
-                continue
-
-            if muteme_index != -1:
-                # Check what comes after muteme-btn-control or module name
-                if muteme_index + 1 < len(cmdline):
-                    # There's an argument after muteme-btn-control/module
-                    next_arg = cmdline[muteme_index + 1].lower()
-                    # Only match if next argument is explicitly "run"
-                    if next_arg == "run":
-                        has_run_command = True
-                else:
-                    # No argument after muteme-btn-control/module - defaults to 'run'
-                    has_run_command = True
-            else:
-                # If we can't identify the entry point, skip to avoid false positives
-                has_run_command = False
-
-            if has_run_command:
-                found_processes.append(psutil.Process(proc_pid))
-        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-            # Process may have terminated or we don't have permission
-            continue
-
-    # Filter out child processes whose parent is also in the list
-    # (uv spawns Python processes, so we only need to kill the parent)
-    parent_pids = {proc.pid for proc in found_processes}
-    filtered_processes: list[psutil.Process] = []
-    for proc in found_processes:
-        try:
-            parent = proc.parent()
-            # Include if no parent, or parent is not in our list
-            if not parent or parent.pid not in parent_pids:
-                filtered_processes.append(proc)
-        except (psutil.NoSuchProcess, psutil.AccessDenied):
-            # If we can't check parent, include it to be safe
-            filtered_processes.append(proc)
-
-    found_processes = filtered_processes
-
-    if not found_processes:
-        typer.echo("✅ No running muteme-btn-control instances found")
-        return
-
-    # Display found processes with details
-    typer.echo(f"Found {len(found_processes)} running instance(s):")
-    typer.echo("")
-    for proc in found_processes:
-        try:
-            # Get process details
-            cmdline = " ".join(proc.cmdline())
-            username = proc.username()
-            create_time = proc.create_time()
-            uptime_seconds = time.time() - create_time
-            uptime_str = _format_duration(uptime_seconds)
-
-            # Get memory info (RSS - Resident Set Size)
-            try:
-                memory_info = proc.memory_info()
-                memory_mb = memory_info.rss / (1024 * 1024)
-                memory_str = f"{memory_mb:.1f}MB"
-            except (psutil.NoSuchProcess, psutil.AccessDenied):
-                memory_str = "N/A"
-
-            typer.echo(f"  PID {proc.pid}")
-            typer.echo(f"    User: {username}")
-            typer.echo(f"    Uptime: {uptime_str}")
-            typer.echo(f"    Memory: {memory_str}")
-            typer.echo(f"    Command: {cmdline}")
-            typer.echo("")
-        except (psutil.NoSuchProcess, psutil.AccessDenied) as e:
-            typer.echo(f"  PID {proc.pid}: (unable to read process info: {e})")
-            typer.echo("")
-
-    typer.echo("")
-
-    # Confirm before killing
-    if not force:
-        typer.echo("Kill these processes? [y/N]: ", nl=False)
-        try:
-            response = input().strip().lower()
-            if response not in ("y", "yes"):
-                typer.echo("Cancelled")
-                return
-        except (EOFError, KeyboardInterrupt):
-            typer.echo("\nCancelled")
-            return
-
-    # Kill processes
-    killed_count = 0
-    failed_count = 0
-
-    for proc in found_processes:
-        try:
-            proc.terminate()  # Send SIGTERM first (graceful shutdown)
-            killed_count += 1
-            typer.echo(f"✅ Sent termination signal to PID {proc.pid}")
-        except (psutil.NoSuchProcess, psutil.AccessDenied) as e:
-            failed_count += 1
-            typer.echo(f"⚠️  Failed to kill PID {proc.pid}: {e}", err=True)
-
-    if killed_count > 0:
-        typer.echo("")
-        typer.echo("Waiting for processes to terminate...")
-        # Wait up to 5 seconds for processes to terminate gracefully
-        gone, alive = psutil.wait_procs(found_processes, timeout=5)
-
-        # Force kill any that didn't terminate
-        if alive:
-            typer.echo(f"Force killing {len(alive)} process(es) that didn't terminate...")
-            for proc in alive:
-                try:
-                    proc.kill()  # Send SIGKILL (force kill)
-                    typer.echo(f"✅ Force killed PID {proc.pid}")
-                except (psutil.NoSuchProcess, psutil.AccessDenied) as e:
-                    typer.echo(f"⚠️  Failed to force kill PID {proc.pid}: {e}", err=True)
-
-    typer.echo("")
-    if killed_count > 0:
-        typer.echo(f"✅ Successfully killed {killed_count} process(es)")
-    if failed_count > 0:
-        typer.echo(f"⚠️  Failed to kill {failed_count} process(es)", err=True)
-
-
-@app.command()
-def run(
-    config: Path | None = typer.Option(  # noqa: B008
-        None,
-        "--config",
-        "-c",
-        help="Path to configuration file",
-    ),
-    log_level: str | None = typer.Option(  # noqa: B008
-        None,
-        "--log-level",
-        help="Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)",
-    ),
-) -> None:
-    """Run the MuteMe button control daemon."""
-    try:
-        # Load configuration
-        app_config = _load_config(config, log_level)
-
-        # Setup logging
-        setup_logging(
-            level=app_config.logging.level.value,
-            format_type=app_config.logging.format.value,
-            file_path=app_config.logging.file_path,
-            max_file_size=app_config.logging.max_file_size,
-            backup_count=app_config.logging.backup_count,
-        )
-
-        # Create and run daemon
-        daemon = MuteMeDaemon(
-            device_config=app_config.device,
-            audio_config=app_config.audio,
-        )
-
-        # Run the daemon
-        asyncio.run(daemon.start())
-
-    except KeyboardInterrupt:
-        typer.echo("\nShutting down...", err=True)
-        sys.exit(0)
-    except Exception as e:
-        typer.echo(f"❌ Failed to start daemon: {e}", err=True)
-        sys.exit(1)
-
-
-@app.callback(invoke_without_command=True)
-def main(
-    ctx: typer.Context,
-    version: bool | None = typer.Option(
-        False,
-        "--version",
-        "-v",
-        help="Show version and exit",
-        callback=version_callback,
-        is_eager=True,
-    ),
-) -> None:
-    """MuteMe Button Control - Linux CLI for MuteMe button integration."""
-    # If no command was provided, run the daemon
-    if ctx.invoked_subcommand is None:
-        run(config=None, log_level=None)
-
-
-if __name__ == "__main__":
-    app()
