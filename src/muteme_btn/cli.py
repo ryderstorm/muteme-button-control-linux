@@ -28,6 +28,31 @@ app = typer.Typer(
 )
 
 
+def _format_duration(seconds: float) -> str:
+    """Format duration in seconds to human-readable format.
+
+    Args:
+        seconds: Duration in seconds
+
+    Returns:
+        Human-readable duration string (e.g., "2h 30m", "5m 30s", "45s")
+    """
+    if seconds < 60:
+        return f"{int(seconds)}s"
+    elif seconds < 3600:
+        minutes = int(seconds // 60)
+        secs = int(seconds % 60)
+        if secs == 0:
+            return f"{minutes}m"
+        return f"{minutes}m {secs}s"
+    else:
+        hours = int(seconds // 3600)
+        minutes = int((seconds % 3600) // 60)
+        if minutes == 0:
+            return f"{hours}h"
+        return f"{hours}h {minutes}m"
+
+
 def _flash_rgb_pattern(device: MuteMeDevice, cycles: int = 1) -> None:
     """Flash a gentle RGB pattern on device with dim brightness.
 
@@ -893,15 +918,38 @@ def kill_instances(
         typer.echo("✅ No running muteme-btn-control instances found")
         return
 
-    # Display found processes
+    # Display found processes with details
     typer.echo(f"Found {len(found_processes)} running instance(s):")
     typer.echo("")
     for proc in found_processes:
         try:
+            # Get process details
             cmdline = " ".join(proc.cmdline())
-            typer.echo(f"  PID {proc.pid}: {cmdline[:80]}")
-        except (psutil.NoSuchProcess, psutil.AccessDenied):
-            typer.echo(f"  PID {proc.pid}: (unable to read command line)")
+            username = proc.username()
+            create_time = proc.create_time()
+            uptime_seconds = time.time() - create_time
+            uptime_str = _format_duration(uptime_seconds)
+
+            # Get memory info (RSS - Resident Set Size)
+            try:
+                memory_info = proc.memory_info()
+                memory_mb = memory_info.rss / (1024 * 1024)
+                memory_str = f"{memory_mb:.1f}MB"
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                memory_str = "N/A"
+
+            # Truncate command line if too long
+            cmdline_display = cmdline[:70] + "..." if len(cmdline) > 70 else cmdline
+
+            typer.echo(f"  PID {proc.pid}")
+            typer.echo(f"    User: {username}")
+            typer.echo(f"    Uptime: {uptime_str}")
+            typer.echo(f"    Memory: {memory_str}")
+            typer.echo(f"    Command: {cmdline_display}")
+            typer.echo("")
+        except (psutil.NoSuchProcess, psutil.AccessDenied) as e:
+            typer.echo(f"  PID {proc.pid}: (unable to read process info: {e})")
+            typer.echo("")
 
     typer.echo("")
 
