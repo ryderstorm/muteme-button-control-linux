@@ -805,15 +805,37 @@ def kill_instances(
         help="Kill processes without confirmation",
     ),
 ) -> None:
-    """Find and kill all running muteme-btn-control instances."""
+    """Find and kill all running muteme-btn-control daemon instances (run command only)."""
     current_pid = os.getpid()
+    current_process = psutil.Process(current_pid)
+
+    # Get current process and parent process PIDs to exclude
+    exclude_pids = {current_pid}
+    try:
+        parent = current_process.parent()
+        if parent:
+            exclude_pids.add(parent.pid)
+    except (psutil.NoSuchProcess, psutil.AccessDenied):
+        pass
+
     found_processes: list[psutil.Process] = []
 
-    # Search for processes matching muteme-btn-control
+    # Commands that should NOT be killed (only kill 'run' daemon processes)
+    exclude_commands = {
+        "test-device",
+        "test_device",
+        "kill-instances",
+        "kill_instances",
+        "check-device",
+    }
+
+    # Search for processes matching muteme-btn-control run command
     for proc in psutil.process_iter(["pid", "name", "cmdline"]):
         try:
-            # Skip current process
-            if proc.info["pid"] == current_pid:
+            proc_pid = proc.info["pid"]
+
+            # Skip current process and its parent
+            if proc_pid in exclude_pids:
                 continue
 
             # Check if it's a muteme-btn-control process
@@ -821,12 +843,32 @@ def kill_instances(
             if not cmdline:
                 continue
 
-            # Match processes that have muteme-btn-control or muteme_btn in command line
             cmdline_str = " ".join(cmdline).lower()
-            if "muteme-btn-control" in cmdline_str or (
-                "muteme_btn" in cmdline_str and len(cmdline) > 0 and "python" in cmdline[0].lower()
-            ):
-                found_processes.append(psutil.Process(proc.info["pid"]))
+
+            # Must contain muteme-btn-control or muteme_btn
+            if "muteme-btn-control" not in cmdline_str and "muteme_btn" not in cmdline_str:
+                continue
+
+            # Exclude processes running other commands (test-device, kill-instances, etc.)
+            is_excluded_command = any(cmd in cmdline_str for cmd in exclude_commands)
+            if is_excluded_command:
+                continue
+
+            # Only match 'run' command or processes without explicit command (defaults to run)
+            # Check if it's explicitly a 'run' command or has no subcommand (defaults to run)
+            has_run_command = (
+                " run" in cmdline_str
+                or cmdline_str.endswith("muteme-btn-control")
+                or (
+                    "muteme_btn" in cmdline_str
+                    and len(cmdline) > 0
+                    and "python" in cmdline[0].lower()
+                    and not any(cmd in cmdline_str for cmd in exclude_commands)
+                )
+            )
+
+            if has_run_command:
+                found_processes.append(psutil.Process(proc_pid))
         except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
             # Process may have terminated or we don't have permission
             continue
