@@ -7,9 +7,9 @@
 [![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://www.python.org/)
 [![Code style: Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
-**A modern Linux CLI tool for controlling MuteMe hardware buttons with seamless PulseAudio integration**
+## A modern Linux CLI tool for controlling MuteMe hardware buttons with seamless PulseAudio integration
 
-[Features](#-features) • [Installation](#-installation) • [Usage](#-usage) • [Documentation](#-documentation) • [Contributing](#-contributing)
+[Features](#-features) • [Installation](#-installation) • [Usage](#-usage) • [Contributing](#-contributing)
 
 </div>
 
@@ -89,11 +89,13 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 #### 2. Install `just` (task runner, optional but recommended)
 
 **Ubuntu/Debian:**
+
 ```bash
 sudo apt install just
 ```
 
 **Or via cargo:**
+
 ```bash
 cargo install just
 ```
@@ -101,28 +103,33 @@ cargo install just
 ### Quick Setup
 
 1. **Clone the repository:**
+
    ```bash
    git clone https://github.com/ryderstorm/muteme-button-control-linux.git
    cd muteme-button-control-linux
    ```
 
 2. **Install dependencies and setup:**
+
    ```bash
    just setup
    ```
 
    Or manually:
+
    ```bash
    uv sync
    uv run pre-commit install --hook-type pre-commit --hook-type pre-push --hook-type commit-msg --overwrite
    ```
 
 3. **Install UDEV rules** (required for device access):
+
    ```bash
    just install-udev
    ```
 
    Or manually:
+
    ```bash
    sudo cp config/udev/99-muteme.rules /etc/udev/rules.d/99-muteme.rules
    sudo udevadm control --reload-rules
@@ -130,6 +137,7 @@ cargo install just
    ```
 
 4. **Verify device connection:**
+
    ```bash
    just check-device
    ```
@@ -161,16 +169,19 @@ The application supports configuration via TOML files. Configuration files are c
 #### Setup Configuration
 
 1. **Create configuration directory:**
+
    ```bash
    mkdir -p ~/.config/muteme
    ```
 
 2. **Copy example configuration:**
+
    ```bash
    cp config/muteme.toml.example ~/.config/muteme/muteme.toml
    ```
 
 3. **Edit configuration:**
+
    ```bash
    nano ~/.config/muteme/muteme.toml
    ```
@@ -236,22 +247,26 @@ Run `just check` to verify all quality gates pass.
 If `check-device` reports no devices found:
 
 1. **Verify UDEV rules are installed:**
+
    ```bash
    ls -la /etc/udev/rules.d/99-muteme.rules
    ```
 
 2. **Check device permissions:**
+
    ```bash
    ls -la /dev/hidraw*
    ```
 
 3. **Reload UDEV rules:**
+
    ```bash
    sudo udevadm control --reload-rules
    sudo udevadm trigger
    ```
 
 4. **Verify device is connected:**
+
    ```bash
    lsusb | grep -i "20a0:42da"
    ```
@@ -261,6 +276,7 @@ If `check-device` reports no devices found:
 If you encounter permission errors:
 
 1. **Add user to `plugdev` group:**
+
    ```bash
    sudo usermod -a -G plugdev $USER
    ```
@@ -268,6 +284,7 @@ If you encounter permission errors:
    **Note:** Log out and log back in for group changes to take effect.
 
 2. **Verify group membership:**
+
    ```bash
    groups | grep plugdev
    ```
@@ -277,16 +294,19 @@ If you encounter permission errors:
 If audio control doesn't work:
 
 1. **Verify PulseAudio is running:**
+
    ```bash
    pulseaudio --check && echo "Running" || echo "Not running"
    ```
 
 2. **Check PulseAudio sinks:**
+
    ```bash
    pactl list sinks short
    ```
 
 3. **Test PulseAudio control:**
+
    ```bash
    pactl set-sink-mute @DEFAULT_SINK@ toggle
    ```
@@ -297,7 +317,7 @@ If audio control doesn't work:
 
 See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed architecture and project structure documentation.
 
-```
+```text
 muteme-btn-control/
 ├── src/muteme_btn/      # Main application source code
 ├── tests/               # Test suite
