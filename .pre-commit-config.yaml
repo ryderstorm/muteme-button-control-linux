@@ -27,7 +27,7 @@ repos:
         language: python
       - id: pytest
         name: Run test suite
-        entry: uv run pytest
+        entry: uv run pytest tests/
         language: system
         stages: [pre-push]
         pass_filenames: false
