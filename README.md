@@ -1,57 +1,128 @@
 # MuteMe Button Control
 
+<div align="center">
+
 [![CI Status](https://github.com/ryderstorm/muteme-button-control-linux/actions/workflows/ci.yml/badge.svg)](https://github.com/ryderstorm/muteme-button-control-linux/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://www.python.org/)
+[![Code style: Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
-A Linux CLI tool for controlling MuteMe button hardware with PulseAudio integration. This Python application provides reliable toggle-mode control for microphone mute/unmute operations.
+**A modern Linux CLI tool for controlling MuteMe hardware buttons with seamless PulseAudio integration**
 
-## Features
+[Features](#-features) • [Installation](#-installation) • [Usage](#-usage) • [Documentation](#-documentation) • [Contributing](#-contributing)
 
-- **Toggle Mode**: Press the MuteMe button to toggle microphone mute/unmute state
-- **PulseAudio Integration**: Seamless integration with PulseAudio for audio control
-- **LED Feedback**: Visual LED feedback (red=muted, green=unmuted) synchronized with audio state
-- **Modern CLI**: Clean Typer-based command-line interface
-- **Configuration**: Flexible TOML-based configuration with validation
-- **Structured Logging**: Human-readable text logs or JSON format for machine parsing
-- **Device Detection**: Automatic discovery and connection to MuteMe devices
+</div>
 
-## Requirements
+---
+
+## 📋 Table of Contents
+
+- [About](#-about)
+- [Features](#-features)
+- [Requirements](#-requirements)
+- [Installation](#-installation)
+  - [Prerequisites](#prerequisites)
+  - [Quick Setup](#quick-setup)
+- [Usage](#-usage)
+  - [Basic Commands](#basic-commands)
+  - [Configuration](#configuration)
+- [Development](#-development)
+  - [Quick Start](#quick-start)
+  - [Testing & Quality](#testing--quality)
+- [Troubleshooting](#-troubleshooting)
+- [Project Structure](#-project-structure)
+- [Contributing](#-contributing)
+- [License](#-license)
+- [Acknowledgments](#-acknowledgments)
+
+---
+
+## 🎯 About
+
+**MuteMe Button Control** is a Python-based Linux daemon that provides reliable toggle-mode control for MuteMe hardware buttons. It seamlessly integrates with PulseAudio to manage microphone mute/unmute operations, offering visual LED feedback and a modern command-line interface.
+
+### Key Highlights
+
+- 🎙️ **Hardware Integration**: Direct control of MuteMe button devices via HID
+- 🔊 **Audio Control**: Seamless PulseAudio integration for microphone management
+- 💡 **Visual Feedback**: LED indicators (red=muted, green=unmuted) synchronized with audio state
+- ⚙️ **Flexible Configuration**: TOML-based configuration with validation
+- 📊 **Structured Logging**: Human-readable text logs or JSON format for machine parsing
+- 🔍 **Device Detection**: Automatic discovery and connection to MuteMe devices
+
+---
+
+## ✨ Features
+
+| Feature | Description |
+|---------|-------------|
+| **Toggle Mode** | Press the MuteMe button to toggle microphone mute/unmute state |
+| **PulseAudio Integration** | Seamless integration with PulseAudio for audio control |
+| **LED Feedback** | Visual LED feedback (red=muted, green=unmuted) synchronized with audio state |
+| **Modern CLI** | Clean Typer-based command-line interface |
+| **Configuration** | Flexible TOML-based configuration with validation |
+| **Structured Logging** | Human-readable text logs or JSON format for machine parsing |
+| **Device Detection** | Automatic discovery and connection to MuteMe devices |
+
+---
+
+## 📦 Requirements
 
 - **Python**: 3.12 or higher
 - **Linux**: Tested on Ubuntu/Debian-based systems
-- **Hardware**: MuteMe button device (VID:0x20A0, PID:0x42DA)
+- **Hardware**: MuteMe button device (VID: `0x20A0`, PID: `0x42DA`)
 - **Audio System**: PulseAudio
 - **Dependencies**: Managed via `uv` (see `pyproject.toml`)
 
-## Installation
+---
+
+## 🚀 Installation
 
 ### Prerequisites
 
-1. **Install `uv`** (Python package manager):
-   ```bash
-   brew install uv
-   # or
-   curl -LsSf https://astral.sh/uv/install.sh | sh
-   ```
+#### 1. Install `uv` (Python package manager)
 
-2. **Install `just`** (task runner, optional but recommended):
-   ```bash
-   # Ubuntu/Debian
-   sudo apt install just
+**macOS:**
+```bash
+brew install uv
+```
 
-   # Or via cargo
-   cargo install just
-   ```
+**Linux/Unix:**
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+**Windows:**
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+#### 2. Install `just` (task runner, optional but recommended)
+
+**Ubuntu/Debian:**
+```bash
+sudo apt install just
+```
+
+**macOS:**
+```bash
+brew install just
+```
+
+**Or via cargo:**
+```bash
+cargo install just
+```
 
 ### Quick Setup
 
-1. **Clone the repository**:
+1. **Clone the repository:**
    ```bash
-   git clone <repository-url>
-   cd muteme-btn-control
+   git clone https://github.com/ryderstorm/muteme-button-control-linux.git
+   cd muteme-button-control-linux
    ```
 
-2. **Install dependencies and setup**:
+2. **Install dependencies and setup:**
    ```bash
    just setup
    ```
@@ -74,39 +145,53 @@ A Linux CLI tool for controlling MuteMe button hardware with PulseAudio integrat
    sudo udevadm trigger
    ```
 
-4. **Verify device connection**:
+4. **Verify device connection:**
    ```bash
    just check-device
    ```
 
-## Usage
+---
 
-### Basic Usage
+## 💻 Usage
+
+### Basic Commands
 
 | Action | Command |
 |--------|---------|
 | Run the application | `just run` or `uv run muteme-btn-control` |
 | Run with debug logging | `just run-debug` |
-
-### CLI Commands
-
-| Command | Description |
-|---------|-------------|
-| `uv run muteme-btn-control --version` | Show version information |
-| `uv run muteme-btn-control check-device` | Check device status |
-| `uv run muteme-btn-control check-device --verbose` | Check device status with detailed output |
-| `uv run muteme-btn-control --help` | Show help information |
+| Check device status | `uv run muteme-btn-control check-device` |
+| Check device (verbose) | `uv run muteme-btn-control check-device --verbose` |
+| Show version | `uv run muteme-btn-control --version` |
+| Show help | `uv run muteme-btn-control --help` |
 
 ### Configuration
 
-The application supports configuration via TOML files. Copy the example configuration:
+The application supports configuration via TOML files. Configuration files are checked in the following order:
 
-```bash
-mkdir -p ~/.config/muteme
-cp config/muteme.toml.example ~/.config/muteme/muteme.toml
-```
+1. CLI argument: `--config /path/to/config.toml`
+2. `~/.config/muteme/muteme.toml`
+3. `/etc/muteme/muteme.toml`
+4. Default values
 
-Edit `~/.config/muteme/muteme.toml` to customize settings:
+#### Setup Configuration
+
+1. **Create configuration directory:**
+   ```bash
+   mkdir -p ~/.config/muteme
+   ```
+
+2. **Copy example configuration:**
+   ```bash
+   cp config/muteme.toml.example ~/.config/muteme/muteme.toml
+   ```
+
+3. **Edit configuration:**
+   ```bash
+   nano ~/.config/muteme/muteme.toml
+   ```
+
+#### Example Configuration
 
 ```toml
 [device]
@@ -123,13 +208,9 @@ level = "INFO"
 format = "text"  # or "json" for machine parsing
 ```
 
-Configuration file locations (checked in order):
-1. CLI argument: `--config /path/to/config.toml`
-2. `~/.config/muteme/muteme.toml`
-3. `/etc/muteme/muteme.toml`
-4. Default values
+---
 
-## Development
+## 🛠️ Development
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed development standards and guidelines.
 
@@ -138,47 +219,55 @@ This project uses **Spec-Driven Development (SDD)** methodology, where features 
 ### Quick Start
 
 ```bash
-just setup    # Install dependencies and pre-commit hooks
-just check    # Run all quality checks (lint, type, test)
-just test     # Run tests with coverage
+# Install dependencies and pre-commit hooks
+just setup
+
+# Run all quality checks (lint, type, test)
+just check
+
+# Run tests with coverage
+just test
 ```
 
 Run `just` or view the [justfile](./justfile) to see additional recipes.
 
 ### Testing & Quality
 
-The project maintains >85% test coverage. All code must pass quality gates:
-- **Linting**: Ruff (zero errors/warnings)
-- **Type Checking**: ty (zero type errors)
-- **Test Coverage**: >85% overall
-- **Security**: Bandit (zero high/critical findings)
-- **Pre-commit Hooks**: Automatic checks on commit
+The project maintains **>85% test coverage**. All code must pass quality gates:
+
+- ✅ **Linting**: Ruff (zero errors/warnings)
+- ✅ **Type Checking**: ty (zero type errors)
+- ✅ **Test Coverage**: >85% overall
+- ✅ **Security**: Bandit (zero high/critical findings)
+- ✅ **Pre-commit Hooks**: Automatic checks on commit
 
 Run `just check` to verify all quality gates pass.
 
-## Troubleshooting
+---
+
+## 🔧 Troubleshooting
 
 ### Device Not Found
 
 If `check-device` reports no devices found:
 
-1. **Verify UDEV rules are installed**:
+1. **Verify UDEV rules are installed:**
    ```bash
    ls -la /etc/udev/rules.d/99-muteme.rules
    ```
 
-2. **Check device permissions**:
+2. **Check device permissions:**
    ```bash
    ls -la /dev/hidraw*
    ```
 
-3. **Reload UDEV rules**:
+3. **Reload UDEV rules:**
    ```bash
    sudo udevadm control --reload-rules
    sudo udevadm trigger
    ```
 
-4. **Verify device is connected**:
+4. **Verify device is connected:**
    ```bash
    lsusb | grep -i "20a0:42da"
    ```
@@ -187,14 +276,14 @@ If `check-device` reports no devices found:
 
 If you encounter permission errors:
 
-1. **Add user to `plugdev` group**:
+1. **Add user to `plugdev` group:**
    ```bash
    sudo usermod -a -G plugdev $USER
    ```
 
-   Log out and log back in for group changes to take effect.
+   **Note:** Log out and log back in for group changes to take effect.
 
-2. **Verify group membership**:
+2. **Verify group membership:**
    ```bash
    groups | grep plugdev
    ```
@@ -203,43 +292,85 @@ If you encounter permission errors:
 
 If audio control doesn't work:
 
-1. **Verify PulseAudio is running**:
+1. **Verify PulseAudio is running:**
    ```bash
    pulseaudio --check && echo "Running" || echo "Not running"
    ```
 
-2. **Check PulseAudio sinks**:
+2. **Check PulseAudio sinks:**
    ```bash
    pactl list sinks short
    ```
 
-3. **Test PulseAudio control**:
+3. **Test PulseAudio control:**
    ```bash
    pactl set-sink-mute @DEFAULT_SINK@ toggle
    ```
 
-## Project Structure
+---
+
+## 📁 Project Structure
 
 See [ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed architecture and project structure documentation.
 
-## Contributing
+```
+muteme-btn-control/
+├── src/muteme_btn/      # Main application source code
+├── tests/               # Test suite
+├── config/              # Configuration files and examples
+├── docs/                # Documentation
+│   ├── specs/          # Specification documents (SDD)
+│   └── ARCHITECTURE.md  # Architecture documentation
+├── .github/             # GitHub workflows and templates
+├── justfile             # Task runner recipes
+└── pyproject.toml       # Project configuration and dependencies
+```
+
+---
+
+## 🤝 Contributing
 
 Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for detailed development standards, coding guidelines, and workflow instructions.
 
-**Quick checklist**:
-- Use Spec-Driven Development (SDD) methodology
-- Follow Test-Driven Development (TDD) methodology
-- Maintain >85% test coverage
-- Run `just check` before committing
-- Update documentation alongside code changes
-- Follow code style guidelines (ruff formatting)
+### Quick Checklist
 
-## License
+- ✅ Use Spec-Driven Development (SDD) methodology
+- ✅ Follow Test-Driven Development (TDD) methodology
+- ✅ Maintain >85% test coverage
+- ✅ Run `just check` before committing
+- ✅ Update documentation alongside code changes
+- ✅ Follow code style guidelines (ruff formatting)
+
+### Development Workflow
+
+1. **Create a specification** in `docs/specs/` before implementing features
+2. **Write tests first** following TDD principles
+3. **Implement the feature** to make tests pass
+4. **Run quality checks** with `just check`
+5. **Update documentation** as needed
+6. **Submit a pull request** with a clear description
+
+---
+
+## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Acknowledgments
+---
+
+## 🙏 Acknowledgments
 
 - Based on the original Rust `mutebtn` project
 - Uses modern Python tooling: `uv`, `typer`, `pydantic`, `pytest`
 - Built with `just` for consistent development workflows
+- Thanks to all [contributors](https://github.com/ryderstorm/muteme-button-control-linux/graphs/contributors) who help improve this project
+
+---
+
+<div align="center">
+
+**[⬆ Back to Top](#-table-of-contents)**
+
+Made with ❤️ for the Linux community
+
+</div>

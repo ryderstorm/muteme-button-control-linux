@@ -75,9 +75,8 @@ allow_zero_version = true
 # Update the version field in pyproject.toml (single source of truth)
 version_toml = ["pyproject.toml:project.version"]
 # Ensure uv.lock stays in sync with version changes and is committed
+# Note: uv is already installed by the GitHub Actions workflow
 build_command = """
-curl -LsSf https://astral.sh/uv/install.sh | sh -s
-export PATH="$HOME/.local/bin:$PATH"
 uv sync --group packaging
 uv lock
 git add uv.lock
