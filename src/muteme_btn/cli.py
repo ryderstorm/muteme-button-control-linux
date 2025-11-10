@@ -880,17 +880,43 @@ def kill_instances(
                 continue
 
             # Only match 'run' command or processes without explicit command (defaults to run)
-            # Check if it's explicitly a 'run' command or has no subcommand (defaults to run)
-            has_run_command = (
-                " run" in cmdline_str
-                or cmdline_str.endswith("muteme-btn-control")
-                or (
-                    "muteme_btn" in cmdline_str
-                    and len(cmdline) > 0
-                    and "python" in cmdline[0].lower()
-                    and not any(cmd in cmdline_str for cmd in exclude_commands)
+            # Parse cmdline to explicitly check for 'run' command or no subcommand
+            has_run_command = False
+
+            # Find the index of muteme-btn-control executable or muteme_btn module in cmdline
+            muteme_index = -1
+            for i, arg in enumerate(cmdline):
+                arg_lower = arg.lower()
+                # Check for CLI entry point: muteme-btn-control
+                if "muteme-btn-control" in arg_lower or arg_lower.endswith("muteme-btn-control"):
+                    muteme_index = i
+                    break
+                # Check for Python module invocation: python -m muteme_btn.cli/main
+                if (
+                    i > 0
+                    and cmdline[i - 1].lower() == "-m"
+                    and ("muteme_btn.cli" in arg_lower or "muteme_btn.main" in arg_lower)
+                ):
+                    muteme_index = i
+                    break
+
+            if muteme_index != -1:
+                # Check what comes after muteme-btn-control or module name
+                if muteme_index + 1 < len(cmdline):
+                    # There's an argument after muteme-btn-control/module
+                    next_arg = cmdline[muteme_index + 1].lower()
+                    # Only match if next argument is explicitly "run"
+                    if next_arg == "run":
+                        has_run_command = True
+                else:
+                    # No argument after muteme-btn-control/module - defaults to 'run'
+                    has_run_command = True
+            else:
+                # Fallback: check for explicit " run" token or ends with muteme-btn-control
+                # This handles cases where cmdline parsing might be ambiguous
+                has_run_command = " run" in cmdline_str or cmdline_str.endswith(
+                    "muteme-btn-control"
                 )
-            )
 
             if has_run_command:
                 found_processes.append(psutil.Process(proc_pid))
