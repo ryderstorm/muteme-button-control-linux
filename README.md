@@ -344,7 +344,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- Based on the original Rust `mutebtn` project
+- Based on the original Rust [`mutebtn`](https://github.com/merll/mutebtn) project
 - Uses modern Python tooling: `uv`, `typer`, `pydantic`, `pytest`
 - Built with `just` for consistent development workflows
 - Thanks to all [contributors](https://github.com/ryderstorm/muteme-button-control-linux/graphs/contributors) who help improve this project
