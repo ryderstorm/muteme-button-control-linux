@@ -44,7 +44,11 @@ def _get_output_handler() -> tuple[Console | None, Callable]:
         Tuple of (Console instance or None, output function)
     """
     if RICH_AVAILABLE and Console is not None:
-        console = Console()
+        # Configure Console to work well with test capture
+        # force_terminal=False allows Rich to work in non-terminal environments (like tests)
+        console = Console(force_terminal=False, width=100)
+        # Create stderr console once and reuse it
+        err_console = Console(file=sys.stderr, force_terminal=False)
 
         def output_fn(*args, **kwargs):
             """Output function that handles both Rich and typer.echo compatibility."""
@@ -55,7 +59,6 @@ def _get_output_handler() -> tuple[Console | None, Callable]:
 
             if err:
                 # For Rich, use stderr console
-                err_console = Console(file=sys.stderr)
                 if nl:
                     err_console.print(*args, **kwargs)
                 else:
@@ -110,12 +113,22 @@ def _display_device_info(
         output_fn: Output function to use (console.print or typer.echo)
     """
     output_fn("")
-    output_fn("Device Information:")
-    output_fn(f"  Vendor ID: 0x{device_info.vendor_id:04x}")
-    output_fn(f"  Product ID: 0x{device_info.product_id:04x}")
-    output_fn(f"  Manufacturer: {device_info.manufacturer or 'Unknown'}")
-    output_fn(f"  Product: {device_info.product or 'Unknown'}")
-    output_fn(f"  USB Path: {device_info.path}")
+    if RICH_AVAILABLE and console is not None:
+        console.print("[bold yellow]Device Information:[/bold yellow]")
+        console.print(f"  [cyan]Vendor ID:[/cyan] [white]0x{device_info.vendor_id:04x}[/white]")
+        console.print(f"  [cyan]Product ID:[/cyan] [white]0x{device_info.product_id:04x}[/white]")
+        manufacturer = device_info.manufacturer or "Unknown"
+        console.print(f"  [cyan]Manufacturer:[/cyan] [white]{manufacturer}[/white]")
+        product = device_info.product or "Unknown"
+        console.print(f"  [cyan]Product:[/cyan] [white]{product}[/white]")
+        console.print(f"  [cyan]USB Path:[/cyan] [white]{device_info.path}[/white]")
+    else:
+        output_fn("Device Information:")
+        output_fn(f"  Vendor ID: 0x{device_info.vendor_id:04x}")
+        output_fn(f"  Product ID: 0x{device_info.product_id:04x}")
+        output_fn(f"  Manufacturer: {device_info.manufacturer or 'Unknown'}")
+        output_fn(f"  Product: {device_info.product or 'Unknown'}")
+        output_fn(f"  USB Path: {device_info.path}")
     output_fn("")
 
 
@@ -135,10 +148,15 @@ def _test_led_colors(
     """
     # Use Rich Panel for section header if available
     if RICH_AVAILABLE and Panel is not None and console is not None:
-        console.print(Panel("Step 3: Testing LED control...", style="bold blue"))
+        panel_text = "[bold cyan]Step 3: Testing LED control...[/bold cyan]"
+        console.print(Panel(panel_text, style="bold blue"))
     else:
         output_fn("Step 3: Testing LED control...")
-    output_fn("   Testing with format: report_id_0 (output) - [0x00, color_value]")
+    if RICH_AVAILABLE and console is not None:
+        format_text = "[yellow]report_id_0 (output) - [0x00, color_value][/yellow]"
+        console.print(f"   [dim]Testing with format:[/dim] {format_text}")
+    else:
+        output_fn("   Testing with format: report_id_0 (output) - [0x00, color_value]")
     output_fn("")
 
     # Test all available colors in order
@@ -164,27 +182,45 @@ def _test_led_colors(
 
     all_led_errors = []
 
-    output_fn("   Testing all colors:")
+    if RICH_AVAILABLE and console is not None:
+        console.print("   [bold]Testing all colors:[/bold]")
+    else:
+        output_fn("   Testing all colors:")
     output_fn("")
 
     # Use Rich Progress bar in non-interactive mode
     if not interactive and RICH_AVAILABLE and Progress is not None and console is not None:
-        with Progress(console=console) as progress:
+        # Ensure spacing before progress bar
+        output_fn("")
+        with Progress(console=console, transient=False) as progress:
             task = progress.add_task("[cyan]Testing colors...", total=len(all_colors))
-            for i, (color_name, color) in enumerate(all_colors, 1):
-                output_fn(f"   {i}. Setting LED to {color_name}...", nl=False)
-
+            for color_name, color in all_colors:
+                # Update progress bar description dynamically
+                progress.update(task, description=f"[cyan]Testing {color_name}...")
                 try:
                     device.set_led_color(
                         color, use_feature_report=False, report_format="report_id_0"
                     )
-                    output_fn(" ✅")
                     time.sleep(LED_COLOR_VISIBLE_DURATION)
                     progress.update(task, advance=1)
                 except Exception as e:
-                    output_fn(f" ❌ Error: {e}")
                     all_led_errors.append(f"{color_name}: {e}")
-                    progress.update(task, advance=1)
+                    error_desc = f"[red]Error testing {color_name}..."
+                    progress.update(task, advance=1, description=error_desc)
+            # Show summary after progress completes with color names
+            if all_led_errors:
+                color_names = ", ".join([name for name, _ in all_colors])
+                console.print(
+                    f"   [yellow]⚠️  Tested {len(all_colors)} colors[/yellow] "
+                    f"[red]({len(all_led_errors)} error(s))[/red]: "
+                    f"[white]{color_names}[/white]"
+                )
+            else:
+                color_names = ", ".join([name for name, _ in all_colors])
+                console.print(
+                    f"   [green]✅ Tested {len(all_colors)} colors successfully:[/green] "
+                    f"[bold white]{color_names}[/bold white]"
+                )
     else:
         # Interactive mode or fallback
         for i, (color_name, color) in enumerate(all_colors, 1):
@@ -210,16 +246,19 @@ def _test_led_colors(
                     output_fn("      → Press ENTER to continue...")
                     input()
 
-    output_fn("")
-    output_fn("   ✅ Color test complete!")
-
-    if all_led_errors:
+    # Show completion message only for interactive/fallback mode
+    # (Progress bar mode shows summary inline)
+    if interactive or not (RICH_AVAILABLE and Progress is not None and console is not None):
         output_fn("")
-        output_fn("   ⚠️  Some colors failed:")
-        for error in all_led_errors:
-            output_fn(f"      • {error}")
+        output_fn("   ✅ Color test complete!")
 
-    output_fn("")
+        if all_led_errors:
+            output_fn("")
+            output_fn("   ⚠️  Some colors failed:")
+            for error in all_led_errors:
+                output_fn(f"      • {error}")
+
+        output_fn("")
 
     return all_led_errors
 
@@ -240,10 +279,17 @@ def _test_brightness_levels(
     """
     # Use Rich Panel for section header if available
     if RICH_AVAILABLE and Panel is not None and console is not None:
-        console.print(Panel("Step 3b: Testing brightness levels...", style="bold blue"))
+        panel_text = "[bold cyan]Step 4: Testing brightness levels...[/bold cyan]"
+        console.print(Panel(panel_text, style="bold magenta"))
     else:
-        output_fn("Step 3b: Testing brightness levels...")
-    output_fn("   Testing brightness/effect levels with WHITE color")
+        output_fn("Step 4: Testing brightness levels...")
+    if RICH_AVAILABLE and console is not None:
+        console.print(
+            "   [dim]Testing brightness/effect levels with[/dim] "
+            "[bold white]WHITE[/bold white] [dim]color[/dim]"
+        )
+    else:
+        output_fn("   Testing brightness/effect levels with WHITE color")
     output_fn("")
 
     brightness_levels = [
@@ -267,12 +313,15 @@ def _test_brightness_levels(
 
     # Use Rich Progress bar in non-interactive mode
     if not interactive and RICH_AVAILABLE and Progress is not None and console is not None:
-        with Progress(console=console) as progress:
+        # Ensure spacing before progress bar
+        output_fn("")
+        with Progress(console=console, transient=False) as progress:
             task = progress.add_task(
                 "[cyan]Testing brightness levels...", total=len(brightness_levels)
             )
-            for i, (level_name, brightness) in enumerate(brightness_levels, 1):
-                output_fn(f"   {i}. Setting WHITE to {level_name}...", nl=False)
+            for level_name, brightness in brightness_levels:
+                # Update progress bar description dynamically
+                progress.update(task, description=f"[cyan]Testing {level_name}...")
                 try:
                     device.set_led_color(
                         LEDColor.WHITE,
@@ -280,13 +329,27 @@ def _test_brightness_levels(
                         report_format="report_id_0",
                         brightness=brightness,
                     )
-                    output_fn(" ✅")
                     time.sleep(LED_BRIGHTNESS_TEST_DURATION)
                     progress.update(task, advance=1)
                 except Exception as e:
-                    output_fn(f" ❌ Error: {e}")
                     all_brightness_errors.append(f"{level_name}: {e}")
-                    progress.update(task, advance=1)
+                    error_desc = f"[red]Error testing {level_name}..."
+                    progress.update(task, advance=1, description=error_desc)
+            # Show summary after progress completes with level names
+            if all_brightness_errors:
+                console.print(
+                    f"   [yellow]⚠️  Tested {len(brightness_levels)} brightness levels[/yellow] "
+                    f"[red]({len(all_brightness_errors)} error(s))[/red]: "
+                    f"[white]{', '.join([level for level, _ in brightness_levels])}[/white]"
+                )
+            else:
+                level_names = ", ".join([level for level, _ in brightness_levels])
+                success_msg = (
+                    f"   [green]✅ Tested {len(brightness_levels)} "
+                    f"brightness levels successfully:[/green] "
+                    f"[bold white]{level_names}[/bold white]"
+                )
+                console.print(success_msg)
     else:
         # Interactive mode or fallback
         for i, (level_name, brightness) in enumerate(brightness_levels, 1):
@@ -317,16 +380,19 @@ def _test_brightness_levels(
                     output_fn("      → Press ENTER to continue...")
                     input()
 
-    output_fn("")
-    output_fn("   ✅ Brightness test complete!")
-
-    if all_brightness_errors:
+    # Show completion message only for interactive/fallback mode
+    # (Progress bar mode shows summary inline)
+    if interactive or not (RICH_AVAILABLE and Progress is not None and console is not None):
         output_fn("")
-        output_fn("   ⚠️  Some brightness levels failed:")
-        for error in all_brightness_errors:
-            output_fn(f"      • {error}")
+        output_fn("   ✅ Brightness test complete!")
 
-    output_fn("")
+        if all_brightness_errors:
+            output_fn("")
+            output_fn("   ⚠️  Some brightness levels failed:")
+            for error in all_brightness_errors:
+                output_fn(f"      • {error}")
+
+        output_fn("")
 
     return all_brightness_errors
 
@@ -398,9 +464,10 @@ def _test_button_communication(
     """
     # Use Rich Panel for section header if available
     if RICH_AVAILABLE and Panel is not None and console is not None:
-        console.print(Panel("Step 4: Testing button communication...", style="bold blue"))
+        panel_text = "[bold cyan]Step 5: Testing button communication...[/bold cyan]"
+        console.print(Panel(panel_text, style="bold green"))
     else:
-        output_fn("Step 4: Testing button communication...")
+        output_fn("Step 5: Testing button communication...")
 
     if interactive:
         output_fn("")
@@ -461,10 +528,14 @@ def _display_diagnostic_summary(
     output_fn("")
     # Use Rich Panel for section header if available
     if RICH_AVAILABLE and Panel is not None and console is not None:
-        console.print(Panel("Step 5: Diagnostic Summary", style="bold blue"))
+        panel_text = "[bold cyan]Step 6: Diagnostic Summary[/bold cyan]"
+        console.print(Panel(panel_text, style="bold yellow"))
     else:
-        output_fn("Step 5: Diagnostic Summary")
-        output_fn("=" * 50)
+        output_fn("Step 6: Diagnostic Summary")
+        if RICH_AVAILABLE and console is not None:
+            console.rule("Step 6: Diagnostic Summary")
+        else:
+            output_fn("=" * 50)
 
     # Use Rich Table if available
     if RICH_AVAILABLE and Table is not None and console is not None:
@@ -483,8 +554,10 @@ def _display_diagnostic_summary(
             else f"[red]❌ {len(all_led_errors)} error(s)[/red]"
         )
         table.add_row("LED Control", led_status)
-        table.add_row("Colors Tested", f"{num_colors} colors")
-        table.add_row("Report Format", "report_id_0 (output) - [0x00, color_value]")
+        table.add_row("Colors Tested", f"[cyan]{num_colors} colors[/cyan]")
+        table.add_row(
+            "Report Format", "[yellow]report_id_0 (output) - [0x00, color_value][/yellow]"
+        )
 
         console.print(table)
     else:
@@ -497,12 +570,20 @@ def _display_diagnostic_summary(
         output_fn("Report Format: report_id_0 (output) - [0x00, color_value]")
 
     output_fn("")
-    output_fn("HID Report Format:")
-    output_fn("  Report: [0x00, color_value]")
-    output_fn(
-        "  Colors: 0x00=OFF, 0x01=RED, 0x02=GREEN, 0x03=YELLOW, "
-        "0x04=BLUE, 0x05=PURPLE, 0x06=CYAN, 0x07=WHITE"
-    )
+    if RICH_AVAILABLE and console is not None:
+        console.print("[bold cyan]HID Report Format:[/bold cyan]")
+        console.print("  [dim]Report:[/dim] [yellow][0x00, color_value][/yellow]")
+        console.print(
+            "  [dim]Colors:[/dim] [white]0x00=OFF, 0x01=RED, 0x02=GREEN, 0x03=YELLOW, "
+            "0x04=BLUE, 0x05=PURPLE, 0x06=CYAN, 0x07=WHITE[/white]"
+        )
+    else:
+        output_fn("HID Report Format:")
+        output_fn("  Report: [0x00, color_value]")
+        output_fn(
+            "  Colors: 0x00=OFF, 0x01=RED, 0x02=GREEN, 0x03=YELLOW, "
+            "0x04=BLUE, 0x05=PURPLE, 0x06=CYAN, 0x07=WHITE"
+        )
 
     if all_led_errors:
         output_fn("")
@@ -525,23 +606,41 @@ def _cleanup_device(
     """
     # Flash gentle RGB pattern at end (single cycle with dim brightness)
     output_fn("")
-    output_fn("Flashing RGB pattern...")
+    if RICH_AVAILABLE and console is not None:
+        console.print("[dim]Flashing RGB pattern...[/dim]")
+    else:
+        output_fn("Flashing RGB pattern...")
     try:
         _flash_rgb_pattern(device, cycles=1)
-        output_fn("✅ End pattern complete")
+        if RICH_AVAILABLE and console is not None:
+            console.print("[green]✅ End pattern complete[/green]")
+        else:
+            output_fn("✅ End pattern complete")
     except Exception as e:
-        output_fn(f"⚠️  Failed to flash end pattern: {e}")
+        if RICH_AVAILABLE and console is not None:
+            console.print(f"[yellow]⚠️  Failed to flash end pattern:[/yellow] [red]{e}[/red]")
+        else:
+            output_fn(f"⚠️  Failed to flash end pattern: {e}")
 
     # Cleanup - turn LED off
     output_fn("")
-    output_fn("Turning LED off...")
+    if RICH_AVAILABLE and console is not None:
+        console.print("[dim]Turning LED off...[/dim]")
+    else:
+        output_fn("Turning LED off...")
     try:
         device.set_led_color(
             LEDColor.NOCOLOR, use_feature_report=False, report_format="report_id_0"
         )
-        output_fn("✅ LED turned off")
+        if RICH_AVAILABLE and console is not None:
+            console.print("[green]✅ LED turned off[/green]")
+        else:
+            output_fn("✅ LED turned off")
     except Exception as e:
-        output_fn(f"⚠️  Failed to turn LED off: {e}")
+        if RICH_AVAILABLE and console is not None:
+            console.print(f"[yellow]⚠️  Failed to turn LED off:[/yellow] [red]{e}[/red]")
+        else:
+            output_fn(f"⚠️  Failed to turn LED off: {e}")
 
     # Cleanup
     device.disconnect()
@@ -598,9 +697,14 @@ def test_device(
         # Initialize Rich Console if available
         console, output_fn = _get_output_handler()
 
-        output_fn("🔍 MuteMe Device Communication Test")
-        output_fn("=" * 50)
-        output_fn("")
+        # Title header with color
+        if RICH_AVAILABLE and console is not None:
+            console.rule("[bold cyan]🔍 MuteMe Device Communication Test[/bold cyan]")
+            console.print("")
+        else:
+            output_fn("🔍 MuteMe Device Communication Test")
+            output_fn("=" * 50)
+            output_fn("")
 
         # Discover and connect to device
         device, device_info = discover_and_connect_device(console, output_fn)
@@ -615,9 +719,13 @@ def test_device(
                 sys.exit(1)
 
             # Quick test mode
-            output_fn("Quick Test Mode")
-            output_fn("=" * 50)
-            output_fn("")
+            if RICH_AVAILABLE and console is not None:
+                console.rule("[bold yellow]Quick Test Mode[/bold yellow]")
+                console.print("")
+            else:
+                output_fn("Quick Test Mode")
+                output_fn("=" * 50)
+                output_fn("")
 
             test_color = LEDColor.from_name(color) if color else LEDColor.WHITE
             test_brightness = brightness if brightness else "normal"
@@ -704,16 +812,28 @@ def test_device(
         # Full test suite (existing behavior)
 
         # Flash gentle RGB pattern at start (single cycle with dim brightness)
-        output_fn("Flashing RGB pattern...")
+        if RICH_AVAILABLE and console is not None:
+            console.print("[dim]Flashing RGB pattern...[/dim]")
+        else:
+            output_fn("Flashing RGB pattern...")
         try:
             _flash_rgb_pattern(device, cycles=1)
-            output_fn("✅ Start pattern complete")
+            if RICH_AVAILABLE and console is not None:
+                console.print("[green]✅ Start pattern complete[/green]")
+            else:
+                output_fn("✅ Start pattern complete")
         except Exception as e:
-            output_fn(f"⚠️  Failed to flash start pattern: {e}")
+            if RICH_AVAILABLE and console is not None:
+                console.print(f"[yellow]⚠️  Failed to flash start pattern:[/yellow] [red]{e}[/red]")
+            else:
+                output_fn(f"⚠️  Failed to flash start pattern: {e}")
         output_fn("")
 
         # Set device to dim white after RGB pattern
-        output_fn("Setting device to dim white...")
+        if RICH_AVAILABLE and console is not None:
+            console.print("[dim]Setting device to dim white...[/dim]")
+        else:
+            output_fn("Setting device to dim white...")
         try:
             device.set_led_color(
                 LEDColor.WHITE,
@@ -721,9 +841,15 @@ def test_device(
                 report_format="report_id_0",
                 brightness="dim",
             )
-            output_fn("✅ Device set to dim white")
+            if RICH_AVAILABLE and console is not None:
+                console.print("[green]✅ Device set to dim white[/green]")
+            else:
+                output_fn("✅ Device set to dim white")
         except Exception as e:
-            output_fn(f"⚠️  Failed to set dim white: {e}")
+            if RICH_AVAILABLE and console is not None:
+                console.print(f"[yellow]⚠️  Failed to set dim white:[/yellow] [red]{e}[/red]")
+            else:
+                output_fn(f"⚠️  Failed to set dim white: {e}")
         output_fn("")
 
         # Test LED colors
@@ -739,7 +865,10 @@ def test_device(
         num_colors = 8  # Number of colors tested
         _display_diagnostic_summary(button_detected, all_led_errors, num_colors, console, output_fn)
 
-        output_fn("✅ Test complete")
+        if RICH_AVAILABLE and console is not None:
+            console.print("[bold green]✅ Test complete[/bold green]")
+        else:
+            output_fn("✅ Test complete")
 
         # Cleanup device
         _cleanup_device(device, console, output_fn)

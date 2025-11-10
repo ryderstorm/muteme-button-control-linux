@@ -32,7 +32,9 @@ def discover_and_connect_device(
         from rich.panel import Panel
 
         if console is not None:
-            console.print(Panel("Step 1: Discovering devices...", style="bold blue"))
+            console.print(
+                Panel("[bold cyan]Step 1: Discovering devices...[/bold cyan]", style="bold blue")
+            )
         else:
             output_fn("Step 1: Discovering devices...")
     except ImportError:
@@ -41,15 +43,26 @@ def discover_and_connect_device(
     devices = MuteMeDevice.discover_devices()
 
     if not devices:
-        output_fn("❌ No MuteMe devices found")
-        output_fn("")
-        output_fn("Troubleshooting:")
-        output_fn("• Make sure your MuteMe device is connected")
-        output_fn("• Check USB cable connection")
-        output_fn("• Try a different USB port")
+        if console is not None:
+            console.print("[red]❌ No MuteMe devices found[/red]")
+            console.print("")
+            console.print("[bold yellow]Troubleshooting:[/bold yellow]")
+            console.print("[dim]• Make sure your MuteMe device is connected[/dim]")
+            console.print("[dim]• Check USB cable connection[/dim]")
+            console.print("[dim]• Try a different USB port[/dim]")
+        else:
+            output_fn("❌ No MuteMe devices found")
+            output_fn("")
+            output_fn("Troubleshooting:")
+            output_fn("• Make sure your MuteMe device is connected")
+            output_fn("• Check USB cable connection")
+            output_fn("• Try a different USB port")
         sys.exit(1)
 
-    output_fn(f"✅ Found {len(devices)} device(s)")
+    if console is not None:
+        console.print(f"[green]✅ Found {len(devices)} device(s)[/green]")
+    else:
+        output_fn(f"✅ Found {len(devices)} device(s)")
     output_fn("")
 
     # Step 2: Connect to device
@@ -58,7 +71,9 @@ def discover_and_connect_device(
         from rich.panel import Panel
 
         if console is not None:
-            console.print(Panel("Step 2: Connecting to device...", style="bold blue"))
+            console.print(
+                Panel("[bold cyan]Step 2: Connecting to device...[/bold cyan]", style="bold green")
+            )
         else:
             output_fn("Step 2: Connecting to device...")
     except ImportError:
@@ -66,21 +81,38 @@ def discover_and_connect_device(
 
     device_info = devices[0]
     vid_pid = f"VID:0x{device_info.vendor_id:04x} PID:0x{device_info.product_id:04x}"
-    output_fn(f"   Device: {vid_pid}")
-    output_fn(f"   Path: {device_info.path}")
+    if console is not None:
+        console.print(f"   [dim]Device:[/dim] [cyan]{vid_pid}[/cyan]")
+        console.print(f"   [dim]Path:[/dim] [cyan]{device_info.path}[/cyan]")
+    else:
+        output_fn(f"   Device: {vid_pid}")
+        output_fn(f"   Path: {device_info.path}")
 
     try:
         # Try VID/PID connection first
         device = MuteMeDevice.connect_by_vid_pid(device_info.vendor_id, device_info.product_id)
-        output_fn("✅ Connected successfully using VID/PID")
+        if console is not None:
+            console.print("[green]✅ Connected successfully using VID/PID[/green]")
+        else:
+            output_fn("✅ Connected successfully using VID/PID")
     except Exception as e:
-        output_fn(f"⚠️  VID/PID connection failed: {e}")
-        output_fn("   Trying path-based connection...")
+        if console is not None:
+            console.print(f"[yellow]⚠️  VID/PID connection failed:[/yellow] [red]{e}[/red]")
+            console.print("   [dim]Trying path-based connection...[/dim]")
+        else:
+            output_fn(f"⚠️  VID/PID connection failed: {e}")
+            output_fn("   Trying path-based connection...")
         try:
             device = MuteMeDevice.connect(device_info.path)
-            output_fn("✅ Connected successfully using path")
+            if console is not None:
+                console.print("[green]✅ Connected successfully using path[/green]")
+            else:
+                output_fn("✅ Connected successfully using path")
         except Exception as path_error:
-            output_fn(f"❌ Connection failed: {path_error}")
+            if console is not None:
+                console.print(f"[red]❌ Connection failed:[/red] [red]{path_error}[/red]")
+            else:
+                output_fn(f"❌ Connection failed: {path_error}")
             sys.exit(1)
 
     return device, device_info
