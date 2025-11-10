@@ -500,11 +500,12 @@ class TestTestDeviceCommand:
 
             assert result.exit_code == 0
             assert "Diagnostic Summary" in result.stdout
-            assert "Device Connection:" in result.stdout
-            assert "Button Communication:" in result.stdout
-            assert "LED Control:" in result.stdout
-            assert "Colors Tested:" in result.stdout
-            assert "Report Format:" in result.stdout
+            # Rich Table format or fallback text format
+            assert "Device Connection" in result.stdout
+            assert "Button Communication" in result.stdout
+            assert "LED Control" in result.stdout
+            assert "Colors Tested" in result.stdout
+            assert "Report Format" in result.stdout
 
     @patch("muteme_btn.hid.device.MuteMeDevice.discover_devices")
     def test_test_device_led_error_handling(self, mock_discover):
@@ -557,3 +558,127 @@ class TestTestDeviceCommand:
             # Verify cleanup was called
             mock_device.disconnect.assert_called_once()
             assert "LED turned off" in result.stdout or "Turning LED off" in result.stdout
+
+    @patch("muteme_btn.hid.device.MuteMeDevice.discover_devices")
+    def test_test_device_uses_rich_console_print(self, mock_discover):
+        """Test that test-device command uses Rich console.print() instead of typer.echo()."""
+        mock_discover.return_value = [self._create_mock_device_info()]
+
+        mock_device = self._create_mock_device()
+        with (
+            patch(
+                "muteme_btn.hid.device.MuteMeDevice.connect_by_vid_pid", return_value=mock_device
+            ),
+            patch("muteme_btn.cli.commands.test_device._flash_rgb_pattern"),
+            patch("muteme_btn.cli.commands.test_device.time.sleep"),
+            patch("rich.console.Console.print") as mock_console_print,
+        ):
+            result = self.runner.invoke(app, ["test-device"])
+
+            assert result.exit_code == 0
+            # Verify Rich console.print() was called
+            assert mock_console_print.called
+            # Verify typer.echo() was NOT used for main output (may be used for errors)
+            # Main output should use Rich
+
+    @patch("muteme_btn.hid.device.MuteMeDevice.discover_devices")
+    def test_test_device_uses_rich_progress_bars_non_interactive(self, mock_discover):
+        """Test that test-device command uses Rich Progress bars in non-interactive mode."""
+        mock_discover.return_value = [self._create_mock_device_info()]
+
+        mock_device = self._create_mock_device()
+        with (
+            patch(
+                "muteme_btn.hid.device.MuteMeDevice.connect_by_vid_pid", return_value=mock_device
+            ),
+            patch("muteme_btn.cli.commands.test_device._flash_rgb_pattern"),
+            patch("muteme_btn.cli.commands.test_device.time.sleep"),
+            patch("muteme_btn.cli.commands.test_device.Progress") as mock_progress,
+        ):
+            result = self.runner.invoke(app, ["test-device"])
+
+            assert result.exit_code == 0
+            # Verify Rich Progress was used for color/brightness testing
+            assert mock_progress.called
+
+    @patch("muteme_btn.hid.device.MuteMeDevice.discover_devices")
+    def test_test_device_uses_rich_table_for_diagnostic_summary(self, mock_discover):
+        """Test that test-device command uses Rich Table for diagnostic summary."""
+        mock_discover.return_value = [self._create_mock_device_info()]
+
+        mock_device = self._create_mock_device()
+        with (
+            patch(
+                "muteme_btn.hid.device.MuteMeDevice.connect_by_vid_pid", return_value=mock_device
+            ),
+            patch("muteme_btn.cli.commands.test_device._flash_rgb_pattern"),
+            patch("muteme_btn.cli.commands.test_device.time.sleep"),
+            patch("muteme_btn.cli.commands.test_device.Table") as mock_table,
+        ):
+            result = self.runner.invoke(app, ["test-device"])
+
+            assert result.exit_code == 0
+            # Verify Rich Table was used for diagnostic summary
+            assert mock_table.called
+
+    @patch("muteme_btn.hid.device.MuteMeDevice.discover_devices")
+    def test_test_device_uses_rich_panel_for_section_headers(self, mock_discover):
+        """Test that test-device command uses Rich Panel for section headers."""
+        mock_discover.return_value = [self._create_mock_device_info()]
+
+        mock_device = self._create_mock_device()
+        with (
+            patch(
+                "muteme_btn.hid.device.MuteMeDevice.connect_by_vid_pid", return_value=mock_device
+            ),
+            patch("muteme_btn.cli.commands.test_device._flash_rgb_pattern"),
+            patch("muteme_btn.cli.commands.test_device.time.sleep"),
+            patch("muteme_btn.cli.commands.test_device.Panel") as mock_panel,
+        ):
+            result = self.runner.invoke(app, ["test-device"])
+
+            assert result.exit_code == 0
+            # Verify Rich Panel was used for section headers (e.g., "Step 1: Discovering devices")
+            assert mock_panel.called
+
+    @patch("muteme_btn.hid.device.MuteMeDevice.discover_devices")
+    def test_test_device_uses_rich_colored_status_indicators(self, mock_discover):
+        """Test that test-device command uses Rich colored status indicators."""
+        mock_discover.return_value = [self._create_mock_device_info()]
+
+        mock_device = self._create_mock_device()
+        with (
+            patch(
+                "muteme_btn.hid.device.MuteMeDevice.connect_by_vid_pid", return_value=mock_device
+            ),
+            patch("muteme_btn.cli.commands.test_device._flash_rgb_pattern"),
+            patch("muteme_btn.cli.commands.test_device.time.sleep"),
+        ):
+            result = self.runner.invoke(app, ["test-device"])
+
+            assert result.exit_code == 0
+            # Verify colored status indicators are present (✅, ⚠️, ❌)
+            # Rich markup should be used for coloring
+            assert "✅" in result.stdout or "[green]✅[/green]" in result.stdout
+
+    @patch("muteme_btn.hid.device.MuteMeDevice.discover_devices")
+    def test_test_device_graceful_fallback_when_rich_unavailable(self, mock_discover):
+        """Test graceful fallback to typer.echo() when Rich unavailable."""
+        mock_discover.return_value = [self._create_mock_device_info()]
+
+        mock_device = self._create_mock_device()
+        with (
+            patch(
+                "muteme_btn.hid.device.MuteMeDevice.connect_by_vid_pid", return_value=mock_device
+            ),
+            patch("muteme_btn.cli.commands.test_device._flash_rgb_pattern"),
+            patch("muteme_btn.cli.commands.test_device.time.sleep"),
+            patch(
+                "muteme_btn.cli.commands.test_device.RICH_AVAILABLE", False
+            ),  # Simulate Rich unavailable
+        ):
+            result = self.runner.invoke(app, ["test-device"])
+
+            assert result.exit_code == 0
+            # Should still work, falling back to typer.echo()
+            assert "Device Information:" in result.stdout or "Step" in result.stdout

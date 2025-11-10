@@ -3,6 +3,7 @@
 import asyncio
 import sys
 import time
+from collections.abc import Callable
 from pathlib import Path
 
 import typer
@@ -13,11 +14,63 @@ from ...utils.logging import setup_logging
 from ..utils.config_loader import load_config
 from ..utils.device_helpers import discover_and_connect_device
 
+# Conditional Rich import with graceful fallback
+try:
+    from rich.console import Console
+    from rich.panel import Panel
+    from rich.progress import Progress
+    from rich.table import Table
+
+    RICH_AVAILABLE = True
+except ImportError:
+    RICH_AVAILABLE = False
+    # Create dummy classes for type checking
+    Console = None  # type: ignore[assignment, misc]
+    Panel = None  # type: ignore[assignment, misc]
+    Progress = None  # type: ignore[assignment, misc]
+    Table = None  # type: ignore[assignment, misc]
+
 # LED timing constants (seconds)
 LED_COLOR_HOLD_DURATION = 0.3  # Duration to hold each color
 LED_COLOR_TRANSITION_DURATION = 0.1  # Duration for transitions/off periods
 LED_COLOR_VISIBLE_DURATION = 0.5  # Duration for color testing
 LED_BRIGHTNESS_TEST_DURATION = 3.0  # Duration for brightness level tests
+
+
+def _get_output_handler() -> tuple[Console | None, Callable]:
+    """Get Rich Console instance and output handler function.
+
+    Returns:
+        Tuple of (Console instance or None, output function)
+    """
+    if RICH_AVAILABLE and Console is not None:
+        console = Console()
+
+        def output_fn(*args, **kwargs):
+            """Output function that handles both Rich and typer.echo compatibility."""
+            # Handle err parameter for error output
+            err = kwargs.pop("err", False)
+            # Handle nl parameter (newline control)
+            nl = kwargs.pop("nl", True)
+
+            if err:
+                # For Rich, use stderr console
+                err_console = Console(file=sys.stderr)
+                if nl:
+                    err_console.print(*args, **kwargs)
+                else:
+                    # For no newline, use print with end=""
+                    err_console.print(*args, **kwargs, end="")
+            else:
+                # Normal output
+                if nl:
+                    console.print(*args, **kwargs)
+                else:
+                    # For no newline, use print with end=""
+                    console.print(*args, **kwargs, end="")
+
+        return console, output_fn
+    return None, typer.echo
 
 
 def _flash_rgb_pattern(device: MuteMeDevice, cycles: int = 1) -> None:
@@ -46,35 +99,47 @@ def _flash_rgb_pattern(device: MuteMeDevice, cycles: int = 1) -> None:
             time.sleep(LED_COLOR_TRANSITION_DURATION)
 
 
-def _display_device_info(device_info: DeviceInfo) -> None:
+def _display_device_info(
+    device_info: DeviceInfo, console: Console | None = None, output_fn=typer.echo
+) -> None:
     """Display device information.
 
     Args:
         device_info: Device information to display
+        console: Rich Console instance (optional)
+        output_fn: Output function to use (console.print or typer.echo)
     """
-    typer.echo("")
-    typer.echo("Device Information:")
-    typer.echo(f"  Vendor ID: 0x{device_info.vendor_id:04x}")
-    typer.echo(f"  Product ID: 0x{device_info.product_id:04x}")
-    typer.echo(f"  Manufacturer: {device_info.manufacturer or 'Unknown'}")
-    typer.echo(f"  Product: {device_info.product or 'Unknown'}")
-    typer.echo(f"  USB Path: {device_info.path}")
-    typer.echo("")
+    output_fn("")
+    output_fn("Device Information:")
+    output_fn(f"  Vendor ID: 0x{device_info.vendor_id:04x}")
+    output_fn(f"  Product ID: 0x{device_info.product_id:04x}")
+    output_fn(f"  Manufacturer: {device_info.manufacturer or 'Unknown'}")
+    output_fn(f"  Product: {device_info.product or 'Unknown'}")
+    output_fn(f"  USB Path: {device_info.path}")
+    output_fn("")
 
 
-def _test_led_colors(device: MuteMeDevice, interactive: bool) -> list[str]:
+def _test_led_colors(
+    device: MuteMeDevice, interactive: bool, console: Console | None = None, output_fn=typer.echo
+) -> list[str]:
     """Test LED colors on the device.
 
     Args:
         device: MuteMe device to test
         interactive: Whether to run in interactive mode
+        console: Rich Console instance (optional)
+        output_fn: Output function to use (console.print or typer.echo)
 
     Returns:
         List of error messages for failed colors
     """
-    typer.echo("Step 3: Testing LED control...")
-    typer.echo("   Testing with format: report_id_0 (output) - [0x00, color_value]")
-    typer.echo("")
+    # Use Rich Panel for section header if available
+    if RICH_AVAILABLE and Panel is not None and console is not None:
+        console.print(Panel("Step 3: Testing LED control...", style="bold blue"))
+    else:
+        output_fn("Step 3: Testing LED control...")
+    output_fn("   Testing with format: report_id_0 (output) - [0x00, color_value]")
+    output_fn("")
 
     # Test all available colors in order
     all_colors = [
@@ -89,69 +154,97 @@ def _test_led_colors(device: MuteMeDevice, interactive: bool) -> list[str]:
     ]
 
     if interactive:
-        typer.echo("   Colors will be tested in this order:")
+        output_fn("   Colors will be tested in this order:")
         for i, (color_name, _) in enumerate(all_colors, 1):
-            typer.echo(f"      {i}. {color_name}")
-        typer.echo("")
-        typer.echo("   Press ENTER to begin color tests...")
+            output_fn(f"      {i}. {color_name}")
+        output_fn("")
+        output_fn("   Press ENTER to begin color tests...")
         input()
-        typer.echo("")
+        output_fn("")
 
     all_led_errors = []
 
-    typer.echo("   Testing all colors:")
-    typer.echo("")
+    output_fn("   Testing all colors:")
+    output_fn("")
 
-    for i, (color_name, color) in enumerate(all_colors, 1):
-        typer.echo(f"   {i}. Setting LED to {color_name}...", nl=False)
+    # Use Rich Progress bar in non-interactive mode
+    if not interactive and RICH_AVAILABLE and Progress is not None and console is not None:
+        with Progress(console=console) as progress:
+            task = progress.add_task("[cyan]Testing colors...", total=len(all_colors))
+            for i, (color_name, color) in enumerate(all_colors, 1):
+                output_fn(f"   {i}. Setting LED to {color_name}...", nl=False)
 
-        try:
-            device.set_led_color(color, use_feature_report=False, report_format="report_id_0")
-            typer.echo(" ✅")
+                try:
+                    device.set_led_color(
+                        color, use_feature_report=False, report_format="report_id_0"
+                    )
+                    output_fn(" ✅")
+                    time.sleep(LED_COLOR_VISIBLE_DURATION)
+                    progress.update(task, advance=1)
+                except Exception as e:
+                    output_fn(f" ❌ Error: {e}")
+                    all_led_errors.append(f"{color_name}: {e}")
+                    progress.update(task, advance=1)
+    else:
+        # Interactive mode or fallback
+        for i, (color_name, color) in enumerate(all_colors, 1):
+            output_fn(f"   {i}. Setting LED to {color_name}...", nl=False)
 
-            if interactive:
-                typer.echo("      → Note the color displayed on the device")
-                if i < len(all_colors):
-                    typer.echo("      → Press ENTER to move to next color...")
-                    input()
+            try:
+                device.set_led_color(color, use_feature_report=False, report_format="report_id_0")
+                output_fn(" ✅")
+
+                if interactive:
+                    output_fn("      → Note the color displayed on the device")
+                    if i < len(all_colors):
+                        output_fn("      → Press ENTER to move to next color...")
+                        input()
+                    else:
+                        output_fn("      → (Last color - test complete)")
                 else:
-                    typer.echo("      → (Last color - test complete)")
-            else:
-                time.sleep(LED_COLOR_VISIBLE_DURATION)  # Visible duration per color
-        except Exception as e:
-            typer.echo(f" ❌ Error: {e}")
-            all_led_errors.append(f"{color_name}: {e}")
-            if interactive and i < len(all_colors):
-                typer.echo("      → Press ENTER to continue...")
-                input()
+                    time.sleep(LED_COLOR_VISIBLE_DURATION)  # Visible duration per color
+            except Exception as e:
+                output_fn(f" ❌ Error: {e}")
+                all_led_errors.append(f"{color_name}: {e}")
+                if interactive and i < len(all_colors):
+                    output_fn("      → Press ENTER to continue...")
+                    input()
 
-    typer.echo("")
-    typer.echo("   ✅ Color test complete!")
+    output_fn("")
+    output_fn("   ✅ Color test complete!")
 
     if all_led_errors:
-        typer.echo("")
-        typer.echo("   ⚠️  Some colors failed:")
+        output_fn("")
+        output_fn("   ⚠️  Some colors failed:")
         for error in all_led_errors:
-            typer.echo(f"      • {error}")
+            output_fn(f"      • {error}")
 
-    typer.echo("")
+    output_fn("")
 
     return all_led_errors
 
 
-def _test_brightness_levels(device: MuteMeDevice, interactive: bool) -> list[str]:
+def _test_brightness_levels(
+    device: MuteMeDevice, interactive: bool, console: Console | None = None, output_fn=typer.echo
+) -> list[str]:
     """Test brightness levels on the device.
 
     Args:
         device: MuteMe device to test
         interactive: Whether to run in interactive mode
+        console: Rich Console instance (optional)
+        output_fn: Output function to use (console.print or typer.echo)
 
     Returns:
         List of error messages for failed brightness levels
     """
-    typer.echo("Step 3b: Testing brightness levels...")
-    typer.echo("   Testing brightness/effect levels with WHITE color")
-    typer.echo("")
+    # Use Rich Panel for section header if available
+    if RICH_AVAILABLE and Panel is not None and console is not None:
+        console.print(Panel("Step 3b: Testing brightness levels...", style="bold blue"))
+    else:
+        output_fn("Step 3b: Testing brightness levels...")
+    output_fn("   Testing brightness/effect levels with WHITE color")
+    output_fn("")
 
     brightness_levels = [
         ("Dim", "dim"),
@@ -162,63 +255,91 @@ def _test_brightness_levels(device: MuteMeDevice, interactive: bool) -> list[str
     ]
 
     if interactive:
-        typer.echo("   Brightness levels will be tested in this order:")
+        output_fn("   Brightness levels will be tested in this order:")
         for i, (level_name, _) in enumerate(brightness_levels, 1):
-            typer.echo(f"      {i}. {level_name}")
-        typer.echo("")
-        typer.echo("   Press ENTER to begin brightness tests...")
+            output_fn(f"      {i}. {level_name}")
+        output_fn("")
+        output_fn("   Press ENTER to begin brightness tests...")
         input()
-        typer.echo("")
+        output_fn("")
 
     all_brightness_errors = []
 
-    for i, (level_name, brightness) in enumerate(brightness_levels, 1):
-        typer.echo(f"   {i}. Setting WHITE to {level_name}...", nl=False)
-        try:
-            device.set_led_color(
-                LEDColor.WHITE,
-                use_feature_report=False,
-                report_format="report_id_0",
-                brightness=brightness,
+    # Use Rich Progress bar in non-interactive mode
+    if not interactive and RICH_AVAILABLE and Progress is not None and console is not None:
+        with Progress(console=console) as progress:
+            task = progress.add_task(
+                "[cyan]Testing brightness levels...", total=len(brightness_levels)
             )
-            typer.echo(" ✅")
-            if interactive:
-                typer.echo("      → Note the brightness/effect on the device")
-                if i < len(brightness_levels):
-                    typer.echo("      → Press ENTER to move to next brightness level...")
-                    input()
+            for i, (level_name, brightness) in enumerate(brightness_levels, 1):
+                output_fn(f"   {i}. Setting WHITE to {level_name}...", nl=False)
+                try:
+                    device.set_led_color(
+                        LEDColor.WHITE,
+                        use_feature_report=False,
+                        report_format="report_id_0",
+                        brightness=brightness,
+                    )
+                    output_fn(" ✅")
+                    time.sleep(LED_BRIGHTNESS_TEST_DURATION)
+                    progress.update(task, advance=1)
+                except Exception as e:
+                    output_fn(f" ❌ Error: {e}")
+                    all_brightness_errors.append(f"{level_name}: {e}")
+                    progress.update(task, advance=1)
+    else:
+        # Interactive mode or fallback
+        for i, (level_name, brightness) in enumerate(brightness_levels, 1):
+            output_fn(f"   {i}. Setting WHITE to {level_name}...", nl=False)
+            try:
+                device.set_led_color(
+                    LEDColor.WHITE,
+                    use_feature_report=False,
+                    report_format="report_id_0",
+                    brightness=brightness,
+                )
+                output_fn(" ✅")
+                if interactive:
+                    output_fn("      → Note the brightness/effect on the device")
+                    if i < len(brightness_levels):
+                        output_fn("      → Press ENTER to move to next brightness level...")
+                        input()
+                    else:
+                        output_fn("      → (Last brightness level - test complete)")
+                        output_fn("      → Press ENTER to continue to button test...")
+                        input()
                 else:
-                    typer.echo("      → (Last brightness level - test complete)")
-                    typer.echo("      → Press ENTER to continue to button test...")
+                    time.sleep(LED_BRIGHTNESS_TEST_DURATION)  # Duration per brightness level
+            except Exception as e:
+                output_fn(f" ❌ Error: {e}")
+                all_brightness_errors.append(f"{level_name}: {e}")
+                if interactive:
+                    output_fn("      → Press ENTER to continue...")
                     input()
-            else:
-                time.sleep(LED_BRIGHTNESS_TEST_DURATION)  # Duration per brightness level
-        except Exception as e:
-            typer.echo(f" ❌ Error: {e}")
-            all_brightness_errors.append(f"{level_name}: {e}")
-            if interactive:
-                typer.echo("      → Press ENTER to continue...")
-                input()
 
-    typer.echo("")
-    typer.echo("   ✅ Brightness test complete!")
+    output_fn("")
+    output_fn("   ✅ Brightness test complete!")
 
     if all_brightness_errors:
-        typer.echo("")
-        typer.echo("   ⚠️  Some brightness levels failed:")
+        output_fn("")
+        output_fn("   ⚠️  Some brightness levels failed:")
         for error in all_brightness_errors:
-            typer.echo(f"      • {error}")
+            output_fn(f"      • {error}")
 
-    typer.echo("")
+    output_fn("")
 
     return all_brightness_errors
 
 
-async def _test_button_communication_async(device: MuteMeDevice) -> bool:
+async def _test_button_communication_async(
+    device: MuteMeDevice, console: Console | None = None, output_fn=typer.echo
+) -> bool:
     """Test button communication asynchronously.
 
     Args:
         device: MuteMe device to test
+        console: Rich Console instance (optional)
+        output_fn: Output function to use (console.print or typer.echo)
 
     Returns:
         True if button press detected, False otherwise
@@ -242,42 +363,50 @@ async def _test_button_communication_async(device: MuteMeDevice) -> bool:
                         report_format="report_id_0",
                         brightness="fast_pulse",
                     )
-                    typer.echo(f"   ✅ Button event detected: {event.type}")
-                    typer.echo(
+                    output_fn(f"   ✅ Button event detected: {event.type}")
+                    output_fn(
                         f"   LED set to bright green fast pulse "
                         f"(will stay on for {LED_BRIGHTNESS_TEST_DURATION} seconds)"
                     )
                     # Keep the green fast pulse for duration
                     await asyncio.sleep(LED_BRIGHTNESS_TEST_DURATION)
                 except Exception as e:
-                    typer.echo(f"   ⚠️  Failed to set LED to green: {e}")
+                    output_fn(f"   ⚠️  Failed to set LED to green: {e}")
                 break
             await asyncio.sleep(0.1)
 
         if not button_detected:
-            typer.echo("   ⚠️  No button press detected (OK if not pressed)")
+            output_fn("   ⚠️  No button press detected (OK if not pressed)")
     except Exception as e:
-        typer.echo(f"   ⚠️  Button read test error: {e}")
+        output_fn(f"   ⚠️  Button read test error: {e}")
     return button_detected
 
 
-def _test_button_communication(device: MuteMeDevice, interactive: bool) -> bool:
+def _test_button_communication(
+    device: MuteMeDevice, interactive: bool, console: Console | None = None, output_fn=typer.echo
+) -> bool:
     """Test button communication on the device.
 
     Args:
         device: MuteMe device to test
         interactive: Whether to run in interactive mode
+        console: Rich Console instance (optional)
+        output_fn: Output function to use (console.print or typer.echo)
 
     Returns:
         True if button press detected, False otherwise
     """
-    typer.echo("Step 4: Testing button communication...")
+    # Use Rich Panel for section header if available
+    if RICH_AVAILABLE and Panel is not None and console is not None:
+        console.print(Panel("Step 4: Testing button communication...", style="bold blue"))
+    else:
+        output_fn("Step 4: Testing button communication...")
 
     if interactive:
-        typer.echo("")
-        typer.echo("   Press ENTER when ready to start button test...")
+        output_fn("")
+        output_fn("   Press ENTER when ready to start button test...")
         input()
-        typer.echo("")
+        output_fn("")
         # Set LED to dim red slow pulse when user presses ENTER
         try:
             device.set_led_color(
@@ -286,28 +415,39 @@ def _test_button_communication(device: MuteMeDevice, interactive: bool) -> bool:
                 report_format="report_id_0",
                 brightness="slow_pulse",
             )
-            typer.echo("   LED set to dim red slow pulse - ready for button test")
+            output_fn("   LED set to dim red slow pulse - ready for button test")
         except Exception as e:
-            typer.echo(f"   ⚠️  Failed to set LED: {e}")
-        typer.echo("")
-        typer.echo("   Press the MuteMe button now...")
-        typer.echo("   (Waiting up to 10 seconds for button press...)")
-        typer.echo("   LED will change to bright green fast pulse when button is pressed")
+            output_fn(f"   ⚠️  Failed to set LED: {e}")
+        output_fn("")
+        output_fn("   Press the MuteMe button now...")
+        output_fn("   (Waiting up to 10 seconds for button press...)")
+        output_fn("   LED will change to bright green fast pulse when button is pressed")
 
-    # Only run button test in interactive mode
-    button_detected = False
-    if interactive:
-        button_detected = asyncio.run(_test_button_communication_async(device))
+        # Use Rich console.status() for indeterminate operation
+        if RICH_AVAILABLE and console is not None:
+            with console.status("[bold yellow]Waiting for button press...", spinner="dots"):
+                button_detected = asyncio.run(
+                    _test_button_communication_async(device, console, output_fn)
+                )
+        else:
+            button_detected = asyncio.run(
+                _test_button_communication_async(device, console, output_fn)
+            )
     else:
-        typer.echo("   (Button test skipped in non-interactive mode)")
+        output_fn("   (Button test skipped in non-interactive mode)")
+        button_detected = False
 
-    typer.echo("")
+    output_fn("")
 
     return button_detected
 
 
 def _display_diagnostic_summary(
-    button_detected: bool, all_led_errors: list[str], num_colors: int
+    button_detected: bool,
+    all_led_errors: list[str],
+    num_colors: int,
+    console: Console | None = None,
+    output_fn=typer.echo,
 ) -> None:
     """Display diagnostic summary.
 
@@ -315,59 +455,93 @@ def _display_diagnostic_summary(
         button_detected: Whether button communication was detected
         all_led_errors: List of LED error messages
         num_colors: Number of colors tested
+        console: Rich Console instance (optional)
+        output_fn: Output function to use (console.print or typer.echo)
     """
-    typer.echo("")
-    typer.echo("Step 5: Diagnostic Summary")
-    typer.echo("=" * 50)
-    typer.echo("Device Connection: ✅ Connected")
-    typer.echo(f"Button Communication: {'✅ Working' if button_detected else '⚠️  Not tested'}")
-    led_status = "✅ Working" if not all_led_errors else f"❌ {len(all_led_errors)} error(s)"
-    typer.echo(f"LED Control: {led_status}")
-    typer.echo(f"Colors Tested: {num_colors} colors")
-    typer.echo("Report Format: report_id_0 (output) - [0x00, color_value]")
+    output_fn("")
+    # Use Rich Panel for section header if available
+    if RICH_AVAILABLE and Panel is not None and console is not None:
+        console.print(Panel("Step 5: Diagnostic Summary", style="bold blue"))
+    else:
+        output_fn("Step 5: Diagnostic Summary")
+        output_fn("=" * 50)
 
-    typer.echo("")
-    typer.echo("HID Report Format:")
-    typer.echo("  Report: [0x00, color_value]")
-    typer.echo(
+    # Use Rich Table if available
+    if RICH_AVAILABLE and Table is not None and console is not None:
+        table = Table(show_header=True, header_style="bold magenta")
+        table.add_column("Test", style="cyan", no_wrap=True)
+        table.add_column("Status", style="green")
+
+        table.add_row("Device Connection", "[green]✅ Connected[/green]")
+        button_status = (
+            "[green]✅ Working[/green]" if button_detected else "[yellow]⚠️  Not tested[/yellow]"
+        )
+        table.add_row("Button Communication", button_status)
+        led_status = (
+            "[green]✅ Working[/green]"
+            if not all_led_errors
+            else f"[red]❌ {len(all_led_errors)} error(s)[/red]"
+        )
+        table.add_row("LED Control", led_status)
+        table.add_row("Colors Tested", f"{num_colors} colors")
+        table.add_row("Report Format", "report_id_0 (output) - [0x00, color_value]")
+
+        console.print(table)
+    else:
+        # Fallback to text output
+        output_fn("Device Connection: ✅ Connected")
+        output_fn(f"Button Communication: {'✅ Working' if button_detected else '⚠️  Not tested'}")
+        led_status = "✅ Working" if not all_led_errors else f"❌ {len(all_led_errors)} error(s)"
+        output_fn(f"LED Control: {led_status}")
+        output_fn(f"Colors Tested: {num_colors} colors")
+        output_fn("Report Format: report_id_0 (output) - [0x00, color_value]")
+
+    output_fn("")
+    output_fn("HID Report Format:")
+    output_fn("  Report: [0x00, color_value]")
+    output_fn(
         "  Colors: 0x00=OFF, 0x01=RED, 0x02=GREEN, 0x03=YELLOW, "
         "0x04=BLUE, 0x05=PURPLE, 0x06=CYAN, 0x07=WHITE"
     )
 
     if all_led_errors:
-        typer.echo("")
-        typer.echo("⚠️  Some LED commands failed. Check:")
-        typer.echo("  • Device firmware version")
-        typer.echo("  • HID report format compatibility")
-        typer.echo("  • Device initialization requirements")
-    typer.echo("")
+        output_fn("")
+        output_fn("⚠️  Some LED commands failed. Check:")
+        output_fn("  • Device firmware version")
+        output_fn("  • HID report format compatibility")
+        output_fn("  • Device initialization requirements")
+    output_fn("")
 
 
-def _cleanup_device(device: MuteMeDevice) -> None:
+def _cleanup_device(
+    device: MuteMeDevice, console: Console | None = None, output_fn=typer.echo
+) -> None:
     """Clean up device connection and turn off LED.
 
     Args:
         device: MuteMe device to clean up
+        console: Rich Console instance (optional)
+        output_fn: Output function to use (console.print or typer.echo)
     """
     # Flash gentle RGB pattern at end (single cycle with dim brightness)
-    typer.echo("")
-    typer.echo("Flashing RGB pattern...")
+    output_fn("")
+    output_fn("Flashing RGB pattern...")
     try:
         _flash_rgb_pattern(device, cycles=1)
-        typer.echo("✅ End pattern complete")
+        output_fn("✅ End pattern complete")
     except Exception as e:
-        typer.echo(f"⚠️  Failed to flash end pattern: {e}")
+        output_fn(f"⚠️  Failed to flash end pattern: {e}")
 
     # Cleanup - turn LED off
-    typer.echo("")
-    typer.echo("Turning LED off...")
+    output_fn("")
+    output_fn("Turning LED off...")
     try:
         device.set_led_color(
             LEDColor.NOCOLOR, use_feature_report=False, report_format="report_id_0"
         )
-        typer.echo("✅ LED turned off")
+        output_fn("✅ LED turned off")
     except Exception as e:
-        typer.echo(f"⚠️  Failed to turn LED off: {e}")
+        output_fn(f"⚠️  Failed to turn LED off: {e}")
 
     # Cleanup
     device.disconnect()
@@ -421,38 +595,41 @@ def test_device(
             backup_count=app_config.logging.backup_count,
         )
 
-        typer.echo("🔍 MuteMe Device Communication Test")
-        typer.echo("=" * 50)
-        typer.echo("")
+        # Initialize Rich Console if available
+        console, output_fn = _get_output_handler()
+
+        output_fn("🔍 MuteMe Device Communication Test")
+        output_fn("=" * 50)
+        output_fn("")
 
         # Discover and connect to device
-        device, device_info = discover_and_connect_device()
+        device, device_info = discover_and_connect_device(console, output_fn)
 
         # Display device information
-        _display_device_info(device_info)
+        _display_device_info(device_info, console, output_fn)
 
         # If color/brightness flags are provided, do quick test only
         if color or brightness:
             if brightness and not color:
-                typer.echo("❌ --brightness requires --color to be specified", err=True)
+                output_fn("❌ --brightness requires --color to be specified", err=True)
                 sys.exit(1)
 
             # Quick test mode
-            typer.echo("Quick Test Mode")
-            typer.echo("=" * 50)
-            typer.echo("")
+            output_fn("Quick Test Mode")
+            output_fn("=" * 50)
+            output_fn("")
 
             test_color = LEDColor.from_name(color) if color else LEDColor.WHITE
             test_brightness = brightness if brightness else "normal"
 
-            typer.echo(f"Testing: Color={test_color.name}, Brightness={test_brightness}")
-            typer.echo("")
+            output_fn(f"Testing: Color={test_color.name}, Brightness={test_brightness}")
+            output_fn("")
 
             try:
                 if test_brightness == "flashing":
                     # Flashing uses software animation - show info first, then animate
-                    typer.echo("Starting flashing animation (20 rapid on/off cycles)...")
-                    typer.echo("")
+                    output_fn("Starting flashing animation (20 rapid on/off cycles)...")
+                    output_fn("")
 
                     device.set_led_color(
                         test_color,
@@ -461,28 +638,28 @@ def test_device(
                         brightness=test_brightness,
                     )
 
-                    typer.echo("✅ Flashing animation complete")
-                    typer.echo("")
-                    typer.echo("Observe the device LED. Press ENTER when done...")
+                    output_fn("✅ Flashing animation complete")
+                    output_fn("")
+                    output_fn("Observe the device LED. Press ENTER when done...")
                     if interactive:
                         input()
                     else:
                         time.sleep(2)
 
                     # Cleanup before returning
-                    typer.echo("")
-                    typer.echo("Turning LED off...")
+                    output_fn("")
+                    output_fn("Turning LED off...")
                     try:
                         device.set_led_color(
                             LEDColor.NOCOLOR,
                             use_feature_report=False,
                             report_format="report_id_0",
                         )
-                        typer.echo("✅ LED turned off")
+                        output_fn("✅ LED turned off")
                     except Exception as e:
-                        typer.echo(f"⚠️  Failed to turn LED off: {e}")
+                        output_fn(f"⚠️  Failed to turn LED off: {e}")
                     device.disconnect()
-                    typer.echo("✅ Quick test complete")
+                    output_fn("✅ Quick test complete")
                     return
 
                 # For non-flashing brightness levels
@@ -503,40 +680,40 @@ def test_device(
                 else:
                     color_value = test_color.value
 
-                typer.echo(f"✅ Set LED to {test_color.name} with {test_brightness} brightness")
+                output_fn(f"✅ Set LED to {test_color.name} with {test_brightness} brightness")
                 offset_val = color_value - test_color.value
-                typer.echo(
+                output_fn(
                     f"   HID report: [0x00, 0x{color_value:02x}] "
                     f"(color=0x{test_color.value:02x}, offset=0x{offset_val:02x})"
                 )
-                typer.echo("")
-                typer.echo("Observe the device LED. Press ENTER when done...")
+                output_fn("")
+                output_fn("Observe the device LED. Press ENTER when done...")
                 if interactive:
                     input()
                 else:
                     time.sleep(5)
             except Exception as e:
-                typer.echo(f"❌ Failed to set LED: {e}", err=True)
+                output_fn(f"❌ Failed to set LED: {e}", err=True)
                 sys.exit(1)
 
             # Cleanup
-            _cleanup_device(device)
-            typer.echo("✅ Quick test complete")
+            _cleanup_device(device, console, output_fn)
+            output_fn("✅ Quick test complete")
             return
 
         # Full test suite (existing behavior)
 
         # Flash gentle RGB pattern at start (single cycle with dim brightness)
-        typer.echo("Flashing RGB pattern...")
+        output_fn("Flashing RGB pattern...")
         try:
             _flash_rgb_pattern(device, cycles=1)
-            typer.echo("✅ Start pattern complete")
+            output_fn("✅ Start pattern complete")
         except Exception as e:
-            typer.echo(f"⚠️  Failed to flash start pattern: {e}")
-        typer.echo("")
+            output_fn(f"⚠️  Failed to flash start pattern: {e}")
+        output_fn("")
 
         # Set device to dim white after RGB pattern
-        typer.echo("Setting device to dim white...")
+        output_fn("Setting device to dim white...")
         try:
             device.set_led_color(
                 LEDColor.WHITE,
@@ -544,44 +721,46 @@ def test_device(
                 report_format="report_id_0",
                 brightness="dim",
             )
-            typer.echo("✅ Device set to dim white")
+            output_fn("✅ Device set to dim white")
         except Exception as e:
-            typer.echo(f"⚠️  Failed to set dim white: {e}")
-        typer.echo("")
+            output_fn(f"⚠️  Failed to set dim white: {e}")
+        output_fn("")
 
         # Test LED colors
-        all_led_errors = _test_led_colors(device, interactive)
+        all_led_errors = _test_led_colors(device, interactive, console, output_fn)
 
         # Test brightness levels
-        _test_brightness_levels(device, interactive)
+        _test_brightness_levels(device, interactive, console, output_fn)
 
         # Test button communication
-        button_detected = _test_button_communication(device, interactive)
+        button_detected = _test_button_communication(device, interactive, console, output_fn)
 
         # Display diagnostic summary
         num_colors = 8  # Number of colors tested
-        _display_diagnostic_summary(button_detected, all_led_errors, num_colors)
+        _display_diagnostic_summary(button_detected, all_led_errors, num_colors, console, output_fn)
 
-        typer.echo("✅ Test complete")
+        output_fn("✅ Test complete")
 
         # Cleanup device
-        _cleanup_device(device)
+        _cleanup_device(device, console, output_fn)
 
         if all_led_errors:
-            typer.echo("")
-            typer.echo("⚠️  Some LED commands failed. Check:")
-            typer.echo("  • Device firmware version")
-            typer.echo("  • HID report format compatibility")
-            typer.echo("  • Device initialization requirements")
+            output_fn("")
+            output_fn("⚠️  Some LED commands failed. Check:")
+            output_fn("  • Device firmware version")
+            output_fn("  • HID report format compatibility")
+            output_fn("  • Device initialization requirements")
             sys.exit(1)
 
     except KeyboardInterrupt:
-        typer.echo("\n\n⚠️  Test interrupted by user")
+        _, output_fn = _get_output_handler()
+        output_fn("\n\n⚠️  Test interrupted by user")
         sys.exit(0)
     except Exception as e:
-        typer.echo(f"\n❌ Test failed: {e}", err=True)
+        _, output_fn = _get_output_handler()
+        output_fn(f"\n❌ Test failed: {e}", err=True)
         import traceback
 
         if log_level and log_level.upper() == "DEBUG":
-            typer.echo(traceback.format_exc(), err=True)
+            output_fn(traceback.format_exc(), err=True)
         sys.exit(1)
