@@ -57,6 +57,7 @@ class TestCLI:
             # In test environment without device, it will be 1
             assert result.exit_code in [0, 1]
 
+    @pytest.mark.filterwarnings("ignore:coroutine.*was never awaited:RuntimeWarning")
     def test_invalid_command(self, runner: CliRunner) -> None:
         """Test invalid command returns error."""
         result = runner.invoke(app, ["invalid-command"])
