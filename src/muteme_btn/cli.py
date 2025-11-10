@@ -787,7 +787,8 @@ def test_device(
         all_led_errors = _test_led_colors(device, interactive)
 
         # Test brightness levels
-        _test_brightness_levels(device, interactive)
+        all_brightness_errors = _test_brightness_levels(device, interactive)
+        all_led_errors.extend(all_brightness_errors)
 
         # Test button communication
         button_detected = _test_button_communication(device, interactive)
@@ -905,10 +906,8 @@ def kill_instances(
                 if subcommand_token in normalized_exclude_commands:
                     continue
             elif muteme_index == -1:
-                # Fallback: if we can't find muteme_index, check all tokens (but use exact matching)
-                normalized_tokens = [arg.lower().replace("-", "_") for arg in cmdline]
-                if any(token in normalized_exclude_commands for token in normalized_tokens):
-                    continue
+                # If we can't find muteme entry point, skip the process to avoid false positives
+                continue
 
             if muteme_index != -1:
                 # Check what comes after muteme-btn-control or module name
@@ -922,11 +921,8 @@ def kill_instances(
                     # No argument after muteme-btn-control/module - defaults to 'run'
                     has_run_command = True
             else:
-                # Fallback: check for explicit " run" token or ends with muteme-btn-control
-                # This handles cases where cmdline parsing might be ambiguous
-                has_run_command = " run" in cmdline_str or cmdline_str.endswith(
-                    "muteme-btn-control"
-                )
+                # If we can't identify the entry point, skip to avoid false positives
+                has_run_command = False
 
             if has_run_command:
                 found_processes.append(psutil.Process(proc_pid))
