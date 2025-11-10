@@ -64,7 +64,8 @@ tests/test_signal_handling.py .........                                  [100%]
 ```
 
 **Coverage Report**:
-```
+
+```text
 Name                                  Stmts   Miss  Cover   Missing
 -------------------------------------------------------------------
 src/muteme_btn/__init__.py                1      0   100%
@@ -86,22 +87,27 @@ src/muteme_btn/utils/logging.py          34     21    38%   29-80, 97, 110-112, 
 TOTAL                                   698     90    87%
 ```
 
-**✅ Coverage: 87% (exceeds 85% requirement)**
+### Coverage Results
+
+Coverage: 87% (exceeds 85% requirement)
 
 ### Quality: `just check` Infrastructure
 
 The `just check` command runs all quality gates:
+
 - Linting (ruff)
 - Type checking (ty)
 - Tests (pytest with coverage)
 
 **Pre-commit hooks are configured**:
+
 ```bash
 $ uv run pre-commit install
 pre-commit installed at .git/hooks/pre-commit
 ```
 
 **Pre-commit configuration verified**:
+
 - Basic file checks (trailing whitespace, end-of-file, YAML/TOML validation)
 - Python linting and formatting (ruff)
 - Type checking (ty)
@@ -114,6 +120,7 @@ pre-commit installed at .git/hooks/pre-commit
 **File**: `justfile`
 
 **Key Recipes**:
+
 - `setup` - Install dependencies and pre-commit hooks
 - `check` - Run all quality checks
 - `test` - Run tests with coverage
@@ -125,16 +132,19 @@ pre-commit installed at .git/hooks/pre-commit
 ### 4.2 Pre-commit Hooks and Quality Gates Configured
 
 **Files Created**:
+
 - `.pre-commit-config.yaml` - Pre-commit hook configuration
 - `pyproject.toml` - Updated with ruff and bandit configuration
 
 **Configuration**:
+
 - Ruff linting and formatting (v0.14.4)
 - Type checking with ty
 - Security scanning with bandit
 - Basic file checks (trailing whitespace, YAML/TOML validation)
 
 **Verification**:
+
 ```bash
 $ uv run pre-commit run --all-files
 # Hooks run successfully (some existing code issues detected, but infrastructure works)
@@ -145,12 +155,14 @@ $ uv run pre-commit run --all-files
 **File**: `pytest.ini` (already configured)
 
 **Configuration**:
+
 - Coverage threshold: 85%
 - HTML coverage reports: `htmlcov/`
 - Terminal coverage reports with missing lines
 - Async mode: auto
 
 **Verification**:
+
 - All 182 tests pass
 - Coverage: 87% (exceeds 85% requirement)
 
@@ -159,6 +171,7 @@ $ uv run pre-commit run --all-files
 **File**: `config/udev/99-muteme.rules`
 
 **Content**: Rules for all MuteMe device variants:
+
 - Main MuteMe (VID:0x20A0, PID:0x42DA, 0x42DB)
 - MuteMe Mini variants (VID:0x3603, PID:0x0001-0x0004)
 
@@ -169,11 +182,13 @@ $ uv run pre-commit run --all-files
 **File**: `config/muteme.toml.example`
 
 **Content**: Complete example configuration with:
+
 - Device configuration (VID/PID, timeout)
 - Audio configuration (backend, polling interval)
 - Logging configuration (level, format, file settings)
 
 **Validation**: Configuration file loads successfully:
+
 ```bash
 $ python3 -c "from src.muteme_btn.config import AppConfig; from pathlib import Path; config = AppConfig.from_toml_file(Path('config/muteme.toml.example')); print('✅ Configuration file is valid')"
 ✅ Configuration file is valid
@@ -184,6 +199,7 @@ $ python3 -c "from src.muteme_btn.config import AppConfig; from pathlib import P
 **File**: `README.md`
 
 **Content**: Comprehensive documentation including:
+
 - Features overview
 - Installation instructions
 - Usage examples
@@ -203,6 +219,7 @@ All sub-tasks completed successfully:
 - ✅ 4.6: README with installation and usage instructions
 
 **Demo Criteria Met**:
+
 - ✅ `just --help` shows all recipes
 - ✅ `just test` runs with coverage >85% (87%)
 - ✅ Quality gates infrastructure configured (pre-commit hooks, linting, type checking)
