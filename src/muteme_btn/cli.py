@@ -853,6 +853,8 @@ def kill_instances(
         "kill_instances",
         "check-device",
     }
+    # Normalize exclude commands for comparison (handle both - and _ variants)
+    normalized_exclude_commands = {cmd.replace("-", "_") for cmd in exclude_commands}
 
     # Search for processes matching muteme-btn-control run command
     for proc in psutil.process_iter(["pid", "name", "cmdline"]):
@@ -872,11 +874,6 @@ def kill_instances(
 
             # Must contain muteme-btn-control or muteme_btn
             if "muteme-btn-control" not in cmdline_str and "muteme_btn" not in cmdline_str:
-                continue
-
-            # Exclude processes running other commands (test-device, kill-instances, etc.)
-            is_excluded_command = any(cmd in cmdline_str for cmd in exclude_commands)
-            if is_excluded_command:
                 continue
 
             # Only match 'run' command or processes without explicit command (defaults to run)
@@ -899,6 +896,19 @@ def kill_instances(
                 ):
                     muteme_index = i
                     break
+
+            # Exclude processes running other commands (test-device, kill-instances, etc.)
+            # Check only the actual subcommand token, not substrings in config paths
+            if muteme_index != -1 and muteme_index + 1 < len(cmdline):
+                # Normalize the subcommand token for comparison
+                subcommand_token = cmdline[muteme_index + 1].lower().replace("-", "_")
+                if subcommand_token in normalized_exclude_commands:
+                    continue
+            elif muteme_index == -1:
+                # Fallback: if we can't find muteme_index, check all tokens (but use exact matching)
+                normalized_tokens = [arg.lower().replace("-", "_") for arg in cmdline]
+                if any(token in normalized_exclude_commands for token in normalized_tokens):
+                    continue
 
             if muteme_index != -1:
                 # Check what comes after muteme-btn-control or module name
