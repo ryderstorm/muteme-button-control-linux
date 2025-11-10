@@ -717,19 +717,8 @@ def test_device(
                     else:
                         time.sleep(2)
 
-                    # Cleanup before returning
-                    typer.echo("")
-                    typer.echo("Turning LED off...")
-                    try:
-                        device.set_led_color(
-                            LEDColor.NOCOLOR,
-                            use_feature_report=False,
-                            report_format="report_id_0",
-                        )
-                        typer.echo("✅ LED turned off")
-                    except Exception as e:
-                        typer.echo(f"⚠️  Failed to turn LED off: {e}")
-                    device.disconnect()
+                    # Cleanup
+                    _cleanup_device(device)
                     typer.echo("✅ Quick test complete")
                     return
 
@@ -934,9 +923,6 @@ def kill_instances(
                 else:
                     # No argument after muteme-btn-control/module - defaults to 'run'
                     has_run_command = True
-            else:
-                # If we can't identify the entry point, skip to avoid false positives
-                has_run_command = False
 
             if has_run_command:
                 found_processes.append(psutil.Process(proc_pid))
