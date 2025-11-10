@@ -294,6 +294,46 @@ class TestMuteMeDevice:
         with pytest.raises(ValueError, match="Invalid LED color"):
             device.set_led_color_by_name("invalid")
 
+    @patch("time.sleep")
+    def test_set_led_color_flashing_brightness(self, mock_sleep):
+        """Test setting LED color with flashing brightness."""
+        mock_hid_device = Mock()
+        device = MuteMeDevice(mock_hid_device)
+
+        device.set_led_color(LEDColor.RED, brightness="flashing")
+
+        # Flashing uses software-side animation (rapid on/off cycles)
+        # Should have multiple write calls: 20 cycles * 2 (on/off) + 1 final on = 41 calls
+        assert mock_hid_device.write.call_count >= 20  # At least 20 cycles
+        # Verify it alternates between RED and NOCOLOR
+        calls = mock_hid_device.write.call_args_list
+        assert bytes([0x00, 0x01]) in [call[0][0] for call in calls]  # RED
+        assert bytes([0x00, 0x00]) in [call[0][0] for call in calls]  # NOCOLOR
+        # Final call should be RED
+        assert calls[-1][0][0] == bytes([0x00, 0x01])
+        # Verify sleep was called (20 cycles * 2 sleeps per cycle = 40 calls)
+        assert mock_sleep.call_count == 40
+
+    @patch("time.sleep")
+    def test_set_led_color_flashing_brightness_white(self, mock_sleep):
+        """Test setting LED color to white with flashing brightness."""
+        mock_hid_device = Mock()
+        device = MuteMeDevice(mock_hid_device)
+
+        device.set_led_color(LEDColor.WHITE, brightness="flashing")
+
+        # Flashing uses software-side animation (rapid on/off cycles)
+        # Should have multiple write calls: 20 cycles * 2 (on/off) + 1 final on = 41 calls
+        assert mock_hid_device.write.call_count >= 20  # At least 20 cycles
+        # Verify it alternates between WHITE and NOCOLOR
+        calls = mock_hid_device.write.call_args_list
+        assert bytes([0x00, 0x07]) in [call[0][0] for call in calls]  # WHITE
+        assert bytes([0x00, 0x00]) in [call[0][0] for call in calls]  # NOCOLOR
+        # Final call should be WHITE
+        assert calls[-1][0][0] == bytes([0x00, 0x07])
+        # Verify sleep was called (20 cycles * 2 sleeps per cycle = 40 calls)
+        assert mock_sleep.call_count == 40
+
     def test_check_device_permissions_success(self):
         """Test successful device permission check."""
         with patch("os.access") as mock_access:

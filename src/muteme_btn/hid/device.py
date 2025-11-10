@@ -4,6 +4,7 @@ import grp
 import os
 import pwd
 import stat
+import time
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
@@ -207,7 +208,8 @@ class MuteMeDevice:
                 error_msg += "\n\nTroubleshooting:"
                 error_msg += "\n• Device may be in use by another process"
                 error_msg += "\n• Try unplugging and replugging the device"
-                error_msg += "\n• Check if another instance is running: ps aux | grep muteme"
+                error_msg += "\n• Check if another instance is running: "
+                error_msg += "muteme-btn-control kill-instances"
                 error_msg += "\n• Verify device permissions: just check-device"
                 error_msg += (
                     f"\n• Path format: {device_path} "
@@ -422,12 +424,46 @@ class MuteMeDevice:
                 - "dim": Add 0x10 to color value
                 - "fast_pulse": Add 0x20 to color value
                 - "slow_pulse": Add 0x30 to color value
+                - "flashing": Software-side animation (rapid on/off cycles)
+                  Note: Hardware flashing (0x40 offset) may not be supported by all devices.
+                  This implementation uses software animation for reliability.
 
         Raises:
             DeviceError: If device not connected or write fails
         """
         if not self.is_connected():
             raise DeviceError("Device not connected")
+
+        def _build_report(raw_value: int) -> bytes:
+            """Build report bytes based on report_format.
+
+            Args:
+                raw_value: Color value to include in report
+
+            Returns:
+                Report bytes according to report_format
+            """
+            if report_format == "no_report_id":
+                return bytes([raw_value])
+            elif report_format == "report_id_0":
+                return bytes([0x00, raw_value])
+            elif report_format == "report_id_2":
+                return bytes([0x02, raw_value])
+            elif report_format == "padded":
+                return bytes([0x01, raw_value, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
+            else:  # standard
+                return bytes([0x01, raw_value])
+
+        def _send_report(report: bytes) -> None:
+            """Send report using appropriate transport method.
+
+            Args:
+                report: Report bytes to send
+            """
+            if use_feature_report:
+                self._device.send_feature_report(list(report))  # type: ignore[union-attr]
+            else:
+                self.write(report)
 
         try:
             # Apply brightness/effect offset
@@ -438,42 +474,54 @@ class MuteMeDevice:
                 color_value = color.value | 0x20
             elif brightness == "slow_pulse":
                 color_value = color.value | 0x30
-            # else "normal" - use base color value
+            elif brightness == "flashing":
+                # Software-side flashing animation (device firmware may not support 0x40 offset)
+                # This creates a rapid on/off flashing effect
+                flash_duration = 0.15  # Duration for each flash cycle (faster than fast_pulse)
+                flash_cycles = 20  # Number of cycles for flashing animation
+
+                for _ in range(flash_cycles):
+                    # Turn LED on with full brightness
+                    report_on = _build_report(color.value)
+                    _send_report(report_on)
+                    time.sleep(flash_duration)
+                    # Turn LED off
+                    report_off = _build_report(LEDColor.NOCOLOR.value)
+                    _send_report(report_off)
+                    time.sleep(flash_duration * 0.3)  # Shorter off period for faster flash
+
+                # Leave LED on at end of flashing
+                color_value = color.value
+                final_report = _build_report(color_value)
+                _send_report(final_report)
+                logger.debug(
+                    "Set LED color (software flashing)",
+                    color=color.name,
+                    value=color_value,
+                    format=report_format,
+                    brightness=brightness,
+                    report=final_report.hex(),
+                )
+                return
+            else:
+                # Normal brightness or other modes
+                pass
 
             # Build report based on format
-            if report_format == "no_report_id":
-                report = bytes([color_value])
-            elif report_format == "report_id_0":
-                report = bytes([0x00, color_value])
-            elif report_format == "report_id_2":
-                report = bytes([0x02, color_value])
-            elif report_format == "padded":
-                report = bytes([0x01, color_value, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
-            else:  # standard
-                report = bytes([0x01, color_value])
+            report = _build_report(color_value)
 
-            if use_feature_report:
-                # Try feature report method
-                self._device.send_feature_report(list(report))  # type: ignore[union-attr]
-                logger.debug(
-                    "Set LED color (feature report)",
-                    color=color.name,
-                    value=color_value,
-                    format=report_format,
-                    brightness=brightness,
-                    report=report.hex(),
-                )
-            else:
-                # Standard output report method
-                self.write(report)
-                logger.debug(
-                    "Set LED color",
-                    color=color.name,
-                    value=color_value,
-                    format=report_format,
-                    brightness=brightness,
-                    report=report.hex(),
-                )
+            # Send report using appropriate transport
+            _send_report(report)
+
+            # Log the operation
+            logger.debug(
+                "Set LED color",
+                color=color.name,
+                value=color_value,
+                format=report_format,
+                brightness=brightness,
+                report=report.hex(),
+            )
         except Exception as e:
             logger.error("Failed to set LED color", color=color.name, error=str(e))
             raise DeviceError(f"LED control failed: {e}") from e
