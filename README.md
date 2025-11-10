@@ -68,8 +68,8 @@
 
 ## 📦 Requirements
 
+- **Operating System**: Linux (tested on Ubuntu/Debian-based systems)
 - **Python**: 3.12 or higher
-- **Linux**: Tested on Ubuntu/Debian-based systems
 - **Hardware**: MuteMe button device (VID: `0x20A0`, PID: `0x42DA`)
 - **Audio System**: PulseAudio
 - **Dependencies**: Managed via `uv` (see `pyproject.toml`)
@@ -82,19 +82,8 @@
 
 #### 1. Install `uv` (Python package manager)
 
-**macOS:**
-```bash
-brew install uv
-```
-
-**Linux/Unix:**
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-**Windows:**
-```powershell
-powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
 #### 2. Install `just` (task runner, optional but recommended)
@@ -102,11 +91,6 @@ powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | ie
 **Ubuntu/Debian:**
 ```bash
 sudo apt install just
-```
-
-**macOS:**
-```bash
-brew install just
 ```
 
 **Or via cargo:**
