@@ -84,25 +84,25 @@
   - [x] 3.14 Verify file sizes: Check that no file exceeds 300 lines using `find src/muteme_btn/cli -name "*.py" -exec wc -l {} \;` (Note: test_device.py is 590 lines but is a single cohesive command with all helpers)
   - [x] 3.15 Update `docs/ARCHITECTURE.md` to document the new modularized CLI structure
   - [x] 3.16 Run `just check` to ensure all quality gates pass
-- [ ] 4.0 Integrate Rich library for enhanced test-device command output
+- [x] 4.0 Integrate Rich library for enhanced test-device command output
   - **TDD Workflow**: RED → GREEN → REFACTOR
     - **RED**: Write failing tests first (4.2)
     - **GREEN**: Implement Rich features incrementally to make tests pass (4.3-4.9)
     - **REFACTOR**: Add fallback and verify (4.10, 4.11)
   - Demo Criteria: "Run `uv run muteme-btn-control test-device --interactive` showing Rich-enhanced output (progress bars, colored status, formatted tables); run `uv run muteme-btn-control test-device` (non-interactive) showing Rich-enhanced output with automatic test execution; run `uv run muteme-btn-control --help` showing standard Typer help (unchanged); `pyproject.toml` showing Rich dependency added"
   - Proof Artifact(s): "CLI output screenshots showing Rich components (progress bars, colored text, tables); `pyproject.toml` diff showing Rich>=14.0.0 dependency; Test output showing Rich integration works; Help output showing other commands unchanged; CLI output of `test-device` (non-interactive); manual test of `test-device --interactive`"
-  - [ ] 4.1 Add Rich dependency to `pyproject.toml`: Add `rich>=14.0.0` to dependencies list (not dev dependencies). **Setup step - required before tests can run.**
-  - [ ] 4.2 **[RED]** Write failing tests for Rich output in test-device command: Test that `console.print()` is used instead of `typer.echo()`, test that Progress bars appear in non-interactive mode, test that Rich Table is used for diagnostic summary, test that Rich Panel is used for section headers, test that colored status indicators work, test graceful fallback when Rich unavailable. Tests should fail since Rich integration doesn't exist yet.
-  - [ ] 4.3 **[GREEN]** Add conditional Rich import in test-device command module with graceful fallback: `try: from rich.console import Console; from rich.progress import Progress; from rich.table import Table; from rich.panel import Panel; RICH_AVAILABLE = True; except ImportError: RICH_AVAILABLE = False`. Verify import tests pass.
-  - [ ] 4.4 **[GREEN]** Create Rich Console instance in test-device command: Initialize single `Console()` instance at start of command execution. Verify tests still pass.
-  - [ ] 4.5 **[GREEN]** Replace typer.echo with Rich console.print() for test-device command output: Update all output statements to use `console.print()` instead of `typer.echo()`. Verify console.print() tests pass.
-  - [ ] 4.6 **[GREEN]** Add Rich Progress bars for test steps: Use `with Progress() as progress:` context manager for color testing and brightness testing steps in non-interactive mode. Verify Progress bar tests pass.
-  - [ ] 4.7 **[GREEN]** Add Rich console.status() for indeterminate operations: Use `with console.status():` for waiting for button press in interactive mode. Verify tests pass.
-  - [ ] 4.8 **[GREEN]** Add Rich Table for diagnostic summary: Replace text-based diagnostic summary with Rich Table showing device connection status, button communication, LED control, colors tested, and report format. Verify Table tests pass.
-  - [ ] 4.9 **[GREEN]** Add Rich Panel for section headers: Use Panel for "Step 1: Discovering devices", "Step 2: Connecting to device", etc. Verify Panel tests pass.
-  - [ ] 4.10 **[GREEN]** Add colored status indicators: Use Rich markup for success (green ✅), warnings (yellow ⚠️), errors (red ❌). Verify colored indicator tests pass.
-  - [ ] 4.11 **[REFACTOR]** Implement graceful fallback: If Rich unavailable, fall back to standard typer.echo() output (maintain backward compatibility). Verify fallback tests pass. Run all tests to ensure they still pass.
-  - [ ] 4.12 Update test-device tests to handle Rich output: Use `console.capture()` context manager in tests to capture Rich output for assertions, or mock Rich components. Ensure all tests pass with Rich output.
-  - [ ] 4.13 Verify other commands unchanged: Run `uv run muteme-btn-control --help`, `uv run muteme-btn-control version`, `uv run muteme-btn-control check-device` to ensure they still use standard Typer output
-  - [ ] 4.14 Run manual tests: Test `uv run muteme-btn-control test-device` (non-interactive) and `uv run muteme-btn-control test-device --interactive` to verify Rich output displays correctly
-  - [ ] 4.15 Run `just check` to ensure all quality gates pass
+  - [x] 4.1 Add Rich dependency to `pyproject.toml`: Add `rich>=14.0.0` to dependencies list (not dev dependencies). **Setup step - required before tests can run.**
+  - [x] 4.2 **[RED]** Write failing tests for Rich output in test-device command: Test that `console.print()` is used instead of `typer.echo()`, test that Progress bars appear in non-interactive mode, test that Rich Table is used for diagnostic summary, test that Rich Panel is used for section headers, test that colored status indicators work, test graceful fallback when Rich unavailable. Tests should fail since Rich integration doesn't exist yet.
+  - [x] 4.3 **[GREEN]** Add conditional Rich import in test-device command module with graceful fallback: `try: from rich.console import Console; from rich.progress import Progress; from rich.table import Table; from rich.panel import Panel; RICH_AVAILABLE = True; except ImportError: RICH_AVAILABLE = False`. Verify import tests pass.
+  - [x] 4.4 **[GREEN]** Create Rich Console instance in test-device command: Initialize single `Console()` instance at start of command execution. Verify tests still pass.
+  - [x] 4.5 **[GREEN]** Replace typer.echo with Rich console.print() for test-device command output: Update all output statements to use `console.print()` instead of `typer.echo()`. Verify console.print() tests pass.
+  - [x] 4.6 **[GREEN]** Add Rich Progress bars for test steps: Use `with Progress() as progress:` context manager for color testing and brightness testing steps in non-interactive mode. Verify Progress bar tests pass.
+  - [x] 4.7 **[GREEN]** Add Rich console.status() for indeterminate operations: Use `with console.status():` for waiting for button press in interactive mode. Verify tests pass.
+  - [x] 4.8 **[GREEN]** Add Rich Table for diagnostic summary: Replace text-based diagnostic summary with Rich Table showing device connection status, button communication, LED control, colors tested, and report format. Verify Table tests pass.
+  - [x] 4.9 **[GREEN]** Add Rich Panel for section headers: Use Panel for "Step 1: Discovering devices", "Step 2: Connecting to device", etc. Verify Panel tests pass.
+  - [x] 4.10 **[GREEN]** Add colored status indicators: Use Rich markup for success (green ✅), warnings (yellow ⚠️), errors (red ❌). Verify colored indicator tests pass.
+  - [x] 4.11 **[REFACTOR]** Implement graceful fallback: If Rich unavailable, fall back to standard typer.echo() output (maintain backward compatibility). Verify fallback tests pass. Run all tests to ensure they still pass.
+  - [x] 4.12 Update test-device tests to handle Rich output: Use `console.capture()` context manager in tests to capture Rich output for assertions, or mock Rich components. Ensure all tests pass with Rich output.
+  - [x] 4.13 Verify other commands unchanged: Run `uv run muteme-btn-control --help`, `uv run muteme-btn-control version`, `uv run muteme-btn-control check-device` to ensure they still use standard Typer output
+  - [x] 4.14 Run manual tests: Test `uv run muteme-btn-control test-device` (non-interactive) and `uv run muteme-btn-control test-device --interactive` to verify Rich output displays correctly
+  - [x] 4.15 Run `just check` to ensure all quality gates pass
