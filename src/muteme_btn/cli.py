@@ -37,6 +37,8 @@ def _format_duration(seconds: float) -> str:
     Returns:
         Human-readable duration string (e.g., "2h 30m", "5m 30s", "45s")
     """
+    if seconds < 0:
+        seconds = 0
     if seconds < 60:
         return f"{int(seconds)}s"
     elif seconds < 3600:
@@ -102,6 +104,8 @@ def _discover_and_connect_device() -> tuple[MuteMeDevice, DeviceInfo]:
         sys.exit(1)
 
     typer.echo(f"✅ Found {len(devices)} device(s)")
+    if len(devices) > 1:
+        typer.echo("   → Using first device found")
     typer.echo("")
 
     # Step 2: Connect to device
@@ -389,12 +393,16 @@ def _test_button_communication(device: MuteMeDevice, interactive: bool) -> bool:
 
 
 def _display_diagnostic_summary(
-    button_detected: bool, all_led_errors: list[str], num_colors: int
+    button_detected: bool,
+    button_test_ran: bool,
+    all_led_errors: list[str],
+    num_colors: int,
 ) -> None:
     """Display diagnostic summary.
 
     Args:
         button_detected: Whether button communication was detected
+        button_test_ran: Whether the button test was actually executed
         all_led_errors: List of LED error messages
         num_colors: Number of colors tested
     """
@@ -402,7 +410,13 @@ def _display_diagnostic_summary(
     typer.echo("Step 5: Diagnostic Summary")
     typer.echo("=" * 50)
     typer.echo("Device Connection: ✅ Connected")
-    typer.echo(f"Button Communication: {'✅ Working' if button_detected else '⚠️  Not tested'}")
+    if button_detected:
+        button_status = "✅ Working"
+    elif button_test_ran:
+        button_status = "⚠️  No button press detected"
+    else:
+        button_status = "⚠️  Not tested"
+    typer.echo(f"Button Communication: {button_status}")
     led_status = "✅ Working" if not all_led_errors else f"❌ {len(all_led_errors)} error(s)"
     typer.echo(f"LED Control: {led_status}")
     typer.echo(f"Colors Tested: {num_colors} colors")
@@ -795,7 +809,7 @@ def test_device(
 
         # Display diagnostic summary
         num_colors = 8  # Number of colors tested
-        _display_diagnostic_summary(button_detected, all_led_errors, num_colors)
+        _display_diagnostic_summary(button_detected, interactive, all_led_errors, num_colors)
 
         typer.echo("✅ Test complete")
 
