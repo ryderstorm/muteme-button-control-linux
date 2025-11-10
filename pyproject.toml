@@ -76,13 +76,15 @@ allow_zero_version = true
 version_toml = ["pyproject.toml:project.version"]
 # Ensure uv.lock stays in sync with version changes and is committed
 # Install uv in build_command since semantic-release runs in a container without it
+# Install curl first if not available, then install uv
 build_command = """
+apt-get update && apt-get install -y curl || true
 curl -LsSf https://astral.sh/uv/install.sh | sh -s
 export PATH="$HOME/.local/bin:$PATH"
 uv sync --group packaging
 uv lock
 git add uv.lock
-python -m build --wheel --sdist
+uv build
 """
 # Generate changelog and commit version bumps
 assets = ["uv.lock"]
