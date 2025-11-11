@@ -39,11 +39,18 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Restore uv cache
+        uses: ./.github/actions/restore-uv-cache
+
       - name: Install dependencies
         run: uv sync
 
       - name: Run tests
         run: uv run pytest
+
+      - name: Prune uv cache
+        if: always()
+        uses: ./.github/actions/prune-uv-cache
 
   lint:
     name: Run Linting
@@ -64,6 +71,9 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Restore uv cache
+        uses: ./.github/actions/restore-uv-cache
+
       - name: Install dependencies
         run: uv sync
 
@@ -77,3 +87,7 @@ jobs:
 
       - name: Run security checks
         run: uv run bandit -c pyproject.toml -r src/
+
+      - name: Prune uv cache
+        if: always()
+        uses: ./.github/actions/prune-uv-cache

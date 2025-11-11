@@ -1,0 +1,9 @@
+name: 'Prune uv cache'
+description: 'Prune uv cache to optimize size for CI storage'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Prune uv cache
+      shell: bash
+      run: uv cache prune --ci

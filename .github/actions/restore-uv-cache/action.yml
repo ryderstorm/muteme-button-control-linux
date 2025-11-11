@@ -1,0 +1,23 @@
+name: 'Restore uv cache'
+description: 'Restore and manage uv package cache for faster CI runs'
+
+outputs:
+  cache-hit:
+    description: 'Whether a cache was found'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Restore uv cache
+      id: cache-uv
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/uv
+          ~/.local/share/uv
+        key: uv-${{ runner.os }}-${{ hashFiles('uv.lock') }}
+        restore-keys: |
+          uv-${{ runner.os }}-
+    - name: Set cache-hit output
+      shell: bash
+      run: echo "cache-hit=${{ steps.cache-uv.outputs.cache-hit }}" >> $GITHUB_OUTPUT
