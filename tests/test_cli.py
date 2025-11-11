@@ -48,12 +48,16 @@ class TestCLI:
         # Since we changed no_args_is_help=False and invoke_without_command=True,
         # no args will try to run the daemon, which will fail without a device
         # So we expect exit code 1 (device error) or 0 if mocked
-        with patch("muteme_btn.cli.asyncio.run"), patch("muteme_btn.cli.MuteMeDaemon"):
+        with (
+            patch("muteme_btn.cli.commands.run.asyncio.run"),
+            patch("muteme_btn.core.daemon.MuteMeDaemon"),
+        ):
             result = runner.invoke(app, [])
             # Exit code depends on whether device connection succeeds
             # In test environment without device, it will be 1
             assert result.exit_code in [0, 1]
 
+    @pytest.mark.filterwarnings("ignore:coroutine.*was never awaited:RuntimeWarning")
     def test_invalid_command(self, runner: CliRunner) -> None:
         """Test invalid command returns error."""
         result = runner.invoke(app, ["invalid-command"])
@@ -75,24 +79,25 @@ class TestCLI:
 
     def test_cli_imports(self) -> None:
         """Test that CLI imports work correctly."""
-        from muteme_btn.cli import app, version_callback
+        from muteme_btn.cli import app
+        from muteme_btn.cli.commands import version
 
         assert app is not None
-        assert version_callback is not None
+        assert version.version_callback is not None
 
     def test_version_callback_function(self) -> None:
         """Test version callback function directly."""
         import typer
 
-        from muteme_btn.cli import version_callback
+        from muteme_btn.cli.commands import version
 
         # Test that calling version_callback with True raises Exit
         with pytest.raises(typer.Exit):
-            version_callback(True)
+            version.version_callback(True)
 
         # Test that calling with False does not raise Exit
         try:
-            version_callback(False)
+            version.version_callback(False)
         except typer.Exit:
             pytest.fail("version_callback(False) should not raise Exit")
 
