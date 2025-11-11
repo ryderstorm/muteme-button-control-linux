@@ -1,14 +1,26 @@
+# ci: autoupdate: schedule: quarterly
+fail_fast: false
+default_install_hook_types: [pre-commit, pre-push, commit-msg]
+default_stages: [pre-commit]
+default_language_version:
+  python: python3.12
+
 repos:
-  # Basic file checks
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
-      - id: trailing-whitespace
-      - id: end-of-file-fixer
-      - id: check-yaml
-      - id: check-toml
-      - id: check-added-large-files
-      - id: debug-statements
+      -   id: check-yaml
+      -   id: end-of-file-fixer
+      -   id: trailing-whitespace
+      -   id: check-toml
+      -   id: check-added-large-files
+      -   id: debug-statements
+
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.45.0
+    hooks:
+      - id: markdownlint-fix
+        exclude: "CHANGELOG.md|LICENSE"
 
   # Python linting and formatting with ruff
   - repo: https://github.com/astral-sh/ruff-pre-commit
@@ -35,17 +47,11 @@ repos:
 
   # Security checks
   - repo: https://github.com/PyCQA/bandit
-    rev: 1.8.3
+    rev: 1.8.6
     hooks:
       - id: bandit
         args: [-c, pyproject.toml]
         additional_dependencies: ["bandit[toml]"]
-
-  # Markdown linting
-  - repo: https://github.com/markdownlint/markdownlint
-    rev: v0.12.0
-    hooks:
-      - id: markdownlint
 
   # Conventional Commits validation
   - repo: https://github.com/alessandrojcm/commitlint-pre-commit-hook
@@ -58,7 +64,3 @@ repos:
         stages: [commit-msg]
         args:
           - "--extends=@commitlint/config-conventional"
-
-# Default language version
-default_language_version:
-  python: python3.12

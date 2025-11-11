@@ -99,21 +99,21 @@ This specification defines improvements to the `test-device` CLI command and ove
 
 ### Flashing Animation Requirements
 
-8. **The system shall** support a new `brightness="flashing"` parameter in `MuteMeDevice.set_led_color()` method
-9. **The system shall** implement flashing animation with gradual brightness change from completely off (0x00) to full brightness
-10. **The system shall** make flashing animation faster than fast_pulse animation
-11. **The system shall** include flashing animation in test-device brightness tests between Dim and Fast Pulse tests
-12. **The system shall** make flashing animation available for use in daemon LED feedback controller
-13. **The system shall** use appropriate HID report value offset for flashing brightness level (following existing pattern: dim=0x10, fast_pulse=0x20, slow_pulse=0x30)
+1. **The system shall** support a new `brightness="flashing"` parameter in `MuteMeDevice.set_led_color()` method
+2. **The system shall** implement flashing animation with gradual brightness change from completely off (0x00) to full brightness
+3. **The system shall** make flashing animation faster than fast_pulse animation
+4. **The system shall** include flashing animation in test-device brightness tests between Dim and Fast Pulse tests
+5. **The system shall** make flashing animation available for use in daemon LED feedback controller
+6. **The system shall** use appropriate HID report value offset for flashing brightness level (following existing pattern: dim=0x10, fast_pulse=0x20, slow_pulse=0x30)
 
-14. **The system shall** add Rich library as a project dependency (`rich>=14.0.0`)
-15. **The system shall** use Rich components (Console, Progress, Table, Panel) in test-device command (both interactive and non-interactive modes)
-16. **The system shall** use `rich.console.Console` as the primary interface for all Rich output
-17. **The system shall** use `console.status()` for indeterminate operations (e.g., waiting for button press in interactive mode)
-18. **The system shall** use Progress bars with context managers for test step progress indication
-19. **The system shall** preserve standard Typer/logging output for all other CLI commands (check-device, run, version, etc.)
-20. **The system shall** use Rich to enhance visual feedback for test progress, status indicators, and diagnostic summaries
-21. **The system shall** gracefully fall back to standard Typer output if Rich is unavailable
+7. **The system shall** add Rich library as a project dependency (`rich>=14.0.0`)
+8. **The system shall** use Rich components (Console, Progress, Table, Panel) in test-device command (both interactive and non-interactive modes)
+9. **The system shall** use `rich.console.Console` as the primary interface for all Rich output
+10. **The system shall** use `console.status()` for indeterminate operations (e.g., waiting for button press in interactive mode)
+11. **The system shall** use Progress bars with context managers for test step progress indication
+12. **The system shall** preserve standard Typer/logging output for all other CLI commands (check-device, run, version, etc.)
+13. **The system shall** use Rich to enhance visual feedback for test progress, status indicators, and diagnostic summaries
+14. **The system shall** gracefully fall back to standard Typer output if Rich is unavailable
 
 ## Non-Goals (Out of Scope)
 
@@ -235,7 +235,7 @@ This spec follows **Spec-Driven Development (SDD)** methodology. Implementation 
 
 The modularized CLI structure will follow the architecture patterns documented in [ARCHITECTURE.md](../../ARCHITECTURE.md):
 
-```
+```text
 src/muteme_btn/
 ├── cli/
 │   ├── __init__.py          # Export main app

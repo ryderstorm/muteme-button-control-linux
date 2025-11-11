@@ -26,7 +26,7 @@
 - [Usage](#-usage)
   - [Basic Commands](#basic-commands)
   - [Configuration](#configuration)
-- [Development](#-development)
+- [Development](#development)
   - [Quick Start](#quick-start)
   - [Testing & Quality](#testing--quality)
 - [Troubleshooting](#-troubleshooting)
@@ -205,7 +205,7 @@ format = "text"  # or "json" for machine parsing
 
 ---
 
-## 🛠️ Development
+## Development
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed development standards and guidelines.
 

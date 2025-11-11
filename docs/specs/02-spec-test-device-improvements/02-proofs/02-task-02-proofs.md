@@ -3,6 +3,7 @@
 ## Implementation Summary
 
 Added flashing animation brightness level feature with 0x40 offset, following existing pattern:
+
 - dim = 0x10
 - fast_pulse = 0x20
 - slow_pulse = 0x30
@@ -11,10 +12,10 @@ Added flashing animation brightness level feature with 0x40 offset, following ex
 ## Test Results
 
 ```bash
-$ pytest tests/test_hid_device.py::TestMuteMeDevice::test_set_led_color_flashing_brightness tests/test_cli_device.py::TestTestDeviceCommand::test_test_device_brightness_sequence_order -v
+pytest tests/test_hid_device.py::TestMuteMeDevice::test_set_led_color_flashing_brightness tests/test_cli_device.py::TestTestDeviceCommand::test_test_device_brightness_sequence_order -v
 ```
 
-```
+```text
 ============================= test session starts ==============================
 platform linux -- Python 3.12.6, pytest-8.4.2, pluggy-1.6.0
 rootdir: /home/damien/personal_projects/muteme-btn-control
@@ -41,6 +42,7 @@ elif brightness == "flashing":
 ```
 
 Updated docstring to document flashing option:
+
 ```python
 brightness: Brightness/effect level:
     - "normal": Base color value (default)
@@ -67,6 +69,7 @@ brightness_levels = [
 ## Test Coverage
 
 Added comprehensive tests:
+
 1. `test_set_led_color_flashing_brightness()` - Tests flashing applies 0x40 offset correctly
 2. `test_set_led_color_flashing_brightness_white()` - Tests flashing with white color
 3. `test_test_device_brightness_sequence_order()` - Verifies flashing appears in correct position
@@ -74,10 +77,11 @@ Added comprehensive tests:
 ## Quality Gates
 
 ```bash
-$ just check
+just check
 ```
 
 All quality gates pass:
+
 - ✅ Linting (ruff check)
 - ✅ Formatting (ruff format)
 - ✅ Type checking (ty check)

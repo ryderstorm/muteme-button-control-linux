@@ -3,10 +3,10 @@
 ## Test Coverage Results
 
 ```bash
-$ pytest tests/test_cli_device.py --cov=muteme_btn.cli --cov-report=term-missing
+pytest tests/test_cli_device.py --cov=muteme_btn.cli --cov-report=term-missing
 ```
 
-```
+```text
 ============================= test session starts ==============================
 platform linux -- Python 3.12.6, pytest-8.4.2, pluggy-1.6.0
 rootdir: /home/damien/personal_projects/muteme-btn-control
@@ -34,7 +34,7 @@ TOTAL                     386     74    81%
 
 All 20 tests in `test_cli_device.py` pass, including 14 new comprehensive tests for test-device command:
 
-```
+```text
 tests/test_cli_device.py::TestTestDeviceCommand::test_test_device_discovery_success PASSED
 tests/test_cli_device.py::TestTestDeviceCommand::test_test_device_discovery_failure PASSED
 tests/test_cli_device.py::TestTestDeviceCommand::test_test_device_connection_vid_pid PASSED
@@ -54,10 +54,10 @@ tests/test_cli_device.py::TestTestDeviceCommand::test_test_device_cleanup PASSED
 ## CLI Help Output
 
 ```bash
-$ uv run muteme-btn-control test-device --help
+uv run muteme-btn-control test-device --help
 ```
 
-```
+```text
 Usage: muteme-btn-control test-device [OPTIONS]
 
 Test device communication and LED control with diagnostic output.
@@ -75,10 +75,10 @@ Test device communication and LED control with diagnostic output.
 ## Quality Gates
 
 ```bash
-$ just check
+just check
 ```
 
-```
+```text
 just lint
 All checks passed!
 uv run ruff check src/ tests/
@@ -95,6 +95,7 @@ uv run pytest
 ```
 
 All quality gates pass:
+
 - ✅ Linting (ruff check)
 - ✅ Formatting (ruff format)
 - ✅ Type checking (ty check)
@@ -116,6 +117,7 @@ The following helper functions were extracted from `test_device` command:
 8. **`_cleanup_device()`** - Cleans up device connection and turns off LED
 
 All functions have:
+
 - ✅ Proper type hints
 - ✅ Comprehensive docstrings
 - ✅ Clear single responsibilities

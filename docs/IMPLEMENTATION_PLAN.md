@@ -11,6 +11,7 @@ This document outlines the conversion of the Rust `mutebtn` project to a modern 
 **Stage 3 (Advanced Features)**: ⏳ **8% Complete** (2/24 tasks)
 
 **Key Metrics**:
+
 - **Test Coverage**: 90% (215 tests, all passing)
 - **Quality Gates**: All passing (0 lint errors, 0 type errors)
 - **Spec Compliance**: 100% (all functional requirements met for basic toggle control)
@@ -746,11 +747,13 @@ The application will handle PID files and process management:
 **Current Status**: ✅ **Production Ready for Basic Toggle Control**
 
 The implementation has successfully completed:
+
 - ✅ **100% of Stage 1** (Foundation)
 - ✅ **100% of Stage 2 Core** (for toggle mode scope)
 - ✅ **100% of Spec 01** (Basic Toggle Control)
 
 **What's Working**:
+
 - Complete CLI foundation with configuration
 - Full HID device communication layer (all MuteMe variants)
 - PulseAudio integration with toggle functionality
@@ -759,6 +762,7 @@ The implementation has successfully completed:
 - All quality gates passing (0 lint errors, 0 type errors)
 
 **What's Deferred** (by design):
+
 - Push-to-Talk mode (explicitly excluded from spec)
 - Hybrid mode (explicitly excluded from spec)
 - PipeWire support (explicitly excluded from spec)
