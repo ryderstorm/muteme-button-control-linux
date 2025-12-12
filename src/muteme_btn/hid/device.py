@@ -273,6 +273,48 @@ class MuteMeDevice:
                 f"Failed to connect to device VID:0x{vendor_id:04x} PID:0x{product_id:04x}: {e}"
             ) from e
 
+    @classmethod
+    def _find_usb_device_node(cls, vendor_id: int, product_id: int) -> str | None:
+        """Find the /dev/bus/usb/<bus>/<dev> device node for a given vendor/product ID.
+
+        On some distributions/builds, hidapi may use a libusb backend which requires access to
+        the raw USB device node rather than (or in addition to) /dev/hidraw*.
+        """
+        sysfs_root = "/sys/bus/usb/devices"
+        try:
+            for entry in os.listdir(sysfs_root):
+                dev_dir = os.path.join(sysfs_root, entry)
+                if not os.path.isdir(dev_dir):
+                    continue
+
+                try:
+                    with open(os.path.join(dev_dir, "idVendor"), encoding="utf-8") as f:
+                        vid_hex = f.read().strip()
+                    with open(os.path.join(dev_dir, "idProduct"), encoding="utf-8") as f:
+                        pid_hex = f.read().strip()
+                except OSError:
+                    continue
+
+                try:
+                    if int(vid_hex, 16) != vendor_id or int(pid_hex, 16) != product_id:
+                        continue
+                except ValueError:
+                    continue
+
+                try:
+                    with open(os.path.join(dev_dir, "busnum"), encoding="utf-8") as f:
+                        busnum = int(f.read().strip())
+                    with open(os.path.join(dev_dir, "devnum"), encoding="utf-8") as f:
+                        devnum = int(f.read().strip())
+                except OSError:
+                    continue
+
+                return f"/dev/bus/usb/{busnum:03d}/{devnum:03d}"
+        except OSError:
+            return None
+
+        return None
+
     def disconnect(self) -> None:
         """Close device connection."""
         if self._device:
@@ -664,12 +706,14 @@ class MuteMeDevice:
             # Suggest fixes
             if not readable or not writable:
                 error_msg += "\n\nSuggested fixes:\n"
+                error_msg += "1. Install/update UDEV rules for MuteMe devices\n"
+                error_msg += "   - just install-udev\n"
+                error_msg += "2. Unplug and replug the device to re-apply rules\n"
                 error_msg += (
-                    "1. Add your user to the plugdev group: sudo usermod -a -G plugdev $USER\n"
+                    '3. On systemd-based distros, ensure the rules include TAG+="uaccess" '
+                    "(recommended)\n"
                 )
-                error_msg += "2. Install UDEV rules for MuteMe devices\n"
-                error_msg += "3. Run with sudo (not recommended for regular use)\n"
-                error_msg += "4. Change device permissions: sudo chmod 666 " + device_path
+                error_msg += "4. As a temporary workaround: sudo chmod 666 " + device_path
 
             return error_msg
 

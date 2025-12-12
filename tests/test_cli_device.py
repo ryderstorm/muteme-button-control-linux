@@ -101,9 +101,15 @@ class TestCLIDeviceCommands:
         mock_check_perms.return_value = True
 
         # Mock hidraw device finding
-        with patch(
-            "muteme_btn.hid.device.MuteMeDevice._find_hidraw_device",
-            return_value="/dev/hidraw0",
+        with (
+            patch(
+                "muteme_btn.hid.device.MuteMeDevice._find_hidraw_device",
+                return_value="/dev/hidraw0",
+            ),
+            patch(
+                "muteme_btn.hid.device.MuteMeDevice._find_usb_device_node",
+                return_value=None,
+            ),
         ):
             result = self.runner.invoke(app, ["check-device"])
 
@@ -137,9 +143,15 @@ class TestCLIDeviceCommands:
         mock_get_error.return_value = "Permission denied for /dev/hidraw0"
 
         # Mock hidraw device finding
-        with patch(
-            "muteme_btn.hid.device.MuteMeDevice._find_hidraw_device",
-            return_value="/dev/hidraw0",
+        with (
+            patch(
+                "muteme_btn.hid.device.MuteMeDevice._find_hidraw_device",
+                return_value="/dev/hidraw0",
+            ),
+            patch(
+                "muteme_btn.hid.device.MuteMeDevice._find_usb_device_node",
+                return_value=None,
+            ),
         ):
             # Test with verbose flag to see error details
             result = self.runner.invoke(app, ["check-device", "--verbose"])

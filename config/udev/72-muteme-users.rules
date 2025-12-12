@@ -1,0 +1,41 @@
+# UDEV rules for MuteMe button devices
+# Install to: /etc/udev/rules.d/72-muteme.rules
+#
+# Why 72-*?
+# - Rules that set TAG+="uaccess" should be loaded BEFORE systemd's 73-seat-late.rules
+#   so that the uaccess builtin can apply ACLs correctly.
+#
+# Fedora/Nobara note:
+# - Fedora-family distros typically do not ship the "plugdev" group. This rule uses the
+#   "users" group as a pragmatic fallback while also adding TAG+="uaccess".
+#
+# IMPORTANT: udev attribute matches are case-sensitive. USB idVendor/idProduct values in sysfs
+# are lowercase hex (e.g. "20a0", "42da"), so these rules use lowercase IDs.
+#
+# HIDAPI backend note:
+# - hidapi may access HID devices via /dev/hidraw* OR via the raw USB node /dev/bus/usb/BBB/DDD
+#   depending on the backend. These rules cover both.
+
+# Main MuteMe device (VID:0x20A0, PID:0x42DA)
+SUBSYSTEM=="usb", ATTR{idVendor}=="20a0", ATTR{idProduct}=="42da", MODE="0660", GROUP="users", TAG+="uaccess"
+KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="20a0", ATTRS{idProduct}=="42da", MODE="0660", GROUP="users", TAG+="uaccess"
+
+# Main MuteMe device variant (VID:0x20A0, PID:0x42DB)
+SUBSYSTEM=="usb", ATTR{idVendor}=="20a0", ATTR{idProduct}=="42db", MODE="0660", GROUP="users", TAG+="uaccess"
+KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="20a0", ATTRS{idProduct}=="42db", MODE="0660", GROUP="users", TAG+="uaccess"
+
+# MuteMe Mini variant 1 (VID:0x3603, PID:0x0001)
+SUBSYSTEM=="usb", ATTR{idVendor}=="3603", ATTR{idProduct}=="0001", MODE="0660", GROUP="users", TAG+="uaccess"
+KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="3603", ATTRS{idProduct}=="0001", MODE="0660", GROUP="users", TAG+="uaccess"
+
+# MuteMe Mini variant 2 (VID:0x3603, PID:0x0002)
+SUBSYSTEM=="usb", ATTR{idVendor}=="3603", ATTR{idProduct}=="0002", MODE="0660", GROUP="users", TAG+="uaccess"
+KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="3603", ATTRS{idProduct}=="0002", MODE="0660", GROUP="users", TAG+="uaccess"
+
+# MuteMe Mini variant 3 (VID:0x3603, PID:0x0003)
+SUBSYSTEM=="usb", ATTR{idVendor}=="3603", ATTR{idProduct}=="0003", MODE="0660", GROUP="users", TAG+="uaccess"
+KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="3603", ATTRS{idProduct}=="0003", MODE="0660", GROUP="users", TAG+="uaccess"
+
+# MuteMe Mini variant 4 (VID:0x3603, PID:0x0004)
+SUBSYSTEM=="usb", ATTR{idVendor}=="3603", ATTR{idProduct}=="0004", MODE="0660", GROUP="users", TAG+="uaccess"
+KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="3603", ATTRS{idProduct}=="0004", MODE="0660", GROUP="users", TAG+="uaccess"
