@@ -12,7 +12,7 @@ This document outlines the conversion of the Rust `mutebtn` project to a modern 
 
 **Key Metrics**:
 
-- **Test Coverage**: 90% (215 tests, all passing)
+- **Test Coverage**: 90% (249 tests, all passing)
 - **Quality Gates**: All passing (0 lint errors, 0 type errors)
 - **Spec Compliance**: 100% (all functional requirements met for basic toggle control)
 
@@ -81,7 +81,9 @@ muteme-btn-control/
 ├── docs/
 └── config/
     ├── muteme.toml.example
-    └── udev/99-muteme.rules
+    └── udev/
+        ├── 72-muteme-plugdev.rules
+        └── 72-muteme-users.rules
 ```
 
 ### Technology Stack
@@ -137,7 +139,7 @@ muteme-btn-control/
 - [x] Configure ruff for linting and formatting ✅
 - [x] Configure ty for type checking ✅
 - [x] Add pre-commit hooks with quality checks ✅
-- [x] Add UDEV rules template for future device integration (`config/udev/99-muteme.rules`)
+- [x] Add UDEV rules templates for future device integration (`config/udev/72-muteme-*.rules`)
 - [x] Add just recipe for running all quality checks (`just check`)
 - [x] Configure development environment validation
 
@@ -209,7 +211,7 @@ muteme-btn-control/
 #### 3.6 Packaging and Distribution ⏳ Partial (1/4 Complete)
 
 - [ ] systemd service files - **Not implemented**
-- [x] udev rules for device permissions (`config/udev/99-muteme.rules`)
+- [x] udev rules for device permissions (`config/udev/72-muteme-*.rules`)
 - [ ] .deb/.rpm packaging - **Not implemented**
 - [ ] Installation scripts - **Partial** (`just install-udev` exists)
 
@@ -253,21 +255,19 @@ Based on official MuteMe documentation:
 
 ### UDEV Requirements
 
-Official UDEV rules required for proper device access:
+Official UDEV templates required for proper device access (distro-aware):
 
 ```bash
-# Main MuteMe devices
-SUBSYSTEM=="usb", ATTRS{idVendor}=="20A0", ATTRS{idProduct}=="42DA",
-  MODE="0666", GROUP="plugdev"
-KERNEL=="hidraw*", ATTRS{idVendor}=="20A0", ATTRS{idProduct}=="42DA",
-  MODE="0666", GROUP="plugdev"
+# Install the correct rules template for your distro and reload udev:
+just install-udev
 
-# MuteMe Mini variants
-SUBSYSTEM=="usb", ATTRS{idVendor}=="3603", ATTRS{idProduct}=="0001",
-  MODE="0666", GROUP="plugdev"
-KERNEL=="hidraw*", ATTRS{idVendor}=="3603", ATTRS{idProduct}=="0001",
-  MODE="0666", GROUP="plugdev"
-# ... additional Mini variants
+# Installs to:
+# /etc/udev/rules.d/72-muteme.rules
+# (kept <73 so TAG+="uaccess" is applied before 73-seat-late.rules)
+
+# Source templates:
+# config/udev/72-muteme-plugdev.rules  # Ubuntu/Debian
+# config/udev/72-muteme-users.rules    # Fedora/Nobara
 ```
 
 ## Dependencies and Libraries
@@ -520,7 +520,7 @@ Before starting device integration, ensure:
 - [x] CLI `--version` displays correct version (0.1.0)
 - [x] Configuration file loads and validates properly
 - [x] Logging works in both text and JSON formats
-- [x] All tests pass with >80% coverage (90% achieved, 215 tests)
+- [x] All tests pass with >80% coverage (90% achieved, 249 tests)
 - [x] Pre-commit hooks run successfully
 - [x] Project can be installed via `uv pip install -e .`
 - [x] Console script `muteme-btn-control` works globally
@@ -758,7 +758,7 @@ The implementation has successfully completed:
 - Full HID device communication layer (all MuteMe variants)
 - PulseAudio integration with toggle functionality
 - LED feedback synchronized with mute status
-- Comprehensive test suite (90% coverage, 215 tests)
+- Comprehensive test suite (90% coverage, 249 tests)
 - All quality gates passing (0 lint errors, 0 type errors)
 
 **What's Deferred** (by design):
