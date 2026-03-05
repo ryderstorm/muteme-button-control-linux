@@ -272,7 +272,7 @@ If `check-device` reports no devices found:
 4. **Verify device is connected:**
 
    ```bash
-   lsusb | grep -i "20a0:42da"
+   lsusb | grep -iE "(20a0:42da|3603:000[1-4])"
    ```
 
 ### Permission Errors
