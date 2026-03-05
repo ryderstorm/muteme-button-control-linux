@@ -55,7 +55,7 @@
 ## ✨ Features
 
 | Feature | Description |
-|---------|-------------|
+| ------- | ----------- |
 | **Toggle Mode** | Press the MuteMe button to toggle microphone mute/unmute state |
 | **PulseAudio Integration** | Seamless integration with PulseAudio for audio control |
 | **LED Feedback** | Visual LED feedback (red=muted, green=unmuted) synchronized with audio state |
@@ -131,7 +131,11 @@ cargo install just
    Or manually:
 
    ```bash
-   sudo cp config/udev/99-muteme.rules /etc/udev/rules.d/99-muteme.rules
+   # Choose ONE based on your distro:
+   # Ubuntu/Debian (plugdev group exists):
+   sudo install -m 0644 config/udev/72-muteme-plugdev.rules /etc/udev/rules.d/72-muteme.rules
+   # Fedora/Nobara (no plugdev group):
+   sudo install -m 0644 config/udev/72-muteme-users.rules /etc/udev/rules.d/72-muteme.rules
    sudo udevadm control --reload-rules
    sudo udevadm trigger
    ```
@@ -149,7 +153,7 @@ cargo install just
 ### Basic Commands
 
 | Action | Command |
-|--------|---------|
+| ------ | ------- |
 | Run the application | `just run` or `uv run muteme-btn-control` |
 | Run with debug logging | `just run-debug` |
 | Check device status | `uv run muteme-btn-control check-device` |
@@ -249,7 +253,7 @@ If `check-device` reports no devices found:
 1. **Verify UDEV rules are installed:**
 
    ```bash
-   ls -la /etc/udev/rules.d/99-muteme.rules
+   ls -la /etc/udev/rules.d/72-muteme.rules
    ```
 
 2. **Check device permissions:**
@@ -268,12 +272,14 @@ If `check-device` reports no devices found:
 4. **Verify device is connected:**
 
    ```bash
-   lsusb | grep -i "20a0:42da"
+   lsusb | grep -iE "(20a0:42da|3603:000[1-4])"
    ```
 
 ### Permission Errors
 
 If you encounter permission errors:
+
+**For Ubuntu/Debian systems:**
 
 1. **Add user to `plugdev` group:**
 
@@ -288,6 +294,28 @@ If you encounter permission errors:
    ```bash
    groups | grep plugdev
    ```
+
+**For Fedora/Nobara systems:**
+
+The UDEV rules rely on `TAG+="uaccess"` (systemd-logind ACLs) with `MODE="0660"` and no broad static group fallback. If you still encounter permission errors:
+
+1. **Ensure UDEV rules are installed and reloaded:**
+
+   ```bash
+   sudo udevadm control --reload-rules
+   sudo udevadm trigger --subsystem-match=usb --attr-match=idVendor=20a0
+   sudo udevadm trigger --subsystem-match=usb --attr-match=idVendor=3603
+   ```
+
+2. **Unplug and replug your MuteMe device** to apply the new rules.
+
+3. **Verify permissions:**
+
+   ```bash
+   just check-device-verbose
+   ```
+
+   You should see `Permissions: ✅ OK`. If it fails, it will show which device node is blocked (`/dev/hidraw*` and/or `/dev/bus/usb/...`).
 
 ### Audio Issues
 

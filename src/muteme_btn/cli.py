@@ -517,33 +517,42 @@ def check_device(
                 typer.echo(f"    Product: {device.product or 'Unknown'}")
                 typer.echo(f"    USB Path: {device.path}")
 
-            # Find the corresponding hidraw device
+            # Find the corresponding hidraw device and USB device node
             hidraw_path = MuteMeDevice._find_hidraw_device(device.vendor_id, device.product_id)
-            if not hidraw_path:
+            usb_node = MuteMeDevice._find_usb_device_node(device.vendor_id, device.product_id)
+
+            if not hidraw_path and not usb_node:
                 typer.echo("  Permissions: ❌ FAILED")
-                typer.echo("  Error: Could not find corresponding /dev/hidraw* device")
+                typer.echo("  Error: Could not find corresponding device nodes")
                 typer.echo("  Troubleshooting:")
                 typer.echo("    • Try unplugging and replugging the device")
                 typer.echo("    • Check if UDEV rules are installed: just install-udev")
                 sys.exit(1)
 
-            # At this point, hidraw_path is guaranteed to be a string
-            assert hidraw_path is not None
-
             if verbose:
-                typer.echo(f"    HIDraw Device: {hidraw_path}")
+                typer.echo(f"    HIDraw Device: {hidraw_path or 'Not found'}")
+                typer.echo(f"    USB Device Node: {usb_node or 'Not found'}")
 
-            # Check permissions on the hidraw device
-            if MuteMeDevice.check_device_permissions(hidraw_path):
+            # Check permissions on either node (hidapi backend may use either)
+            hidraw_ok = bool(hidraw_path) and MuteMeDevice.check_device_permissions(hidraw_path)
+            usb_ok = bool(usb_node) and MuteMeDevice.check_device_permissions(usb_node)
+
+            if hidraw_ok or usb_ok:
                 typer.echo("  Permissions: ✅ OK")
             else:
                 typer.echo("  Permissions: ❌ FAILED")
                 if verbose:
-                    error_msg = MuteMeDevice.get_device_permissions_error(hidraw_path)
                     typer.echo("  Error Details:")
-                    for line in error_msg.split("\n"):
-                        if line.strip():
-                            typer.echo(f"    {line}")
+                    if hidraw_path:
+                        error_msg = MuteMeDevice.get_device_permissions_error(hidraw_path)
+                        for line in error_msg.split("\n"):
+                            if line.strip():
+                                typer.echo(f"    {line}")
+                    if usb_node:
+                        error_msg = MuteMeDevice.get_device_permissions_error(usb_node)
+                        for line in error_msg.split("\n"):
+                            if line.strip():
+                                typer.echo(f"    {line}")
                 sys.exit(1)
 
             typer.echo("")

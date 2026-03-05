@@ -3,6 +3,7 @@
 import asyncio
 import logging
 import signal
+import time
 import traceback
 from types import FrameType
 
@@ -55,6 +56,12 @@ class MuteMeDaemon:
         # but this lock ensures explicit synchronization for async operations
         self._running_lock = asyncio.Lock()
 
+        # Reconnect/backoff state for runtime device disconnects
+        self._reconnect_initial_delay_seconds = 0.5
+        self._reconnect_max_delay_seconds = 30.0
+        self._reconnect_delay_seconds = self._reconnect_initial_delay_seconds
+        self._next_reconnect_attempt_at = 0.0
+
         # Setup signal handlers
         self._setup_signal_handlers()
 
@@ -100,6 +107,7 @@ class MuteMeDaemon:
             if not self.device or not self.device.is_connected():
                 await self._connect_device()
                 device_connected = True
+                self._reset_reconnect_backoff()
                 # Give device a moment to initialize after connection
                 # Some HID devices need time before accepting commands
                 await asyncio.sleep(0.1)
@@ -230,6 +238,20 @@ class MuteMeDaemon:
                 break
 
             try:
+                if self.device is None or not self.device.is_connected():
+                    await self._attempt_reconnect_if_needed()
+
+                    # Small delay to prevent busy waiting
+                    try:
+                        await asyncio.wait_for(
+                            asyncio.sleep(poll_interval),
+                            timeout=poll_timeout,
+                        )
+                    except TimeoutError:
+                        # Continue loop if sleep times out
+                        pass
+                    continue
+
                 # Process button events
                 await self._process_button_events()
 
@@ -256,11 +278,52 @@ class MuteMeDaemon:
                     logger.debug(f"Exception traceback:\n{traceback.format_exc()}")
                 # Continue running despite errors
 
+    def _reset_reconnect_backoff(self) -> None:
+        """Reset reconnect delay after successful connection."""
+        self._reconnect_delay_seconds = self._reconnect_initial_delay_seconds
+        self._next_reconnect_attempt_at = 0.0
+
+    async def _attempt_reconnect_if_needed(self) -> None:
+        """Attempt reconnect when device is disconnected using exponential backoff."""
+        # Already connected (or no reconnect needed)
+        if self.device is not None and self.device.is_connected():
+            self._reset_reconnect_backoff()
+            return
+
+        now = time.monotonic()
+        if now < self._next_reconnect_attempt_at:
+            return
+
+        try:
+            logger.info("Device disconnected, attempting reconnect")
+            await self._connect_device()
+
+            if self.device is None or not self.device.is_connected():
+                raise DeviceError("Reconnect returned without an active device")
+
+            self._reset_reconnect_backoff()
+            await asyncio.sleep(0.1)
+
+            if self.led_controller is not None:
+                self.led_controller.set_device(self.device)
+
+            await self._update_led_feedback()
+            logger.info("Successfully reconnected to MuteMe device")
+
+        except Exception as e:
+            retry_seconds = round(self._reconnect_delay_seconds, 3)
+            logger.warning(f"Reconnect attempt failed: {e} (retry in {retry_seconds}s)")
+            self._next_reconnect_attempt_at = time.monotonic() + self._reconnect_delay_seconds
+            self._reconnect_delay_seconds = min(
+                self._reconnect_delay_seconds * 2,
+                self._reconnect_max_delay_seconds,
+            )
+
     async def _process_button_events(self) -> None:
         """Process button events from the device."""
         try:
             if self.device is None or not self.device.is_connected():
-                logger.info("Device not connected, skipping event processing")
+                logger.debug("Device not connected, skipping event processing")
                 return
 
             # Read events from device
@@ -357,7 +420,7 @@ class MuteMeDaemon:
         try:
             # Check if device and LED controller are available
             if not self.device or not self.device.is_connected():
-                logger.info("Device not connected, skipping LED feedback update")
+                logger.debug("Device not connected, skipping LED feedback update")
                 return
 
             if not self.led_controller:

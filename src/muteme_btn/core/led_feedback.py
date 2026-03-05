@@ -30,18 +30,25 @@ class LEDFeedbackController:
         self.audio_backend = audio_backend
         self.muted_color = muted_color
         self.unmuted_color = unmuted_color
+        self._last_applied_color: LEDColor | None = None
 
         logger.info(
             f"Initialized LED feedback controller: "
             f"muted_color={muted_color.name}, unmuted_color={unmuted_color.name}"
         )
 
+    def set_device(self, device: MuteMeDevice) -> None:
+        """Swap to a new HID device and force next LED update to re-apply state."""
+        self.device = device
+        self._last_applied_color = None
+
     def update_led_to_mute_status(self) -> None:
         """Update LED color based on current audio mute status."""
         try:
             # Check if device is connected
             if not self.device.is_connected():
-                logger.info("Device not connected, skipping LED update")
+                self._last_applied_color = None
+                logger.debug("Device not connected, skipping LED update")
                 return
 
             # Get current mute status
@@ -50,8 +57,12 @@ class LEDFeedbackController:
             # Set appropriate LED color
             target_color = self.muted_color if is_muted else self.unmuted_color
 
+            if self._last_applied_color == target_color:
+                return
+
             try:
                 self.device.set_led_color(target_color)
+                self._last_applied_color = target_color
                 logger.debug(f"Updated LED color: muted={is_muted}, color={target_color.name}")
             except Exception as e:
                 logger.error(f"Failed to set LED color: {e}")
@@ -130,6 +141,7 @@ class LEDFeedbackController:
                 return
 
             self.device.set_led_color(color)
+            self._last_applied_color = color
             logger.debug(f"Forced LED color to {color.name}")
         except Exception as e:
             logger.error(f"Failed to force LED color: {e}")

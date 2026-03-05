@@ -44,7 +44,7 @@ run:  # Run the daemon in foreground
     uv run muteme-btn-control
 
 run-debug:  # Run with debug logging
-    uv run muteme-btn-control --log-level debug
+    uv run muteme-btn-control run --log-level DEBUG
 
 status:  # Check daemon status
     @echo "Status checking not yet implemented"
@@ -54,16 +54,59 @@ stop:  # Stop running daemon
 
 # Device management
 install-udev:  # Install UDEV rules for device access
-    @echo "Installing UDEV rules..."
-    @if [ -f config/udev/99-muteme.rules ]; then \
-        sudo cp config/udev/99-muteme.rules /etc/udev/rules.d/99-muteme.rules && \
-        sudo udevadm control --reload-rules && \
-        sudo udevadm trigger && \
-        echo "✅ UDEV rules installed successfully"; \
-    else \
-        echo "❌ UDEV rules file not found at config/udev/99-muteme.rules"; \
-        exit 1; \
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    echo "Installing UDEV rules..."
+
+    rules_dir="/etc/udev/rules.d"
+    # IMPORTANT: keep this file number < 73 so TAG+=\"uaccess\" is applied before 73-seat-late.rules
+    dest_rules="${rules_dir}/72-muteme.rules"
+    legacy_rules="${rules_dir}/99-muteme.rules"
+
+    src_rules=""
+    chosen_group=""
+
+    if getent group plugdev >/dev/null 2>&1; then
+        src_rules="config/udev/72-muteme-plugdev.rules"
+        chosen_group="plugdev"
+    else
+        src_rules="config/udev/72-muteme-users.rules"
+        chosen_group=""
     fi
+
+    if [ ! -f "${src_rules}" ]; then
+        echo "❌ UDEV rules file not found at ${src_rules}"
+        exit 1
+    fi
+
+    if [ -f "${legacy_rules}" ]; then
+        echo "Removing legacy rules file: ${legacy_rules}"
+        sudo rm -f "${legacy_rules}"
+    fi
+
+    if [ -n "${chosen_group}" ]; then
+        echo "Installing ${src_rules} → ${dest_rules} (group=${chosen_group})"
+    else
+        echo "Installing ${src_rules} → ${dest_rules} (uaccess ACL rules)"
+    fi
+    sudo install -m 0644 "${src_rules}" "${dest_rules}"
+
+    echo "Reloading and triggering udev rules..."
+    sudo udevadm control --reload-rules
+    sudo udevadm trigger
+
+    # Best-effort hint if the user isn't a member of the chosen group (uaccess may still work)
+    install_user="${SUDO_USER:-${USER:-}}"
+    if [ -n "${chosen_group}" ] && [ -n "${install_user}" ] && ! id -nG "${install_user}" | tr ' ' '\n' | grep -qx "${chosen_group}"; then
+        echo ""
+        echo "⚠️  Note: user '${install_user}' is not in group '${chosen_group}'."
+        echo "   Desktop sessions should still work via TAG+=\"uaccess\"."
+        echo "   For headless/SSH/system services, add group membership and re-login:"
+        echo "   sudo usermod -a -G ${chosen_group} ${install_user}"
+    fi
+
+    echo "✅ UDEV rules installed successfully"
 
 check-device:  # Verify device permissions and connectivity
     uv run muteme-btn-control check-device

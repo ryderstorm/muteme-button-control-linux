@@ -196,12 +196,17 @@ class MuteMeDevice:
             return cls(device, device_info)
 
         except Exception as e:
-            logger.error(
-                "Failed to connect to MuteMe device",
-                path=device_path,
-                error=str(e),
-                error_type=type(e).__name__,
-            )
+            message = "Failed to connect to MuteMe device"
+            log_context = {
+                "path": device_path,
+                "error": str(e),
+                "error_type": type(e).__name__,
+            }
+            if "open failed" in str(e).lower():
+                # Expected while unplugged/reconnecting; keep this less noisy.
+                logger.warning(message, **log_context)
+            else:
+                logger.error(message, **log_context)
             # Provide helpful error message
             error_msg = f"Failed to connect to device {device_path}: {e}"
             if "open failed" in str(e).lower():
@@ -263,15 +268,62 @@ class MuteMeDevice:
             return cls(device, device_info)
 
         except Exception as e:
-            logger.error(
-                "Failed to connect to MuteMe device by VID/PID",
-                vendor_id=f"0x{vendor_id:04x}",
-                product_id=f"0x{product_id:04x}",
-                error=str(e),
-            )
+            message = "Failed to connect to MuteMe device by VID/PID"
+            log_context = {
+                "vendor_id": f"0x{vendor_id:04x}",
+                "product_id": f"0x{product_id:04x}",
+                "error": str(e),
+            }
+            if "open failed" in str(e).lower():
+                # Expected while unplugged/reconnecting; keep this less noisy.
+                logger.warning(message, **log_context)
+            else:
+                logger.error(message, **log_context)
             raise DeviceError(
                 f"Failed to connect to device VID:0x{vendor_id:04x} PID:0x{product_id:04x}: {e}"
             ) from e
+
+    @classmethod
+    def _find_usb_device_node(cls, vendor_id: int, product_id: int) -> str | None:
+        """Find the /dev/bus/usb/<bus>/<dev> device node for a given vendor/product ID.
+
+        On some distributions/builds, hidapi may use a libusb backend which requires access to
+        the raw USB device node rather than (or in addition to) /dev/hidraw*.
+        """
+        sysfs_root = "/sys/bus/usb/devices"
+        try:
+            for entry in os.listdir(sysfs_root):
+                dev_dir = os.path.join(sysfs_root, entry)
+                if not os.path.isdir(dev_dir):
+                    continue
+
+                try:
+                    with open(os.path.join(dev_dir, "idVendor"), encoding="utf-8") as f:
+                        vid_hex = f.read().strip()
+                    with open(os.path.join(dev_dir, "idProduct"), encoding="utf-8") as f:
+                        pid_hex = f.read().strip()
+                except OSError:
+                    continue
+
+                try:
+                    if int(vid_hex, 16) != vendor_id or int(pid_hex, 16) != product_id:
+                        continue
+                except ValueError:
+                    continue
+
+                try:
+                    with open(os.path.join(dev_dir, "busnum"), encoding="utf-8") as f:
+                        busnum = int(f.read().strip())
+                    with open(os.path.join(dev_dir, "devnum"), encoding="utf-8") as f:
+                        devnum = int(f.read().strip())
+                except (OSError, ValueError):
+                    continue
+
+                return f"/dev/bus/usb/{busnum:03d}/{devnum:03d}"
+        except OSError:
+            return None
+
+        return None
 
     def disconnect(self) -> None:
         """Close device connection."""
@@ -324,10 +376,14 @@ class MuteMeDevice:
 
         try:
             data = self._device.read(size, timeout_ms)  # type: ignore[union-attr]
-            logger.debug("Read data from device", size=len(data), timeout_ms=timeout_ms)
+            if len(data) > 0:
+                logger.debug("Read data from device", size=len(data), timeout_ms=timeout_ms)
             return bytes(data)
         except Exception as e:
-            logger.error("Failed to read from device", error=str(e))
+            # Treat read failures as a disconnected/stale handle (common after sleep/wake).
+            # Closing the handle prevents repeated read failures from spamming logs.
+            self.disconnect()
+            logger.warning("Failed to read from device, disconnected handle", error=str(e))
             raise DeviceError(f"Device read failed: {e}") from e
 
     def write(self, data: bytes) -> None:
@@ -664,12 +720,17 @@ class MuteMeDevice:
             # Suggest fixes
             if not readable or not writable:
                 error_msg += "\n\nSuggested fixes:\n"
+                error_msg += "1. Install/update UDEV rules for MuteMe devices\n"
+                error_msg += "   - just install-udev\n"
+                error_msg += "2. Unplug and replug the device to re-apply rules\n"
                 error_msg += (
-                    "1. Add your user to the plugdev group: sudo usermod -a -G plugdev $USER\n"
+                    '3. On systemd-based distros, ensure the rules include TAG+="uaccess" '
+                    "(recommended)\n"
                 )
-                error_msg += "2. Install UDEV rules for MuteMe devices\n"
-                error_msg += "3. Run with sudo (not recommended for regular use)\n"
-                error_msg += "4. Change device permissions: sudo chmod 666 " + device_path
+                error_msg += (
+                    "4. For headless/service users, add the service account to the "
+                    "device group used by your rules (for example: plugdev on Debian/Ubuntu)."
+                )
 
             return error_msg
 

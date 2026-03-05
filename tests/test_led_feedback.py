@@ -67,6 +67,45 @@ class TestLEDFeedbackController:
 
         led_controller.device.set_led_color.assert_called_once_with(LEDColor.RED)
 
+    def test_update_led_skips_duplicate_color_updates(self, led_controller, mock_audio_backend):
+        """Test duplicate LED writes are skipped when color is unchanged."""
+        mock_audio_backend.is_muted.return_value = False
+
+        led_controller.update_led_to_mute_status()
+        led_controller.update_led_to_mute_status()
+
+        # First call writes GREEN, second call is a no-op
+        led_controller.device.set_led_color.assert_called_once_with(LEDColor.GREEN)
+
+    def test_update_led_reapplies_after_disconnect(
+        self, led_controller, mock_audio_backend, mock_device
+    ):
+        """Test LED state is re-applied after a disconnect/reconnect cycle."""
+        mock_audio_backend.is_muted.return_value = False
+        mock_device.is_connected.side_effect = [True, False, True]
+
+        led_controller.update_led_to_mute_status()  # apply GREEN
+        led_controller.update_led_to_mute_status()  # disconnected, reset cache
+        led_controller.update_led_to_mute_status()  # reconnected, apply GREEN again
+
+        assert led_controller.device.set_led_color.call_count == 2
+
+    def test_set_device_resets_cached_led_state(self, led_controller, mock_audio_backend):
+        """Test swapping devices forces LED re-apply for current mute state."""
+        first_device = led_controller.device
+        second_device = Mock()
+        second_device.set_led_color = Mock()
+        second_device.is_connected = Mock(return_value=True)
+        mock_audio_backend.is_muted.return_value = True
+
+        led_controller.update_led_to_mute_status()
+        first_device.set_led_color.assert_called_once_with(LEDColor.RED)
+
+        led_controller.set_device(second_device)
+        led_controller.update_led_to_mute_status()
+
+        second_device.set_led_color.assert_called_once_with(LEDColor.RED)
+
     def test_update_led_with_device_disconnected(self, led_controller, mock_device):
         """Test LED update handles disconnected device gracefully."""
         mock_device.is_connected.return_value = False

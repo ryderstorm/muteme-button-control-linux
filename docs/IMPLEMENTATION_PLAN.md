@@ -12,7 +12,7 @@ This document outlines the conversion of the Rust `mutebtn` project to a modern 
 
 **Key Metrics**:
 
-- **Test Coverage**: 90% (215 tests, all passing)
+- **Test Coverage**: 90% (249 tests, all passing)
 - **Quality Gates**: All passing (0 lint errors, 0 type errors)
 - **Spec Compliance**: 100% (all functional requirements met for basic toggle control)
 
@@ -41,7 +41,7 @@ The `mutebtn` Rust project uses a **4-thread architecture** with crossbeam chann
 ### Identified Limitations
 
 - PulseAudio-only (no PipeWire support)
-- No hot-plug/reconnect handling
+- No event-driven hot-plug notifications (runtime reconnect/backoff is implemented)
 - No runtime configuration changes
 - Basic logging (just `println!`)
 - No GUI or tray interface
@@ -81,7 +81,9 @@ muteme-btn-control/
 ├── docs/
 └── config/
     ├── muteme.toml.example
-    └── udev/99-muteme.rules
+    └── udev/
+        ├── 72-muteme-plugdev.rules
+        └── 72-muteme-users.rules
 ```
 
 ### Technology Stack
@@ -137,7 +139,7 @@ muteme-btn-control/
 - [x] Configure ruff for linting and formatting ✅
 - [x] Configure ty for type checking ✅
 - [x] Add pre-commit hooks with quality checks ✅
-- [x] Add UDEV rules template for future device integration (`config/udev/99-muteme.rules`)
+- [x] Add UDEV rules templates for future device integration (`config/udev/72-muteme-*.rules`)
 - [x] Add just recipe for running all quality checks (`just check`)
 - [x] Configure development environment validation
 
@@ -190,8 +192,8 @@ muteme-btn-control/
 #### 3.3 Device Resilience
 
 - [ ] Hot-plug detection and handling
-- [ ] Automatic device reconnection
-- [ ] Device state recovery
+- [x] Automatic device reconnection (exponential backoff)
+- [x] Device state recovery (LED re-sync to current mute state after reconnect)
 
 #### 3.4 Runtime Configuration
 
@@ -209,7 +211,7 @@ muteme-btn-control/
 #### 3.6 Packaging and Distribution ⏳ Partial (1/4 Complete)
 
 - [ ] systemd service files - **Not implemented**
-- [x] udev rules for device permissions (`config/udev/99-muteme.rules`)
+- [x] udev rules for device permissions (`config/udev/72-muteme-*.rules`)
 - [ ] .deb/.rpm packaging - **Not implemented**
 - [ ] Installation scripts - **Partial** (`just install-udev` exists)
 
@@ -253,21 +255,21 @@ Based on official MuteMe documentation:
 
 ### UDEV Requirements
 
-Official UDEV rules required for proper device access:
+Official UDEV templates required for proper device access (distro-aware):
+
+`just install-udev` detects whether `plugdev` exists and copies the matching source template (`config/udev/72-muteme-plugdev.rules` or `config/udev/72-muteme-users.rules`) to the unified target `/etc/udev/rules.d/72-muteme.rules` (it does not preserve the source template filename), keeping ordering below `73` so `TAG+="uaccess"` is applied before `73-seat-late.rules`.
 
 ```bash
-# Main MuteMe devices
-SUBSYSTEM=="usb", ATTRS{idVendor}=="20A0", ATTRS{idProduct}=="42DA",
-  MODE="0666", GROUP="plugdev"
-KERNEL=="hidraw*", ATTRS{idVendor}=="20A0", ATTRS{idProduct}=="42DA",
-  MODE="0666", GROUP="plugdev"
+# Install the correct rules template for your distro and reload udev:
+just install-udev
 
-# MuteMe Mini variants
-SUBSYSTEM=="usb", ATTRS{idVendor}=="3603", ATTRS{idProduct}=="0001",
-  MODE="0666", GROUP="plugdev"
-KERNEL=="hidraw*", ATTRS{idVendor}=="3603", ATTRS{idProduct}=="0001",
-  MODE="0666", GROUP="plugdev"
-# ... additional Mini variants
+# Installs to:
+# /etc/udev/rules.d/72-muteme.rules
+# (kept <73 so TAG+="uaccess" is applied before 73-seat-late.rules)
+
+# Source templates:
+# config/udev/72-muteme-plugdev.rules  # Ubuntu/Debian
+# config/udev/72-muteme-users.rules    # Fedora/Nobara
 ```
 
 ## Dependencies and Libraries
@@ -520,7 +522,7 @@ Before starting device integration, ensure:
 - [x] CLI `--version` displays correct version (0.1.0)
 - [x] Configuration file loads and validates properly
 - [x] Logging works in both text and JSON formats
-- [x] All tests pass with >80% coverage (90% achieved, 215 tests)
+- [x] All tests pass with >80% coverage (90% achieved, 249 tests)
 - [x] Pre-commit hooks run successfully
 - [x] Project can be installed via `uv pip install -e .`
 - [x] Console script `muteme-btn-control` works globally
@@ -632,36 +634,33 @@ uv run pytest tests/ --cov=muteme_btn  # Maintain coverage
 
 ```bash
 # Run with default settings
+# Note: `run` is implicit if omitted, but `run` is the canonical form used in docs.
 uv run muteme-btn-control
 
 # Run with debug logging
-uv run muteme-btn-control --log-level debug
+uv run muteme-btn-control run --log-level DEBUG
 
 # Run with JSON logs for AI analysis
-uv run muteme-btn-control --log-format json
+uv run muteme-btn-control run --log-level DEBUG --config ./muteme.toml
 ```
 
 #### Background (Daemon Mode)
 
 ```bash
-# Start in background
-uv run muteme-btn-control --daemon
+# Foreground daemon (current supported mode)
+uv run muteme-btn-control run
 
-# Check if running
-uv run muteme-btn-control --status
+# Stop with Ctrl+C (SIGINT) for graceful shutdown
 
-# Stop the daemon
-uv run muteme-btn-control --stop
-
-# Restart with new config
-uv run muteme-btn-control --restart
+# Clean up stale run processes if needed
+uv run muteme-btn-control kill-instances
 ```
 
 ### Development Commands
 
 ```bash
 # Quick test cycle
-uv run muteme-btn-control --config test.toml --log-level debug
+uv run muteme-btn-control run --config test.toml --log-level DEBUG
 
 # Pre-commit quality checks (automatic on commit)
 uv run pre-commit run --all-files
@@ -680,11 +679,11 @@ uv run pytest --cov=muteme_btn --cov-report=term-missing
 
 ### Debugging Workflow
 
-1. **Start with verbose logging**: `--log-level debug`
-2. **Use JSON format for AI analysis**: `--log-format json`
-3. **Check device permissions**: `uv run muteme-btn-control --check-device`
-4. **Test configuration**: `uv run muteme-btn-control --validate-config`
-5. **Run specific components**: `uv run muteme-btn-control --test-hid` or `--test-audio`
+1. **Start with verbose logging**: `uv run muteme-btn-control run --log-level DEBUG`
+2. **Use JSON format for AI analysis**: set `logging.format = "json"` in config, then run with `uv run muteme-btn-control run --config ./muteme.toml`
+3. **Check device permissions**: `uv run muteme-btn-control check-device`
+4. **Validate effective runtime settings**: `uv run muteme-btn-control run --log-level DEBUG --config ./muteme.toml`
+5. **Run device diagnostics**: `uv run muteme-btn-control test-device --help`
 
 ### Background Process Management
 
@@ -758,7 +757,7 @@ The implementation has successfully completed:
 - Full HID device communication layer (all MuteMe variants)
 - PulseAudio integration with toggle functionality
 - LED feedback synchronized with mute status
-- Comprehensive test suite (90% coverage, 215 tests)
+- Comprehensive test suite (90% coverage, 249 tests)
 - All quality gates passing (0 lint errors, 0 type errors)
 
 **What's Deferred** (by design):

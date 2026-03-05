@@ -1,5 +1,6 @@
 """Tests for HID device discovery and connection logic."""
 
+import io
 import os
 from unittest.mock import Mock, patch
 
@@ -183,6 +184,34 @@ class TestMuteMeDevice:
         with pytest.raises(DeviceError, match="Failed to connect"):
             MuteMeDevice.connect("/dev/hidraw0")
 
+    @patch("muteme_btn.hid.device.logger")
+    @patch("hid.device")
+    def test_connect_open_failed_logs_warning(self, mock_device, mock_logger):
+        """Test expected path open failures are logged as warnings."""
+        mock_hid_device = Mock()
+        mock_device.return_value = mock_hid_device
+        mock_hid_device.open_path.side_effect = OSError("open failed")
+
+        with pytest.raises(DeviceError, match="Failed to connect"):
+            MuteMeDevice.connect("1-1.4.2.4.2:1.0")
+
+        mock_logger.warning.assert_called_once()
+        mock_logger.error.assert_not_called()
+
+    @patch("muteme_btn.hid.device.logger")
+    @patch("hid.device")
+    def test_connect_by_vid_pid_open_failed_logs_warning(self, mock_device, mock_logger):
+        """Test expected VID/PID open failures are logged as warnings."""
+        mock_hid_device = Mock()
+        mock_device.return_value = mock_hid_device
+        mock_hid_device.open.side_effect = OSError("open failed")
+
+        with pytest.raises(DeviceError, match="Failed to connect"):
+            MuteMeDevice.connect_by_vid_pid(0x20A0, 0x42DA)
+
+        mock_logger.warning.assert_called_once()
+        mock_logger.error.assert_not_called()
+
     def test_device_disconnect(self):
         """Test device disconnection."""
         mock_hid_device = Mock()
@@ -294,6 +323,18 @@ class TestMuteMeDevice:
         with pytest.raises(ValueError, match="Invalid LED color"):
             device.set_led_color_by_name("invalid")
 
+    def test_read_failure_disconnects_device(self):
+        """Test read failure closes and disconnects device handle."""
+        mock_hid_device = Mock()
+        mock_hid_device.read.side_effect = Exception("read error")
+        device = MuteMeDevice(mock_hid_device)
+
+        with pytest.raises(DeviceError, match="Device read failed"):
+            device.read(64)
+
+        mock_hid_device.close.assert_called_once()
+        assert device.is_connected() is False
+
     @patch("time.sleep")
     def test_set_led_color_flashing_brightness(self, mock_sleep):
         """Test setting LED color with flashing brightness."""
@@ -368,7 +409,7 @@ class TestMuteMeDevice:
             mock_access.return_value = False
 
             with patch("os.stat") as mock_stat:
-                mock_stat.return_value.st_mode = 0o644
+                mock_stat.return_value.st_mode = 0o444
                 with patch("pwd.getpwuid") as mock_pwuid:
                     mock_pwuid.return_value.pw_name = "user"
                     with patch("grp.getgrgid") as mock_grgid:
@@ -379,3 +420,131 @@ class TestMuteMeDevice:
                         assert "/dev/hidraw0" in error_msg
                         assert "permissions" in error_msg.lower()
                         assert "user:plugdev" in error_msg
+                        assert "just install-udev" in error_msg
+                        assert 'TAG+="uaccess"' in error_msg
+                        assert "chmod 666" not in error_msg
+
+    def test_find_usb_device_node_success(self):
+        """Test finding USB device node for matching VID/PID."""
+        sysfs_root = "/sys/bus/usb/devices"
+        files = {
+            f"{sysfs_root}/1-1/idVendor": "20a0\n",
+            f"{sysfs_root}/1-1/idProduct": "42da\n",
+            f"{sysfs_root}/1-1/busnum": "3\n",
+            f"{sysfs_root}/1-1/devnum": "12\n",
+        }
+
+        def fake_open(path, *args, **kwargs):
+            if path in files:
+                return io.StringIO(files[path])
+            raise OSError("missing file")
+
+        with (
+            patch("os.listdir", return_value=["1-1"]),
+            patch("os.path.isdir", return_value=True),
+            patch("builtins.open", side_effect=fake_open),
+        ):
+            result = MuteMeDevice._find_usb_device_node(0x20A0, 0x42DA)
+
+        assert result == "/dev/bus/usb/003/012"
+
+    def test_find_usb_device_node_skips_non_matching_devices(self):
+        """Test USB node finder skips non-matching devices and finds next match."""
+        sysfs_root = "/sys/bus/usb/devices"
+        files = {
+            f"{sysfs_root}/1-1/idVendor": "1234\n",
+            f"{sysfs_root}/1-1/idProduct": "5678\n",
+            f"{sysfs_root}/2-1/idVendor": "20a0\n",
+            f"{sysfs_root}/2-1/idProduct": "42db\n",
+            f"{sysfs_root}/2-1/busnum": "1\n",
+            f"{sysfs_root}/2-1/devnum": "5\n",
+        }
+
+        def fake_open(path, *args, **kwargs):
+            if path in files:
+                return io.StringIO(files[path])
+            raise OSError("missing file")
+
+        with (
+            patch("os.listdir", return_value=["1-1", "2-1"]),
+            patch("os.path.isdir", return_value=True),
+            patch("builtins.open", side_effect=fake_open),
+        ):
+            result = MuteMeDevice._find_usb_device_node(0x20A0, 0x42DB)
+
+        assert result == "/dev/bus/usb/001/005"
+
+    def test_find_usb_device_node_ignores_malformed_hex_ids(self):
+        """Test USB node finder ignores malformed VID/PID values."""
+        sysfs_root = "/sys/bus/usb/devices"
+        files = {
+            f"{sysfs_root}/1-1/idVendor": "nothex\n",
+            f"{sysfs_root}/1-1/idProduct": "42da\n",
+        }
+
+        def fake_open(path, *args, **kwargs):
+            if path in files:
+                return io.StringIO(files[path])
+            raise OSError("missing file")
+
+        with (
+            patch("os.listdir", return_value=["1-1"]),
+            patch("os.path.isdir", return_value=True),
+            patch("builtins.open", side_effect=fake_open),
+        ):
+            result = MuteMeDevice._find_usb_device_node(0x20A0, 0x42DA)
+
+        assert result is None
+
+    def test_find_usb_device_node_missing_bus_or_device_numbers(self):
+        """Test USB node finder handles missing busnum/devnum files."""
+        sysfs_root = "/sys/bus/usb/devices"
+        files = {
+            f"{sysfs_root}/1-1/idVendor": "20a0\n",
+            f"{sysfs_root}/1-1/idProduct": "42da\n",
+        }
+
+        def fake_open(path, *args, **kwargs):
+            if path in files:
+                return io.StringIO(files[path])
+            raise OSError("missing file")
+
+        with (
+            patch("os.listdir", return_value=["1-1"]),
+            patch("os.path.isdir", return_value=True),
+            patch("builtins.open", side_effect=fake_open),
+        ):
+            result = MuteMeDevice._find_usb_device_node(0x20A0, 0x42DA)
+
+        assert result is None
+
+    def test_find_usb_device_node_ignores_malformed_bus_or_device_numbers(self):
+        """Test USB node finder handles malformed busnum/devnum values."""
+        sysfs_root = "/sys/bus/usb/devices"
+        files = {
+            f"{sysfs_root}/1-1/idVendor": "20a0\n",
+            f"{sysfs_root}/1-1/idProduct": "42da\n",
+            f"{sysfs_root}/1-1/busnum": "not-a-number\n",
+            f"{sysfs_root}/1-1/devnum": "12\n",
+        }
+
+        def fake_open(path, *args, **kwargs):
+            if path in files:
+                return io.StringIO(files[path])
+            raise OSError("missing file")
+
+        with (
+            patch("os.listdir", return_value=["1-1"]),
+            patch("os.path.isdir", return_value=True),
+            patch("builtins.open", side_effect=fake_open),
+        ):
+            result = MuteMeDevice._find_usb_device_node(0x20A0, 0x42DA)
+
+        assert result is None
+
+    def test_find_usb_device_node_returns_none_when_sysfs_unreadable(self):
+        """Test USB node finder returns None when sysfs cannot be listed."""
+        with patch("os.listdir", side_effect=OSError("permission denied")):
+            result = MuteMeDevice._find_usb_device_node(0x20A0, 0x42DA)
+
+        assert result is None
