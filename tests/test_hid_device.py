@@ -184,6 +184,34 @@ class TestMuteMeDevice:
         with pytest.raises(DeviceError, match="Failed to connect"):
             MuteMeDevice.connect("/dev/hidraw0")
 
+    @patch("muteme_btn.hid.device.logger")
+    @patch("hid.device")
+    def test_connect_open_failed_logs_warning(self, mock_device, mock_logger):
+        """Test expected path open failures are logged as warnings."""
+        mock_hid_device = Mock()
+        mock_device.return_value = mock_hid_device
+        mock_hid_device.open_path.side_effect = OSError("open failed")
+
+        with pytest.raises(DeviceError, match="Failed to connect"):
+            MuteMeDevice.connect("1-1.4.2.4.2:1.0")
+
+        mock_logger.warning.assert_called_once()
+        mock_logger.error.assert_not_called()
+
+    @patch("muteme_btn.hid.device.logger")
+    @patch("hid.device")
+    def test_connect_by_vid_pid_open_failed_logs_warning(self, mock_device, mock_logger):
+        """Test expected VID/PID open failures are logged as warnings."""
+        mock_hid_device = Mock()
+        mock_device.return_value = mock_hid_device
+        mock_hid_device.open.side_effect = OSError("open failed")
+
+        with pytest.raises(DeviceError, match="Failed to connect"):
+            MuteMeDevice.connect_by_vid_pid(0x20A0, 0x42DA)
+
+        mock_logger.warning.assert_called_once()
+        mock_logger.error.assert_not_called()
+
     def test_device_disconnect(self):
         """Test device disconnection."""
         mock_hid_device = Mock()
@@ -294,6 +322,18 @@ class TestMuteMeDevice:
 
         with pytest.raises(ValueError, match="Invalid LED color"):
             device.set_led_color_by_name("invalid")
+
+    def test_read_failure_disconnects_device(self):
+        """Test read failure closes and disconnects device handle."""
+        mock_hid_device = Mock()
+        mock_hid_device.read.side_effect = Exception("read error")
+        device = MuteMeDevice(mock_hid_device)
+
+        with pytest.raises(DeviceError, match="Device read failed"):
+            device.read(64)
+
+        mock_hid_device.close.assert_called_once()
+        assert device.is_connected() is False
 
     @patch("time.sleep")
     def test_set_led_color_flashing_brightness(self, mock_sleep):

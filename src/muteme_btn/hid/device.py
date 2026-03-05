@@ -196,12 +196,17 @@ class MuteMeDevice:
             return cls(device, device_info)
 
         except Exception as e:
-            logger.error(
-                "Failed to connect to MuteMe device",
-                path=device_path,
-                error=str(e),
-                error_type=type(e).__name__,
-            )
+            message = "Failed to connect to MuteMe device"
+            log_context = {
+                "path": device_path,
+                "error": str(e),
+                "error_type": type(e).__name__,
+            }
+            if "open failed" in str(e).lower():
+                # Expected while unplugged/reconnecting; keep this less noisy.
+                logger.warning(message, **log_context)
+            else:
+                logger.error(message, **log_context)
             # Provide helpful error message
             error_msg = f"Failed to connect to device {device_path}: {e}"
             if "open failed" in str(e).lower():
@@ -263,12 +268,17 @@ class MuteMeDevice:
             return cls(device, device_info)
 
         except Exception as e:
-            logger.error(
-                "Failed to connect to MuteMe device by VID/PID",
-                vendor_id=f"0x{vendor_id:04x}",
-                product_id=f"0x{product_id:04x}",
-                error=str(e),
-            )
+            message = "Failed to connect to MuteMe device by VID/PID"
+            log_context = {
+                "vendor_id": f"0x{vendor_id:04x}",
+                "product_id": f"0x{product_id:04x}",
+                "error": str(e),
+            }
+            if "open failed" in str(e).lower():
+                # Expected while unplugged/reconnecting; keep this less noisy.
+                logger.warning(message, **log_context)
+            else:
+                logger.error(message, **log_context)
             raise DeviceError(
                 f"Failed to connect to device VID:0x{vendor_id:04x} PID:0x{product_id:04x}: {e}"
             ) from e
@@ -366,10 +376,14 @@ class MuteMeDevice:
 
         try:
             data = self._device.read(size, timeout_ms)  # type: ignore[union-attr]
-            logger.debug("Read data from device", size=len(data), timeout_ms=timeout_ms)
+            if len(data) > 0:
+                logger.debug("Read data from device", size=len(data), timeout_ms=timeout_ms)
             return bytes(data)
         except Exception as e:
-            logger.error("Failed to read from device", error=str(e))
+            # Treat read failures as a disconnected/stale handle (common after sleep/wake).
+            # Closing the handle prevents repeated read failures from spamming logs.
+            self.disconnect()
+            logger.warning("Failed to read from device, disconnected handle", error=str(e))
             raise DeviceError(f"Device read failed: {e}") from e
 
     def write(self, data: bytes) -> None:

@@ -8,6 +8,7 @@ import pytest
 
 from muteme_btn.config import AudioConfig, DeviceConfig
 from muteme_btn.core.daemon import MuteMeDaemon
+from muteme_btn.hid.device import DeviceError
 
 
 class TestMuteMeDaemon:
@@ -45,6 +46,7 @@ class TestMuteMeDaemon:
         controller = Mock()
         controller.update_led_to_mute_status = Mock()
         controller.force_led_color = Mock()
+        controller.set_device = Mock()
         return controller
 
     @pytest.fixture
@@ -383,3 +385,45 @@ class TestMuteMeDaemon:
 
         # Daemon should be stopped
         assert daemon.running is False
+
+    @pytest.mark.asyncio
+    async def test_attempt_reconnect_success_rebinds_led_controller(
+        self, daemon, mock_led_controller
+    ):
+        """Test successful reconnect updates device references and resets backoff."""
+        disconnected_device = Mock()
+        disconnected_device.is_connected.return_value = False
+        daemon.device = disconnected_device
+
+        reconnected_device = Mock()
+        reconnected_device.is_connected.return_value = True
+
+        async def connect_side_effect():
+            daemon.device = reconnected_device
+
+        daemon._connect_device = AsyncMock(side_effect=connect_side_effect)
+        daemon._update_led_feedback = AsyncMock()
+
+        await daemon._attempt_reconnect_if_needed()
+
+        daemon._connect_device.assert_called_once()
+        daemon.led_controller.set_device.assert_called_once_with(reconnected_device)
+        daemon._update_led_feedback.assert_awaited_once()
+        assert daemon._reconnect_delay_seconds == daemon._reconnect_initial_delay_seconds
+
+    @pytest.mark.asyncio
+    async def test_attempt_reconnect_failure_uses_backoff(self, daemon):
+        """Test failed reconnect attempts are backed off and not retried early."""
+        disconnected_device = Mock()
+        disconnected_device.is_connected.return_value = False
+        daemon.device = disconnected_device
+        daemon._connect_device = AsyncMock(side_effect=DeviceError("reconnect failed"))
+
+        with patch("muteme_btn.core.daemon.time.monotonic", side_effect=[100.0, 100.1]):
+            await daemon._attempt_reconnect_if_needed()
+            await daemon._attempt_reconnect_if_needed()
+
+        # Second call is within backoff window, so reconnect should only be attempted once
+        daemon._connect_device.assert_called_once()
+        assert daemon._next_reconnect_attempt_at == 100.5
+        assert daemon._reconnect_delay_seconds == 1.0

@@ -44,7 +44,7 @@ run:  # Run the daemon in foreground
     uv run muteme-btn-control
 
 run-debug:  # Run with debug logging
-    uv run muteme-btn-control --log-level debug
+    uv run muteme-btn-control run --log-level DEBUG
 
 status:  # Check daemon status
     @echo "Status checking not yet implemented"
