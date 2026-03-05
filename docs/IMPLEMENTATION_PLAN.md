@@ -41,7 +41,7 @@ The `mutebtn` Rust project uses a **4-thread architecture** with crossbeam chann
 ### Identified Limitations
 
 - PulseAudio-only (no PipeWire support)
-- No hot-plug/reconnect handling
+- No event-driven hot-plug notifications (runtime reconnect/backoff is implemented)
 - No runtime configuration changes
 - Basic logging (just `println!`)
 - No GUI or tray interface
@@ -192,8 +192,8 @@ muteme-btn-control/
 #### 3.3 Device Resilience
 
 - [ ] Hot-plug detection and handling
-- [ ] Automatic device reconnection
-- [ ] Device state recovery
+- [x] Automatic device reconnection (exponential backoff)
+- [x] Device state recovery (LED re-sync to current mute state after reconnect)
 
 #### 3.4 Runtime Configuration
 
@@ -635,33 +635,29 @@ uv run pytest tests/ --cov=muteme_btn  # Maintain coverage
 uv run muteme-btn-control
 
 # Run with debug logging
-uv run muteme-btn-control --log-level debug
+uv run muteme-btn-control run --log-level DEBUG
 
 # Run with JSON logs for AI analysis
-uv run muteme-btn-control --log-format json
+uv run muteme-btn-control run --log-level DEBUG --config ./muteme.toml
 ```
 
 #### Background (Daemon Mode)
 
 ```bash
-# Start in background
-uv run muteme-btn-control --daemon
+# Foreground daemon (current supported mode)
+uv run muteme-btn-control run
 
-# Check if running
-uv run muteme-btn-control --status
+# Stop with Ctrl+C (SIGINT) for graceful shutdown
 
-# Stop the daemon
-uv run muteme-btn-control --stop
-
-# Restart with new config
-uv run muteme-btn-control --restart
+# Clean up stale run processes if needed
+uv run muteme-btn-control kill-instances
 ```
 
 ### Development Commands
 
 ```bash
 # Quick test cycle
-uv run muteme-btn-control --config test.toml --log-level debug
+uv run muteme-btn-control run --config test.toml --log-level DEBUG
 
 # Pre-commit quality checks (automatic on commit)
 uv run pre-commit run --all-files
@@ -680,11 +676,11 @@ uv run pytest --cov=muteme_btn --cov-report=term-missing
 
 ### Debugging Workflow
 
-1. **Start with verbose logging**: `--log-level debug`
-2. **Use JSON format for AI analysis**: `--log-format json`
-3. **Check device permissions**: `uv run muteme-btn-control --check-device`
-4. **Test configuration**: `uv run muteme-btn-control --validate-config`
-5. **Run specific components**: `uv run muteme-btn-control --test-hid` or `--test-audio`
+1. **Start with verbose logging**: `uv run muteme-btn-control run --log-level DEBUG`
+2. **Use JSON format for AI analysis**: set `logging.format = "json"` in config, then run with `uv run muteme-btn-control run --config ./muteme.toml`
+3. **Check device permissions**: `uv run muteme-btn-control check-device`
+4. **Validate effective runtime settings**: `uv run muteme-btn-control run --log-level DEBUG --config ./muteme.toml`
+5. **Run device diagnostics**: `uv run muteme-btn-control test-device --help`
 
 ### Background Process Management
 
