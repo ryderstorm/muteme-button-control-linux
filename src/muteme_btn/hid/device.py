@@ -316,7 +316,7 @@ class MuteMeDevice:
                         busnum = int(f.read().strip())
                     with open(os.path.join(dev_dir, "devnum"), encoding="utf-8") as f:
                         devnum = int(f.read().strip())
-                except OSError:
+                except (OSError, ValueError):
                     continue
 
                 return f"/dev/bus/usb/{busnum:03d}/{devnum:03d}"
@@ -727,7 +727,10 @@ class MuteMeDevice:
                     '3. On systemd-based distros, ensure the rules include TAG+="uaccess" '
                     "(recommended)\n"
                 )
-                error_msg += "4. As a temporary workaround: sudo chmod 666 " + device_path
+                error_msg += (
+                    "4. For headless/service users, add the service account to the "
+                    "device group used by your rules (for example: plugdev on Debian/Ubuntu)."
+                )
 
             return error_msg
 

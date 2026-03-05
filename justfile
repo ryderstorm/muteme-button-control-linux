@@ -72,7 +72,7 @@ install-udev:  # Install UDEV rules for device access
         chosen_group="plugdev"
     else
         src_rules="config/udev/72-muteme-users.rules"
-        chosen_group="users"
+        chosen_group=""
     fi
 
     if [ ! -f "${src_rules}" ]; then
@@ -85,7 +85,11 @@ install-udev:  # Install UDEV rules for device access
         sudo rm -f "${legacy_rules}"
     fi
 
-    echo "Installing ${src_rules} → ${dest_rules} (group=${chosen_group})"
+    if [ -n "${chosen_group}" ]; then
+        echo "Installing ${src_rules} → ${dest_rules} (group=${chosen_group})"
+    else
+        echo "Installing ${src_rules} → ${dest_rules} (uaccess ACL rules)"
+    fi
     sudo install -m 0644 "${src_rules}" "${dest_rules}"
 
     echo "Reloading and triggering udev rules..."
@@ -93,8 +97,8 @@ install-udev:  # Install UDEV rules for device access
     sudo udevadm trigger
 
     # Best-effort hint if the user isn't a member of the chosen group (uaccess may still work)
-    install_user="${SUDO_USER:-${USER}}"
-    if ! id -nG "${install_user}" | tr ' ' '\n' | grep -qx "${chosen_group}"; then
+    install_user="${SUDO_USER:-${USER:-}}"
+    if [ -n "${chosen_group}" ] && [ -n "${install_user}" ] && ! id -nG "${install_user}" | tr ' ' '\n' | grep -qx "${chosen_group}"; then
         echo ""
         echo "⚠️  Note: user '${install_user}' is not in group '${chosen_group}'."
         echo "   Desktop sessions should still work via TAG+=\"uaccess\"."

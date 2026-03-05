@@ -419,11 +419,11 @@ class TestMuteMeDaemon:
         daemon.device = disconnected_device
         daemon._connect_device = AsyncMock(side_effect=DeviceError("reconnect failed"))
 
-        with patch("muteme_btn.core.daemon.time.monotonic", side_effect=[100.0, 100.1]):
+        with patch("muteme_btn.core.daemon.time.monotonic", side_effect=[100.0, 100.8, 101.0]):
             await daemon._attempt_reconnect_if_needed()
             await daemon._attempt_reconnect_if_needed()
 
         # Second call is within backoff window, so reconnect should only be attempted once
         daemon._connect_device.assert_called_once()
-        assert daemon._next_reconnect_attempt_at == 100.5
+        assert daemon._next_reconnect_attempt_at == 101.3
         assert daemon._reconnect_delay_seconds == 1.0

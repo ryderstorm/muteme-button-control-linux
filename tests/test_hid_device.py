@@ -409,7 +409,7 @@ class TestMuteMeDevice:
             mock_access.return_value = False
 
             with patch("os.stat") as mock_stat:
-                mock_stat.return_value.st_mode = 0o644
+                mock_stat.return_value.st_mode = 0o444
                 with patch("pwd.getpwuid") as mock_pwuid:
                     mock_pwuid.return_value.pw_name = "user"
                     with patch("grp.getgrgid") as mock_grgid:
@@ -420,6 +420,9 @@ class TestMuteMeDevice:
                         assert "/dev/hidraw0" in error_msg
                         assert "permissions" in error_msg.lower()
                         assert "user:plugdev" in error_msg
+                        assert "just install-udev" in error_msg
+                        assert 'TAG+="uaccess"' in error_msg
+                        assert "chmod 666" not in error_msg
 
     def test_find_usb_device_node_success(self):
         """Test finding USB device node for matching VID/PID."""
@@ -499,6 +502,30 @@ class TestMuteMeDevice:
         files = {
             f"{sysfs_root}/1-1/idVendor": "20a0\n",
             f"{sysfs_root}/1-1/idProduct": "42da\n",
+        }
+
+        def fake_open(path, *args, **kwargs):
+            if path in files:
+                return io.StringIO(files[path])
+            raise OSError("missing file")
+
+        with (
+            patch("os.listdir", return_value=["1-1"]),
+            patch("os.path.isdir", return_value=True),
+            patch("builtins.open", side_effect=fake_open),
+        ):
+            result = MuteMeDevice._find_usb_device_node(0x20A0, 0x42DA)
+
+        assert result is None
+
+    def test_find_usb_device_node_ignores_malformed_bus_or_device_numbers(self):
+        """Test USB node finder handles malformed busnum/devnum values."""
+        sysfs_root = "/sys/bus/usb/devices"
+        files = {
+            f"{sysfs_root}/1-1/idVendor": "20a0\n",
+            f"{sysfs_root}/1-1/idProduct": "42da\n",
+            f"{sysfs_root}/1-1/busnum": "not-a-number\n",
+            f"{sysfs_root}/1-1/devnum": "12\n",
         }
 
         def fake_open(path, *args, **kwargs):

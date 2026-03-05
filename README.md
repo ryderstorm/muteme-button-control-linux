@@ -131,6 +131,7 @@ cargo install just
    Or manually:
 
    ```bash
+   # Choose ONE based on your distro:
    # Ubuntu/Debian (plugdev group exists):
    sudo install -m 0644 config/udev/72-muteme-plugdev.rules /etc/udev/rules.d/72-muteme.rules
    # Fedora/Nobara (no plugdev group):
@@ -296,7 +297,7 @@ If you encounter permission errors:
 
 **For Fedora/Nobara systems:**
 
-The UDEV rules use `TAG+="uaccess"` (systemd-logind) and also set `GROUP="users"` with `MODE="0660"` for robustness. If you still encounter permission errors:
+The UDEV rules rely on `TAG+="uaccess"` (systemd-logind ACLs) with `MODE="0660"` and no broad static group fallback. If you still encounter permission errors:
 
 1. **Ensure UDEV rules are installed and reloaded:**
 

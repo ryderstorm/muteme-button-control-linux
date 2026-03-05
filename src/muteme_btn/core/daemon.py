@@ -313,7 +313,7 @@ class MuteMeDaemon:
         except Exception as e:
             retry_seconds = round(self._reconnect_delay_seconds, 3)
             logger.warning(f"Reconnect attempt failed: {e} (retry in {retry_seconds}s)")
-            self._next_reconnect_attempt_at = now + self._reconnect_delay_seconds
+            self._next_reconnect_attempt_at = time.monotonic() + self._reconnect_delay_seconds
             self._reconnect_delay_seconds = min(
                 self._reconnect_delay_seconds * 2,
                 self._reconnect_max_delay_seconds,
