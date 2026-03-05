@@ -47,6 +47,10 @@ class TestCLIDeviceCommands:
                 "muteme_btn.hid.device.MuteMeDevice._find_hidraw_device",
                 side_effect=lambda vid, pid: f"/dev/hidraw{0 if vid == 0x20A0 else 1}",
             ),
+            patch(
+                "muteme_btn.hid.device.MuteMeDevice._find_usb_device_node",
+                return_value=None,
+            ),
         ):
             # Run check-device command
             result = self.runner.invoke(app, ["check-device"])
@@ -184,6 +188,10 @@ class TestCLIDeviceCommands:
                 "muteme_btn.hid.device.MuteMeDevice._find_hidraw_device",
                 return_value="/dev/hidraw0",
             ),
+            patch(
+                "muteme_btn.hid.device.MuteMeDevice._find_usb_device_node",
+                return_value=None,
+            ),
         ):
             result = self.runner.invoke(app, ["check-device", "--verbose"])
 
@@ -195,6 +203,101 @@ class TestCLIDeviceCommands:
             assert "Product: MuteMe Button" in result.stdout
             assert "USB Path: /dev/hidraw0" in result.stdout
             assert "HIDraw Device: /dev/hidraw0" in result.stdout
+
+    @patch("muteme_btn.hid.device.MuteMeDevice.discover_devices")
+    @patch("muteme_btn.hid.device.MuteMeDevice.check_device_permissions")
+    def test_check_device_command_usb_node_only_success(self, mock_check_perms, mock_discover):
+        """Test check-device succeeds when only USB node is available."""
+        mock_discover.return_value = [
+            DeviceInfo(
+                vendor_id=0x20A0,
+                product_id=0x42DA,
+                path="/dev/hidraw0",
+                manufacturer="MuteMe",
+                product="MuteMe Button",
+            )
+        ]
+
+        mock_check_perms.return_value = True
+
+        with (
+            patch("muteme_btn.hid.device.MuteMeDevice._find_hidraw_device", return_value=None),
+            patch(
+                "muteme_btn.hid.device.MuteMeDevice._find_usb_device_node",
+                return_value="/dev/bus/usb/001/002",
+            ),
+        ):
+            result = self.runner.invoke(app, ["check-device"])
+
+        assert result.exit_code == 0
+        assert "Permissions: ✅ OK" in result.stdout
+        mock_check_perms.assert_called_once_with("/dev/bus/usb/001/002")
+
+    @patch("muteme_btn.hid.device.MuteMeDevice.discover_devices")
+    @patch("muteme_btn.hid.device.MuteMeDevice.check_device_permissions")
+    def test_check_device_command_verbose_shows_usb_node(self, mock_check_perms, mock_discover):
+        """Test verbose check-device output includes USB node information."""
+        mock_discover.return_value = [
+            DeviceInfo(
+                vendor_id=0x20A0,
+                product_id=0x42DA,
+                path="/dev/hidraw0",
+                manufacturer="MuteMe",
+                product="MuteMe Button",
+            )
+        ]
+
+        mock_check_perms.side_effect = lambda path: path == "/dev/bus/usb/001/002"
+
+        with (
+            patch("muteme_btn.hid.device.MuteMeDevice._find_hidraw_device", return_value=None),
+            patch(
+                "muteme_btn.hid.device.MuteMeDevice._find_usb_device_node",
+                return_value="/dev/bus/usb/001/002",
+            ),
+        ):
+            result = self.runner.invoke(app, ["check-device", "--verbose"])
+
+        assert result.exit_code == 0
+        assert "HIDraw Device: Not found" in result.stdout
+        assert "USB Device Node: /dev/bus/usb/001/002" in result.stdout
+        assert "Permissions: ✅ OK" in result.stdout
+
+    @patch("muteme_btn.hid.device.MuteMeDevice.discover_devices")
+    @patch("muteme_btn.hid.device.MuteMeDevice.check_device_permissions")
+    def test_check_device_command_succeeds_when_one_node_accessible(
+        self, mock_check_perms, mock_discover
+    ):
+        """Test check-device passes when only one discovered node is accessible."""
+        mock_discover.return_value = [
+            DeviceInfo(
+                vendor_id=0x20A0,
+                product_id=0x42DA,
+                path="/dev/hidraw0",
+                manufacturer="MuteMe",
+                product="MuteMe Button",
+            )
+        ]
+
+        def permission_side_effect(path: str) -> bool:
+            return path == "/dev/bus/usb/001/002"
+
+        mock_check_perms.side_effect = permission_side_effect
+
+        with (
+            patch(
+                "muteme_btn.hid.device.MuteMeDevice._find_hidraw_device",
+                return_value="/dev/hidraw0",
+            ),
+            patch(
+                "muteme_btn.hid.device.MuteMeDevice._find_usb_device_node",
+                return_value="/dev/bus/usb/001/002",
+            ),
+        ):
+            result = self.runner.invoke(app, ["check-device"])
+
+        assert result.exit_code == 0
+        assert "Permissions: ✅ OK" in result.stdout
 
 
 class TestTestDeviceCommand:

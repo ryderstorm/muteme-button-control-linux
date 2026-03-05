@@ -1,5 +1,6 @@
 """Tests for HID device discovery and connection logic."""
 
+import io
 import os
 from unittest.mock import Mock, patch
 
@@ -379,3 +380,104 @@ class TestMuteMeDevice:
                         assert "/dev/hidraw0" in error_msg
                         assert "permissions" in error_msg.lower()
                         assert "user:plugdev" in error_msg
+
+    def test_find_usb_device_node_success(self):
+        """Test finding USB device node for matching VID/PID."""
+        sysfs_root = "/sys/bus/usb/devices"
+        files = {
+            f"{sysfs_root}/1-1/idVendor": "20a0\n",
+            f"{sysfs_root}/1-1/idProduct": "42da\n",
+            f"{sysfs_root}/1-1/busnum": "3\n",
+            f"{sysfs_root}/1-1/devnum": "12\n",
+        }
+
+        def fake_open(path, *args, **kwargs):
+            if path in files:
+                return io.StringIO(files[path])
+            raise OSError("missing file")
+
+        with (
+            patch("os.listdir", return_value=["1-1"]),
+            patch("os.path.isdir", return_value=True),
+            patch("builtins.open", side_effect=fake_open),
+        ):
+            result = MuteMeDevice._find_usb_device_node(0x20A0, 0x42DA)
+
+        assert result == "/dev/bus/usb/003/012"
+
+    def test_find_usb_device_node_skips_non_matching_devices(self):
+        """Test USB node finder skips non-matching devices and finds next match."""
+        sysfs_root = "/sys/bus/usb/devices"
+        files = {
+            f"{sysfs_root}/1-1/idVendor": "1234\n",
+            f"{sysfs_root}/1-1/idProduct": "5678\n",
+            f"{sysfs_root}/2-1/idVendor": "20a0\n",
+            f"{sysfs_root}/2-1/idProduct": "42db\n",
+            f"{sysfs_root}/2-1/busnum": "1\n",
+            f"{sysfs_root}/2-1/devnum": "5\n",
+        }
+
+        def fake_open(path, *args, **kwargs):
+            if path in files:
+                return io.StringIO(files[path])
+            raise OSError("missing file")
+
+        with (
+            patch("os.listdir", return_value=["1-1", "2-1"]),
+            patch("os.path.isdir", return_value=True),
+            patch("builtins.open", side_effect=fake_open),
+        ):
+            result = MuteMeDevice._find_usb_device_node(0x20A0, 0x42DB)
+
+        assert result == "/dev/bus/usb/001/005"
+
+    def test_find_usb_device_node_ignores_malformed_hex_ids(self):
+        """Test USB node finder ignores malformed VID/PID values."""
+        sysfs_root = "/sys/bus/usb/devices"
+        files = {
+            f"{sysfs_root}/1-1/idVendor": "nothex\n",
+            f"{sysfs_root}/1-1/idProduct": "42da\n",
+        }
+
+        def fake_open(path, *args, **kwargs):
+            if path in files:
+                return io.StringIO(files[path])
+            raise OSError("missing file")
+
+        with (
+            patch("os.listdir", return_value=["1-1"]),
+            patch("os.path.isdir", return_value=True),
+            patch("builtins.open", side_effect=fake_open),
+        ):
+            result = MuteMeDevice._find_usb_device_node(0x20A0, 0x42DA)
+
+        assert result is None
+
+    def test_find_usb_device_node_missing_bus_or_device_numbers(self):
+        """Test USB node finder handles missing busnum/devnum files."""
+        sysfs_root = "/sys/bus/usb/devices"
+        files = {
+            f"{sysfs_root}/1-1/idVendor": "20a0\n",
+            f"{sysfs_root}/1-1/idProduct": "42da\n",
+        }
+
+        def fake_open(path, *args, **kwargs):
+            if path in files:
+                return io.StringIO(files[path])
+            raise OSError("missing file")
+
+        with (
+            patch("os.listdir", return_value=["1-1"]),
+            patch("os.path.isdir", return_value=True),
+            patch("builtins.open", side_effect=fake_open),
+        ):
+            result = MuteMeDevice._find_usb_device_node(0x20A0, 0x42DA)
+
+        assert result is None
+
+    def test_find_usb_device_node_returns_none_when_sysfs_unreadable(self):
+        """Test USB node finder returns None when sysfs cannot be listed."""
+        with patch("os.listdir", side_effect=OSError("permission denied")):
+            result = MuteMeDevice._find_usb_device_node(0x20A0, 0x42DA)
+
+        assert result is None
