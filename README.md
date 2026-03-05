@@ -304,6 +304,7 @@ The UDEV rules rely on `TAG+="uaccess"` (systemd-logind ACLs) with `MODE="0660"`
    ```bash
    sudo udevadm control --reload-rules
    sudo udevadm trigger --subsystem-match=usb --attr-match=idVendor=20a0
+   sudo udevadm trigger --subsystem-match=usb --attr-match=idVendor=3603
    ```
 
 2. **Unplug and replug your MuteMe device** to apply the new rules.
