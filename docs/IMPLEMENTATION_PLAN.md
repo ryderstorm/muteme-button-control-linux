@@ -257,6 +257,8 @@ Based on official MuteMe documentation:
 
 Official UDEV templates required for proper device access (distro-aware):
 
+`just install-udev` detects whether `plugdev` exists and copies the matching source template (`config/udev/72-muteme-plugdev.rules` or `config/udev/72-muteme-users.rules`) to the unified target `/etc/udev/rules.d/72-muteme.rules` (it does not preserve the source template filename), keeping ordering below `73` so `TAG+="uaccess"` is applied before `73-seat-late.rules`.
+
 ```bash
 # Install the correct rules template for your distro and reload udev:
 just install-udev
@@ -632,6 +634,7 @@ uv run pytest tests/ --cov=muteme_btn  # Maintain coverage
 
 ```bash
 # Run with default settings
+# Note: `run` is implicit if omitted, but `run` is the canonical form used in docs.
 uv run muteme-btn-control
 
 # Run with debug logging
