@@ -2,6 +2,75 @@
 
 <!-- version list -->
 
+## v0.2.1 (2026-03-05)
+
+### Bug Fixes
+
+- **device**: Improve reconnect resilience and distro-aware udev handling
+  ([#12](https://github.com/ryderstorm/muteme-button-control-linux/pull/12),
+  [`0557e90`](https://github.com/ryderstorm/muteme-button-control-linux/commit/0557e90028075912845b12892826c361286dab38))
+
+- **device**: Recover from disconnects with reconnect backoff
+  ([#12](https://github.com/ryderstorm/muteme-button-control-linux/pull/12),
+  [`0557e90`](https://github.com/ryderstorm/muteme-button-control-linux/commit/0557e90028075912845b12892826c361286dab38))
+
+- **review**: Address PR feedback for reconnect and udev hardening
+  ([#12](https://github.com/ryderstorm/muteme-button-control-linux/pull/12),
+  [`0557e90`](https://github.com/ryderstorm/muteme-button-control-linux/commit/0557e90028075912845b12892826c361286dab38))
+
+- **udev**: Install distro-aware udev rules
+  ([#12](https://github.com/ryderstorm/muteme-button-control-linux/pull/12),
+  [`0557e90`](https://github.com/ryderstorm/muteme-button-control-linux/commit/0557e90028075912845b12892826c361286dab38))
+
+### Chores
+
+- **config**: Add CodeRabbit review filters
+  ([#12](https://github.com/ryderstorm/muteme-button-control-linux/pull/12),
+  [`0557e90`](https://github.com/ryderstorm/muteme-button-control-linux/commit/0557e90028075912845b12892826c361286dab38))
+
+### Continuous Integration
+
+- **cache**: Extract uv cache logic into reusable composite actions
+  ([#11](https://github.com/ryderstorm/muteme-button-control-linux/pull/11),
+  [`e0e86e4`](https://github.com/ryderstorm/muteme-button-control-linux/commit/e0e86e434eb7a98abdedada4b5c9097ce89b1382))
+
+- **pre-commit**: Update markdownlint configuration and fix linting issues
+  ([#10](https://github.com/ryderstorm/muteme-button-control-linux/pull/10),
+  [`8f335f3`](https://github.com/ryderstorm/muteme-button-control-linux/commit/8f335f3b226276b5069d1b5b343bb5ef6c9e9995))
+
+### Documentation
+
+- **agents**: Add repository AGENTS guidance
+  ([#12](https://github.com/ryderstorm/muteme-button-control-linux/pull/12),
+  [`0557e90`](https://github.com/ryderstorm/muteme-button-control-linux/commit/0557e90028075912845b12892826c361286dab38))
+
+- **plan**: Clarify udev install and CLI invocation
+  ([#12](https://github.com/ryderstorm/muteme-button-control-linux/pull/12),
+  [`0557e90`](https://github.com/ryderstorm/muteme-button-control-linux/commit/0557e90028075912845b12892826c361286dab38))
+
+- **plan**: Sync udev and test-count status
+  ([#12](https://github.com/ryderstorm/muteme-button-control-linux/pull/12),
+  [`0557e90`](https://github.com/ryderstorm/muteme-button-control-linux/commit/0557e90028075912845b12892826c361286dab38))
+
+- **plan**: Update reconnect status and CLI examples
+  ([#12](https://github.com/ryderstorm/muteme-button-control-linux/pull/12),
+  [`0557e90`](https://github.com/ryderstorm/muteme-button-control-linux/commit/0557e90028075912845b12892826c361286dab38))
+
+- **readme**: Include Mini IDs in lsusb verification
+  ([#12](https://github.com/ryderstorm/muteme-button-control-linux/pull/12),
+  [`0557e90`](https://github.com/ryderstorm/muteme-button-control-linux/commit/0557e90028075912845b12892826c361286dab38))
+
+- **readme**: Include Mini vendor in udev trigger example
+  ([#12](https://github.com/ryderstorm/muteme-button-control-linux/pull/12),
+  [`0557e90`](https://github.com/ryderstorm/muteme-button-control-linux/commit/0557e90028075912845b12892826c361286dab38))
+
+### Testing
+
+- **hid**: Cover usb-node detection and CLI permission paths
+  ([#12](https://github.com/ryderstorm/muteme-button-control-linux/pull/12),
+  [`0557e90`](https://github.com/ryderstorm/muteme-button-control-linux/commit/0557e90028075912845b12892826c361286dab38))
+
+
 ## v0.2.0 (2025-11-10)
 
 ### Bug Fixes
