@@ -84,6 +84,7 @@ class MuteMeDevice:
         """
         self._device = device
         self._device_info = device_info
+        self._button_pressed = False
 
     @classmethod
     def discover_devices(cls) -> list[DeviceInfo]:
@@ -434,23 +435,41 @@ class MuteMeDevice:
 
             if len(data) >= 4:
                 button_byte = data[3]
-                event_type = "press" if button_byte == 0x01 else "release"
-                timestamp = datetime.now()
+                raw_pressed = button_byte == 0x01
+                event_type: str | None = None
 
-                # Create a simple event object
-                @dataclass
-                class DeviceEvent:
-                    type: str
-                    timestamp: datetime
+                if raw_pressed and not self._button_pressed:
+                    self._button_pressed = True
+                    event_type = "press"
+                elif not raw_pressed and self._button_pressed:
+                    self._button_pressed = False
+                    event_type = "release"
 
-                events.append(DeviceEvent(type=event_type, timestamp=timestamp))
-                logger.info(
-                    f"Button event detected: {event_type} "
-                    f"(raw data: {data.hex()}, button byte: 0x{button_byte:02x})"
-                )
+                if event_type is not None:
+                    timestamp = datetime.now()
+
+                    # Create a simple event object
+                    @dataclass
+                    class DeviceEvent:
+                        type: str
+                        timestamp: datetime
+
+                    events.append(DeviceEvent(type=event_type, timestamp=timestamp))
+                    logger.info(
+                        f"Button event detected: {event_type} "
+                        f"(raw data: {data.hex()}, button byte: 0x{button_byte:02x})"
+                    )
+                else:
+                    logger.debug(
+                        "Ignored duplicate button report",
+                        raw_data=data.hex(),
+                        button_byte=f"0x{button_byte:02x}",
+                        logical_pressed=self._button_pressed,
+                    )
 
         except DeviceError:
-            # No data available or read timeout - this is normal
+            # No data, a read timeout, or a stale handle that read() already disconnected.
+            # The main loop will notice a disconnected handle and enter reconnect flow.
             pass
         except Exception as e:
             logger.warning(f"Error reading events: {e}")

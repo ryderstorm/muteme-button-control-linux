@@ -548,3 +548,59 @@ class TestMuteMeDevice:
             result = MuteMeDevice._find_usb_device_node(0x20A0, 0x42DA)
 
         assert result is None
+
+
+class TestMuteMeButtonEdgeNormalization:
+    """Tests for normalizing noisy MuteMe raw reports into stable button edges."""
+
+    @pytest.mark.asyncio
+    async def test_repeated_press_reports_emit_single_press_edge(self):
+        """A long hold should not emit repeated logical press events."""
+        mock_hid_device = Mock()
+        mock_hid_device.read.side_effect = [
+            [0x00, 0x00, 0x00, 0x01],
+            [0x00, 0x00, 0x00, 0x01],
+            [0x00, 0x00, 0x00, 0x01],
+        ]
+        device = MuteMeDevice(mock_hid_device)
+
+        first = await device.read_events()
+        second = await device.read_events()
+        third = await device.read_events()
+
+        assert [event.type for event in first] == ["press"]
+        assert second == []
+        assert third == []
+
+    @pytest.mark.asyncio
+    async def test_noisy_release_tail_emits_single_release_edge(self):
+        """Release-like packet tails should collapse to one logical release."""
+        mock_hid_device = Mock()
+        mock_hid_device.read.side_effect = [
+            [0x00, 0x00, 0x00, 0x01],
+            [0x00, 0x00, 0x00, 0x02],
+            [0x00, 0x00, 0x00, 0x00],
+            [0x00, 0x00, 0x00, 0x04],
+        ]
+        device = MuteMeDevice(mock_hid_device)
+
+        press = await device.read_events()
+        release = await device.read_events()
+        tail_zero = await device.read_events()
+        tail_four = await device.read_events()
+
+        assert [event.type for event in press] == ["press"]
+        assert [event.type for event in release] == ["release"]
+        assert tail_zero == []
+        assert tail_four == []
+
+    @pytest.mark.asyncio
+    async def test_initial_release_like_packet_is_ignored(self):
+        """Startup release-like packets should not produce logical release events."""
+        mock_hid_device = Mock()
+        mock_hid_device.read.side_effect = [[0x00, 0x00, 0x00, 0x04]]
+        device = MuteMeDevice(mock_hid_device)
+
+        events = await device.read_events()
+
+        assert events == []
