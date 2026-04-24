@@ -427,3 +427,92 @@ class TestMuteMeDaemon:
         daemon._connect_device.assert_called_once()
         assert daemon._next_reconnect_attempt_at == 101.3
         assert daemon._reconnect_delay_seconds == 1.0
+
+
+class TestMuteMeDaemonPTTMode:
+    """Tests for daemon integration with hold-to-talk mode."""
+
+    @pytest.fixture
+    def mock_key_emitter(self):
+        emitter = Mock()
+        emitter.press_f19 = Mock()
+        emitter.release_f19 = Mock()
+        emitter.release_all = Mock()
+        emitter.close = Mock()
+        return emitter
+
+    @pytest.fixture
+    def ptt_daemon_parts(self, mock_key_emitter):
+        """Create daemon dependencies for PTT integration tests."""
+        device = Mock()
+        device.is_connected = Mock(return_value=True)
+        device.read_events = AsyncMock(return_value=[])
+        device.close = Mock()
+        audio_backend = Mock()
+        audio_backend.is_muted = Mock(return_value=False)
+        audio_backend.set_mute_state = Mock()
+        audio_backend.close = Mock()
+        state_machine = Mock()
+        state_machine.process_event = Mock(return_value=[])
+        state_machine.reset = Mock()
+        led_controller = Mock()
+        led_controller.update_led_to_mute_status = Mock()
+        led_controller.update_led_for_mode = Mock()
+        led_controller.show_mode_switch_confirmation = Mock()
+        led_controller.force_led_color = Mock()
+        return device, audio_backend, state_machine, led_controller, mock_key_emitter
+
+    @pytest.mark.asyncio
+    async def test_handle_ptt_actions_emit_f19_without_toggling_audio(self, ptt_daemon_parts):
+        """PTT actions should drive F19 and not PulseAudio toggles."""
+        device, audio_backend, state_machine, led_controller, key_emitter = ptt_daemon_parts
+        daemon = MuteMeDaemon(
+            device=device,
+            audio_backend=audio_backend,
+            state_machine=state_machine,
+            led_controller=led_controller,
+            key_emitter=key_emitter,
+        )
+
+        await daemon._handle_action("ptt_press")
+        await daemon._handle_action("ptt_release")
+
+        key_emitter.press_f19.assert_called_once()
+        key_emitter.release_f19.assert_called_once()
+        audio_backend.set_mute_state.assert_not_called()
+
+    def test_cleanup_releases_any_held_ptt_key(self, ptt_daemon_parts):
+        """Daemon cleanup should force-release synthetic keys and close emitter resources."""
+        device, audio_backend, state_machine, led_controller, key_emitter = ptt_daemon_parts
+        daemon = MuteMeDaemon(
+            device=device,
+            audio_backend=audio_backend,
+            state_machine=state_machine,
+            led_controller=led_controller,
+            key_emitter=key_emitter,
+        )
+
+        daemon.cleanup()
+
+        key_emitter.release_all.assert_called_once()
+        key_emitter.close.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_process_button_events_checks_timeout_for_hold_gesture(self, ptt_daemon_parts):
+        """Main loop event processing should feed timeout ticks to gesture logic."""
+        device, audio_backend, state_machine, led_controller, key_emitter = ptt_daemon_parts
+        daemon = MuteMeDaemon(
+            device=device,
+            audio_backend=audio_backend,
+            state_machine=state_machine,
+            led_controller=led_controller,
+            key_emitter=key_emitter,
+        )
+        device.read_events.return_value = []
+        state_machine.process_event.return_value = []
+
+        await daemon._process_button_events()
+
+        assert state_machine.process_event.call_count == 1
+        timeout_event = state_machine.process_event.call_args.args[0]
+        assert timeout_event.type == "timeout"

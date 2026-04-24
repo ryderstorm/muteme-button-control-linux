@@ -195,3 +195,35 @@ class TestLEDFeedbackController:
 
         assert controller.muted_color == LEDColor.BLUE
         assert controller.unmuted_color == LEDColor.YELLOW
+
+
+class TestModeAwareLEDFeedback:
+    """Tests for mode-aware LED rendering."""
+
+    @pytest.fixture
+    def mode_led_controller(self):
+        """Create a LED controller for mode-aware tests."""
+        device = Mock()
+        device.set_led_color = Mock()
+        device.is_connected = Mock(return_value=True)
+        audio_backend = Mock()
+        audio_backend.is_muted = Mock(return_value=False)
+        return LEDFeedbackController(device=device, audio_backend=audio_backend)
+
+    def test_update_ptt_idle_sets_blue(self, mode_led_controller):
+        """PTT idle should use the configured idle color."""
+        mode_led_controller.update_led_for_mode("ptt", active=False)
+
+        mode_led_controller.device.set_led_color.assert_called_once_with(LEDColor.BLUE)
+
+    def test_update_ptt_active_sets_yellow(self, mode_led_controller):
+        """PTT active should use the configured active color."""
+        mode_led_controller.update_led_for_mode("ptt", active=True)
+
+        mode_led_controller.device.set_led_color.assert_called_once_with(LEDColor.YELLOW)
+
+    def test_show_mode_switch_confirmation_animates(self, mode_led_controller):
+        """Mode switches should produce a short visible confirmation."""
+        mode_led_controller.show_mode_switch_confirmation()
+
+        assert mode_led_controller.device.set_led_color.call_count >= 2

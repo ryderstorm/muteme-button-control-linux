@@ -1071,6 +1071,8 @@ def run(
         daemon = MuteMeDaemon(
             device_config=app_config.device,
             audio_config=app_config.audio,
+            mode_config=app_config.mode,
+            ptt_config=app_config.ptt,
         )
 
         # Run the daemon
