@@ -39,7 +39,7 @@
 
 ## 🎯 About
 
-**MuteMe Button Control** is a Python-based Linux daemon that provides reliable toggle-mode control for MuteMe hardware buttons. It seamlessly integrates with PulseAudio to manage microphone mute/unmute operations, offering visual LED feedback and a modern command-line interface.
+**MuteMe Button Control** is a Python-based Linux daemon that provides reliable toggle-mode and push-to-talk control for MuteMe hardware buttons. It integrates with PulseAudio for microphone mute/unmute operations and can emulate F19 for hold-to-talk workflows such as `utter`, with visual LED feedback and a modern command-line interface.
 
 ### Key Highlights
 
@@ -57,8 +57,10 @@
 | Feature | Description |
 | ------- | ----------- |
 | **Toggle Mode** | Press the MuteMe button to toggle microphone mute/unmute state |
+| **Push-to-Talk Mode** | Hold the button to emit F19 key down/up for `utter` and similar workflows |
+| **Mode Switching** | Double-tap-and-hold switches between normal and PTT modes |
 | **PulseAudio Integration** | Seamless integration with PulseAudio for audio control |
-| **LED Feedback** | Visual LED feedback (red=muted, green=unmuted) synchronized with audio state |
+| **LED Feedback** | Red/green mute feedback in normal mode plus blue/yellow PTT idle/active feedback |
 | **Modern CLI** | Clean Typer-based command-line interface |
 | **Configuration** | Flexible TOML-based configuration with validation |
 | **Structured Logging** | Human-readable text logs or JSON format for machine parsing |
@@ -73,6 +75,8 @@
 - **Hardware**: MuteMe button device (VID: `0x20A0`, PID: `0x42DA`)
 - **Audio System**: PulseAudio
 - **Dependencies**: Managed via `uv` (see `pyproject.toml`)
+
+PTT mode uses Linux uinput through the Python `evdev` package. If F19 emulation fails at runtime, ensure `/dev/uinput` exists and your user has permission to write to it.
 
 ---
 
@@ -201,6 +205,16 @@ timeout = 5.0
 [audio]
 backend = "pulseaudio"
 poll_interval = 0.1
+
+[mode]
+default = "normal"              # normal or ptt
+double_tap_timeout_ms = 300
+switch_hold_threshold_ms = 800
+
+[ptt]
+key = "f19"                     # used by utter push-to-talk
+idle_color = "blue"
+active_color = "yellow"
 
 [logging]
 level = "INFO"

@@ -179,9 +179,10 @@ muteme-btn-control/
 
 #### 3.1 Advanced Operation Modes
 
-- [ ] Hybrid mode with double-tap detection
-- [ ] Configurable timing windows
-- [ ] Advanced button state handling
+- [x] Push-to-Talk mode via F19 key emulation (hold button to talk, release to stop)
+- [x] Hybrid mode with double-tap-and-hold mode switching between normal and PTT modes
+- [x] Configurable timing windows for double-tap and switch-hold thresholds
+- [x] Advanced button state handling with HID edge normalization for noisy hold/release reports
 
 #### 3.2 Multi-Backend Audio Support
 
