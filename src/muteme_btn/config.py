@@ -23,6 +23,13 @@ class LogFormat(str, Enum):
     JSON = "json"
 
 
+class OperationMode(str, Enum):
+    """Supported button operating modes."""
+
+    NORMAL = "normal"
+    PTT = "ptt"
+
+
 class DeviceConfig(BaseModel):
     """Device-specific configuration."""
 
@@ -61,6 +68,66 @@ class AudioConfig(BaseModel):
     )
 
 
+class ModeConfig(BaseModel):
+    """Operating mode and gesture configuration."""
+
+    model_config = ConfigDict(validate_assignment=True)
+
+    default: OperationMode = Field(
+        default=OperationMode.NORMAL,
+        description="Default operating mode: normal toggle or ptt hold-to-talk",
+    )
+    switch_gesture: str = Field(
+        default="double_tap_hold",
+        description="Gesture used to switch modes; currently double_tap_hold",
+    )
+    double_tap_timeout_ms: int = Field(
+        default=300,
+        ge=50,
+        le=2000,
+        description="Maximum time between taps for mode-switch gesture detection",
+    )
+    switch_hold_threshold_ms: int = Field(
+        default=800,
+        ge=100,
+        le=5000,
+        description="How long the second tap must be held to switch modes",
+    )
+    debounce_time_ms: int = Field(
+        default=10,
+        ge=0,
+        le=250,
+        description="Minimum time between press events to ignore bounce",
+    )
+
+    @field_validator("switch_gesture")
+    @classmethod
+    def validate_switch_gesture(cls, value: str) -> str:
+        """Validate the supported mode-switch gesture."""
+        if value != "double_tap_hold":
+            raise ValueError("Only double_tap_hold is currently supported as switch_gesture")
+        return value
+
+
+class PTTConfig(BaseModel):
+    """Push-to-talk configuration."""
+
+    model_config = ConfigDict(validate_assignment=True)
+
+    key: str = Field(default="f19", description="Synthetic key to emit for PTT mode")
+    idle_color: str = Field(default="blue", description="LED color for PTT idle state")
+    active_color: str = Field(default="yellow", description="LED color for active PTT hold")
+
+    @field_validator("key")
+    @classmethod
+    def validate_key(cls, value: str) -> str:
+        """Only F19 is supported by the initial PTT emitter."""
+        normalized = value.lower()
+        if normalized != "f19":
+            raise ValueError("Only f19 is currently supported for PTT key emulation")
+        return normalized
+
+
 class LoggingConfig(BaseModel):
     """Logging configuration."""
 
@@ -81,17 +148,7 @@ class LoggingConfig(BaseModel):
     @field_validator("level", mode="before")
     @classmethod
     def normalize_level(cls, value: LogLevel | str) -> LogLevel:
-        """Normalize log level string to uppercase before enum validation.
-
-        Args:
-            value: Log level value (enum or string)
-
-        Returns:
-            LogLevel enum value
-
-        Raises:
-            ValueError: If log level is not supported
-        """
+        """Normalize log level string to uppercase before enum validation."""
         if isinstance(value, LogLevel):
             return value
         try:
@@ -119,6 +176,8 @@ class AppConfig(BaseModel):
 
     device: DeviceConfig = Field(default_factory=DeviceConfig, description="Device configuration")
     audio: AudioConfig = Field(default_factory=AudioConfig, description="Audio configuration")
+    mode: ModeConfig = Field(default_factory=ModeConfig, description="Operating mode configuration")
+    ptt: PTTConfig = Field(default_factory=PTTConfig, description="Push-to-talk configuration")
     logging: LoggingConfig = Field(
         default_factory=LoggingConfig, description="Logging configuration"
     )
@@ -127,18 +186,7 @@ class AppConfig(BaseModel):
 
     @classmethod
     def from_toml_file(cls, config_path: Path) -> "AppConfig":
-        """Load configuration from a TOML file.
-
-        Args:
-            config_path: Path to the TOML configuration file
-
-        Returns:
-            AppConfig instance
-
-        Raises:
-            FileNotFoundError: If config file doesn't exist
-            ValueError: If config file is invalid
-        """
+        """Load configuration from a TOML file."""
         if not config_path.exists():
             raise FileNotFoundError(f"Configuration file not found: {config_path}")
 
@@ -151,18 +199,10 @@ class AppConfig(BaseModel):
             raise ValueError(f"Invalid configuration file {config_path}: {e}") from e
 
     def to_toml_file(self, config_path: Path) -> None:
-        """Save configuration to a TOML file.
-
-        Args:
-            config_path: Path where to save the TOML configuration file
-        """
+        """Save configuration to a TOML file."""
         import toml
 
-        # Ensure directory exists
         config_path.parent.mkdir(parents=True, exist_ok=True)
-
-        # Get the model dump with enum values as strings
         config_data = self.model_dump(mode="json")
-
         with open(config_path, "w") as f:
             toml.dump(config_data, f)

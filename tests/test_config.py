@@ -12,6 +12,9 @@ from muteme_btn.config import (
     LogFormat,
     LoggingConfig,
     LogLevel,
+    ModeConfig,
+    OperationMode,
+    PTTConfig,
 )
 
 
@@ -296,3 +299,35 @@ class TestConfigEnums:
 
         assert data["level"] == "DEBUG"
         assert data["format"] == "json"
+
+
+class TestModeConfig:
+    """Test suite for mode/PTT configuration."""
+
+    def test_default_mode_config(self) -> None:
+        """Default mode config should preserve existing normal toggle behavior."""
+        config = ModeConfig()
+
+        assert config.default == OperationMode.NORMAL
+        assert config.double_tap_timeout_ms == 300
+        assert config.switch_hold_threshold_ms == 800
+
+    def test_mode_config_rejects_unsupported_switch_gesture(self) -> None:
+        """Unsupported switch gestures should fail fast instead of being ignored."""
+        with pytest.raises(ValueError, match="double_tap_hold"):
+            ModeConfig(switch_gesture="triple_tap")
+
+    def test_default_ptt_config(self) -> None:
+        """Default PTT config should target the proven F19 utter workflow."""
+        config = PTTConfig()
+
+        assert config.key == "f19"
+        assert config.idle_color == "blue"
+        assert config.active_color == "yellow"
+
+    def test_app_config_includes_mode_and_ptt_defaults(self) -> None:
+        """App config should include mode and ptt sections by default."""
+        config = AppConfig()
+
+        assert config.mode.default == OperationMode.NORMAL
+        assert config.ptt.key == "f19"

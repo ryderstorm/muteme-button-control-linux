@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from muteme_btn.core.state import ButtonEvent, ButtonState, ButtonStateMachine
+from muteme_btn.core.state import ButtonEvent, ButtonState, ButtonStateMachine, OperationMode
 
 
 class TestButtonStateMachine:
@@ -235,3 +235,76 @@ class TestButtonStateMachine:
         machine = ButtonStateMachine(debounce_time_ms=custom_debounce)
 
         assert machine.debounce_time_ms == custom_debounce
+
+
+class TestDualModeButtonStateMachine:
+    """Tests for normal/PTT mode behavior and double-tap-hold switching."""
+
+    def test_ptt_mode_press_and_release_emit_hold_actions_without_toggle(self):
+        """PTT mode should emit hold actions instead of toggles."""
+        machine = ButtonStateMachine(default_mode=OperationMode.PTT)
+        now = datetime.now()
+
+        press_actions = machine.process_event(ButtonEvent(type="press", timestamp=now))
+        release_actions = machine.process_event(
+            ButtonEvent(type="release", timestamp=now + timedelta(milliseconds=200))
+        )
+
+        assert press_actions == ["ptt_press"]
+        assert release_actions == ["ptt_release"]
+
+    def test_double_tap_hold_switches_from_normal_to_ptt(self):
+        """Double-tap-and-hold should deliberately switch operating modes."""
+        machine = ButtonStateMachine(switch_hold_threshold_ms=800)
+        now = datetime.now()
+
+        assert machine.process_event(ButtonEvent(type="press", timestamp=now)) == []
+        assert machine.process_event(
+            ButtonEvent(type="release", timestamp=now + timedelta(milliseconds=80))
+        ) == ["toggle"]
+        assert (
+            machine.process_event(
+                ButtonEvent(type="press", timestamp=now + timedelta(milliseconds=180))
+            )
+            == []
+        )
+
+        actions = machine.process_event(
+            ButtonEvent(type="timeout", timestamp=now + timedelta(milliseconds=1000))
+        )
+
+        assert actions == ["switch_mode"]
+        assert machine.current_mode == OperationMode.PTT
+
+        # Releasing the held switch gesture should not start or stop PTT.
+        release_actions = machine.process_event(
+            ButtonEvent(type="release", timestamp=now + timedelta(milliseconds=1050))
+        )
+        assert release_actions == []
+
+    def test_short_double_tap_does_not_switch_modes(self):
+        """A plain quick double-tap remains non-switching behavior."""
+        machine = ButtonStateMachine(switch_hold_threshold_ms=800)
+        now = datetime.now()
+
+        machine.process_event(ButtonEvent(type="press", timestamp=now))
+        machine.process_event(
+            ButtonEvent(type="release", timestamp=now + timedelta(milliseconds=80))
+        )
+        machine.process_event(
+            ButtonEvent(type="press", timestamp=now + timedelta(milliseconds=180))
+        )
+        actions = machine.process_event(
+            ButtonEvent(type="release", timestamp=now + timedelta(milliseconds=260))
+        )
+
+        assert "switch_mode" not in actions
+        assert machine.current_mode == OperationMode.NORMAL
+
+    def test_get_state_info_includes_current_mode(self):
+        """State diagnostics should expose the current operating mode."""
+        machine = ButtonStateMachine(default_mode=OperationMode.PTT)
+
+        info = machine.get_state_info()
+
+        assert info["mode"] == OperationMode.PTT
