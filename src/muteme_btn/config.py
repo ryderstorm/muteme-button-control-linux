@@ -244,7 +244,9 @@ class AppConfig(BaseModel):
             import toml
 
             config_data = toml.load(config_path)
-            return cls(**config_data)
+            config = cls(**config_data)
+            config.config_file = config_path
+            return config
         except Exception as e:
             raise ValueError(f"Invalid configuration file {config_path}: {e}") from e
 

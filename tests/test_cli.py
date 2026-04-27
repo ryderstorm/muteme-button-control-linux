@@ -8,7 +8,7 @@ import pytest
 from typer.testing import CliRunner
 
 from muteme_btn import __version__
-from muteme_btn.cli import app
+from muteme_btn.cli import _build_config_startup_summary, _find_config_file, app
 from muteme_btn.config import AppConfig
 
 
@@ -72,6 +72,69 @@ class TestCLI:
         # For now, just test that the CLI can handle the concept
         result = runner.invoke(app, ["--help"])
         assert result.exit_code == 0
+
+    def test_user_config_takes_precedence_over_cwd_config(
+        self, temp_dir: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """User config should not be shadowed by a stale cwd muteme.toml."""
+        cwd = temp_dir / "repo"
+        user_config_dir = temp_dir / "home" / ".config" / "muteme"
+        cwd.mkdir()
+        user_config_dir.mkdir(parents=True)
+        cwd_config = cwd / "muteme.toml"
+        user_config = user_config_dir / "muteme.toml"
+        cwd_config.write_text('[mode]\nswitch_gesture = "double_tap_hold"\n')
+        user_config.write_text('[mode]\nswitch_gesture = "triple_tap"\n')
+
+        monkeypatch.chdir(cwd)
+        monkeypatch.setattr(Path, "home", lambda: temp_dir / "home")
+
+        assert _find_config_file(None) == user_config
+
+    def test_explicit_missing_config_does_not_fall_back_to_user_config(
+        self, temp_dir: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """An explicit missing --config path should fail instead of silently falling back."""
+        user_config_dir = temp_dir / "home" / ".config" / "muteme"
+        user_config_dir.mkdir(parents=True)
+        (user_config_dir / "muteme.toml").write_text('[mode]\nswitch_gesture = "triple_tap"\n')
+        monkeypatch.setattr(Path, "home", lambda: temp_dir / "home")
+
+        assert _find_config_file(temp_dir / "missing.toml") is None
+
+    def test_load_config_records_resolved_config_path(
+        self, temp_dir: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Loaded config should retain the file path for startup diagnostics."""
+        config_dir = temp_dir / "home" / ".config" / "muteme"
+        config_dir.mkdir(parents=True)
+        config_path = config_dir / "muteme.toml"
+        config_path.write_text(
+            '[mode]\nswitch_gesture = "triple_tap"\n[ptt]\nidle_color = "purple"\n'
+        )
+        monkeypatch.setattr(Path, "home", lambda: temp_dir / "home")
+
+        from muteme_btn.cli import _load_config
+
+        config = _load_config(None, None)
+
+        assert config.config_file == config_path
+        assert config.mode.switch_gesture == "triple_tap"
+        assert config.ptt.idle_color == "purple"
+
+    def test_config_startup_summary_includes_loaded_path_and_preferences(self) -> None:
+        """Startup diagnostics should expose config source and key mode/PTT preferences."""
+        config = AppConfig()
+        config.config_file = Path("/tmp/example-muteme.toml")
+        config.mode.switch_gesture = "triple_tap"
+        config.ptt.idle_color = "purple"
+
+        summary = _build_config_startup_summary(config)
+
+        assert summary["config_file"] == "/tmp/example-muteme.toml"
+        assert summary["mode.switch_gesture"] == "triple_tap"
+        assert summary["ptt.idle_color"] == "purple"
+        assert summary["ptt.emitter_backend"] == "ydotool"
 
     def test_cli_imports(self) -> None:
         """Test that CLI imports work correctly."""

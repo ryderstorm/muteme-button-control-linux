@@ -171,8 +171,13 @@ The application supports configuration via TOML files. Configuration files are c
 
 1. CLI argument: `--config /path/to/config.toml`
 2. `~/.config/muteme/muteme.toml`
-3. `/etc/muteme/muteme.toml`
-4. Default values
+3. `~/.muteme.toml`
+4. `~/muteme.toml`
+5. `./muteme.toml`
+6. `/etc/muteme/muteme.toml`
+7. Default values
+
+At startup, the daemon logs the resolved configuration file plus the effective preferences it is using. This is useful when running from a source checkout, where an old local `./muteme.toml` could otherwise make it look like your home-directory config was ignored.
 
 #### Setup Configuration
 
