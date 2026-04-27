@@ -47,7 +47,7 @@ debounce_time_ms = 10
 
 # Push-to-talk mode configuration
 [ptt]
-# Synthetic key emitted while the button is held in PTT mode
+# Synthetic key emitted while the button is held in PTT mode; currently fixed to F19
 key = "f19"
 # F19 emitter backend: "ydotool" uses a stable virtual-keyboard path that most
 # desktop shortcut listeners can observe; "evdev" creates a dedicated uinput

@@ -356,6 +356,17 @@ class TestModeConfig:
         assert config.mode.default == OperationMode.NORMAL
         assert config.ptt.key == "f19"
 
+    def test_app_config_save_excludes_runtime_config_file_path(self, tmp_path: Path) -> None:
+        """Saved TOML should not persist the runtime source config path."""
+        config_path = tmp_path / "muteme.toml"
+        config = AppConfig(config_file=Path("/tmp/source-muteme.toml"))
+
+        config.to_toml_file(config_path)
+
+        saved = toml.load(config_path)
+
+        assert "config_file" not in saved
+
     def test_ptt_config_rejects_unsupported_emitter_backend(self) -> None:
         """Unsupported PTT emitter backends should fail fast."""
         with pytest.raises(ValueError, match="Unsupported PTT emitter backend"):

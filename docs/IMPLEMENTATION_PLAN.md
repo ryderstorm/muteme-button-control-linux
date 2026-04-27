@@ -162,10 +162,10 @@ muteme-btn-control/
 - [x] Device targeting (all/default/selected) - currently defaults to all/default
 - [x] Audio backend interface design (PulseAudioBackend class)
 
-#### 2.3 State Machine ✅ Complete (Toggle Mode)
+#### 2.3 State Machine ✅ Complete
 
 - [x] Toggle mode implementation (`src/muteme_btn/core/state.py`)
-- [ ] Push-to-Talk mode implementation - **Not in current spec** (explicitly excluded)
+- [x] Push-to-Talk mode implementation via F19 key emulation
 - [x] Basic event timing and debouncing (debounce_time_ms parameter)
 - [x] State synchronization between components (`src/muteme_btn/core/daemon.py`)
 
@@ -180,7 +180,7 @@ muteme-btn-control/
 #### 3.1 Advanced Operation Modes
 
 - [x] Push-to-Talk mode via F19 key emulation (hold button to talk, release to stop)
-- [x] Hybrid mode with double-tap-and-hold mode switching between normal and PTT modes
+- [x] Hybrid mode with configurable mode switching between normal and PTT modes
 - [x] Configurable timing windows for double-tap and switch-hold thresholds
 - [x] Advanced button state handling with HID edge normalization for noisy hold/release reports
 
@@ -445,10 +445,10 @@ device_check = true    # verify device access on startup
 - [x] Just recipes for development workflow (20 recipes)
 - [x] Project structure ready for device integration
 
-### Stage 2 Success (Core Functionality) ✅ Complete (Toggle Mode)
+### Stage 2 Success (Core Functionality) ✅ Complete
 
 - [x] Successfully connects to MuteMe button (all variants)
-- [x] Toggle mode works correctly ✅ | PTT mode - **Not in spec scope**
+- [x] Toggle mode and PTT mode work correctly
 - [x] LED colors reflect mute status
 - [x] PulseAudio integration with device targeting (default/all)
 - [x] Clean shutdown on signals (SIGINT/SIGTERM)
@@ -700,42 +700,33 @@ The application will handle PID files and process management:
 ### ✅ Completed
 
 1. ✅ **Stage 1 Foundation** - Complete (22/22 tasks)
-2. ✅ **Stage 2 Core Functionality** - Complete for toggle mode (16/16 tasks)
+2. ✅ **Stage 2 Core Functionality** - Complete (toggle and PTT modes)
 3. ✅ **Spec 01: Basic Toggle Control** - Complete (10/10 functional requirements)
+4. ✅ **F19 Push-to-Talk Mode** - Complete with configurable mode-switch gestures and HID edge normalization
 
 ### ⏳ Future Work (Stage 3)
 
-1. **Push-to-Talk Mode** (if added to spec)
-   - Extend state machine for PTT logic
-   - Add PTT-specific timing and state handling
-   - Update configuration schema
-
-2. **Selected Device Targeting**
+1. **Selected Device Targeting**
    - Implement device name selection in audio backend
    - Add device listing CLI command
    - Update configuration schema
 
-3. **Hybrid Mode** (if added to spec)
-   - Double-tap detection logic (already partially implemented)
-   - Configurable timing windows
-   - State machine extensions
-
-4. **PipeWire Support** (if added to spec)
+2. **PipeWire Support** (if added to spec)
    - Implement PipeWire backend via D-Bus
    - Runtime backend detection
    - Backend fallback strategies
 
-5. **Device Resilience**
-   - Hot-plug detection
+3. **Device Resilience**
+   - Hot-plug detection beyond reconnect polling
    - Automatic reconnection
    - Device state recovery
 
-6. **Runtime Configuration**
+4. **Runtime Configuration**
    - Unix socket for live configuration
    - Configuration change notifications
    - Runtime parameter validation
 
-7. **Packaging**
+5. **Packaging**
    - systemd service files
    - .deb/.rpm packaging
    - Installation scripts
@@ -744,30 +735,31 @@ The application will handle PID files and process management:
 
 ## Implementation Summary
 
-**Current Status**: ✅ **Production Ready for Basic Toggle Control**
+**Current Status**: ✅ **Production Ready for Toggle and F19 Push-to-Talk Control**
 
 The implementation has successfully completed:
 
 - ✅ **100% of Stage 1** (Foundation)
-- ✅ **100% of Stage 2 Core** (for toggle mode scope)
+- ✅ **100% of Stage 2 Core** (toggle and PTT modes)
 - ✅ **100% of Spec 01** (Basic Toggle Control)
+- ✅ **F19 Push-to-Talk mode** with configurable mode switching and HID edge normalization
 
 **What's Working**:
 
 - Complete CLI foundation with configuration
 - Full HID device communication layer (all MuteMe variants)
 - PulseAudio integration with toggle functionality
-- LED feedback synchronized with mute status
-- Comprehensive test suite (90% coverage, 249 tests)
+- F19 push-to-talk key emission with ydotoold and evdev backends
+- Configurable double-tap-hold or triple-tap switching between normal and PTT modes
+- LED feedback synchronized with mute and operating-mode status
+- Comprehensive test suite
 - All quality gates passing (0 lint errors, 0 type errors)
 
 **What's Deferred** (by design):
 
-- Push-to-Talk mode (explicitly excluded from spec)
-- Hybrid mode (explicitly excluded from spec)
-- PipeWire support (explicitly excluded from spec)
-- Hot-plug handling (explicitly excluded from spec)
-- Runtime configuration (explicitly excluded from spec)
+- PipeWire support (explicitly excluded from current scope)
+- Hot-plug handling beyond reconnect polling
+- Runtime configuration (explicitly excluded from current scope)
 
 ---
 

@@ -230,7 +230,7 @@ inter_tap_timeout_ms = 275
 ptt_hold_threshold_ms = 120
 
 [ptt]
-key = "f19"                 # currently fixed to F19
+key = "f19"                 # currently fixed to F19; not user-configurable yet
 emitter_backend = "ydotool" # stable virtual-keyboard path for app-level shortcuts
 idle_color = "blue"
 active_color = "yellow"
@@ -244,7 +244,7 @@ format = "text"  # or "json" for machine parsing
 
 `switch_gesture` controls how the physical button switches between normal toggle mode and PTT mode:
 
-- `double_tap_hold` keeps the original gesture: tap once, press again quickly, then hold the second press until `switch_hold_threshold_ms` fires.
+- `double_tap_hold` keeps the original gesture: tap once, press again quickly, then hold the second press until `switch_hold_threshold_ms` fires. When switching away from PTT mode, the tap portion can briefly emit F19 press/release pulses before the switch threshold fires.
 - `triple_tap` switches modes after a quick three-tap sequence and suppresses the intermediate mute toggles or short F19 pulses that would otherwise happen during the sequence.
 
 Triple-tap mode uses a small classifier so single taps still work and PTT holds stay usable:

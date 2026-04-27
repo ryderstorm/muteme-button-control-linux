@@ -1,6 +1,6 @@
 """Tests for LED feedback synchronization with mute status."""
 
-from unittest.mock import Mock
+from unittest.mock import Mock, call
 
 import pytest
 
@@ -226,4 +226,17 @@ class TestModeAwareLEDFeedback:
         """Mode switches should produce a short visible confirmation."""
         mode_led_controller.show_mode_switch_confirmation()
 
-        assert mode_led_controller.device.set_led_color.call_count >= 2
+        assert mode_led_controller.device.set_led_color.call_args_list == [
+            call(LEDColor.WHITE),
+            call(LEDColor.NOCOLOR),
+            call(LEDColor.WHITE),
+        ]
+
+    def test_update_ptt_led_logs_and_swallows_device_errors(self, mode_led_controller, caplog):
+        """PTT LED update failures should not escape the mode-state path."""
+        mode_led_controller.device.set_led_color.side_effect = RuntimeError("USB write failed")
+
+        mode_led_controller.update_led_for_mode("ptt", active=True)
+
+        assert "Failed to update PTT LED" in caplog.text
+        assert "YELLOW" in caplog.text

@@ -255,6 +255,6 @@ class AppConfig(BaseModel):
         import toml
 
         config_path.parent.mkdir(parents=True, exist_ok=True)
-        config_data = self.model_dump(mode="json")
+        config_data = self.model_dump(mode="json", exclude={"config_file"})
         with open(config_path, "w") as f:
             toml.dump(config_data, f)

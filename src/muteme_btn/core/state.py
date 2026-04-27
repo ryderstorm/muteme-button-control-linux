@@ -125,7 +125,10 @@ class ButtonStateMachine:
             self.state_entry_time = now
             self._switch_fired_for_current_press = False
             logger.debug(f"Transitioned to PRESSED state (press #{self.press_count})")
-            return ["ptt_press"] if self.current_mode == OperationMode.PTT else []
+            if self.current_mode == OperationMode.PTT:
+                self._ptt_hold_active = True
+                return ["ptt_press"]
+            return []
 
         if event.type == "timeout" and self._should_timeout(event.timestamp):
             self._reset_press_count()
@@ -168,12 +171,15 @@ class ButtonStateMachine:
             self._suppress_next_release = False
             self.current_state = ButtonState.IDLE
             self.state_entry_time = event.timestamp
+            actions = ["ptt_release"] if self._ptt_hold_active else []
+            self._ptt_hold_active = False
             logger.debug("Suppressed release after mode-switch gesture")
-            return []
+            return actions
 
         actions: list[str]
         if self.current_mode == OperationMode.PTT:
             actions = ["ptt_release"]
+            self._ptt_hold_active = False
         else:
             actions = ["toggle"]
             if self.press_count >= 2:
@@ -258,10 +264,11 @@ class ButtonStateMachine:
             self._clear_triple_tap_sequence()
             return ["ptt_release"]
 
-        held_ms = (event.timestamp - self.state_entry_time).total_seconds() * 1000
-        # state_entry_time was just updated, so compute against last_press_time directly.
-        if self.last_press_time is not None:
-            held_ms = (event.timestamp - self.last_press_time).total_seconds() * 1000
+        held_ms = (
+            (event.timestamp - self.last_press_time).total_seconds() * 1000
+            if self.last_press_time is not None
+            else 0
+        )
 
         if held_ms > self.tap_max_duration_ms:
             self._clear_triple_tap_sequence()

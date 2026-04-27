@@ -2,11 +2,14 @@
 
 import logging
 import time
+from typing import Literal
 
 from muteme_btn.audio.pulse import PulseAudioBackend
 from muteme_btn.hid.device import LEDColor, MuteMeDevice
 
 logger = logging.getLogger(__name__)
+
+OperatingMode = Literal["normal", "ptt"]
 
 
 class LEDFeedbackController:
@@ -56,7 +59,7 @@ class LEDFeedbackController:
         except Exception as e:
             logger.error(f"Failed to update LED based on mute status: {e}")
 
-    def update_led_for_mode(self, mode: str, active: bool = False) -> None:
+    def update_led_for_mode(self, mode: OperatingMode, active: bool = False) -> None:
         """Update LED for a mode-specific presentation.
 
         Args:
@@ -65,8 +68,14 @@ class LEDFeedbackController:
         """
         if mode == "ptt":
             target_color = self.ptt_active_color if active else self.ptt_idle_color
-            self._apply_color_if_needed(target_color)
-            logger.debug(f"Updated PTT LED: active={active}, color={target_color.name}")
+            try:
+                self._apply_color_if_needed(target_color)
+                logger.debug(f"Updated PTT LED: active={active}, color={target_color.name}")
+            except Exception:
+                logger.exception(
+                    "Failed to update PTT LED: "
+                    f"active={active}, attempted_color={target_color.name}"
+                )
             return
 
         self.update_led_to_mute_status()
