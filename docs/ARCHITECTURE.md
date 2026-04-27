@@ -31,8 +31,8 @@ muteme-btn-control/
 │   ├── muteme.toml.example # Example configuration
 │   └── udev/               # UDEV rules
 ├── docs/                   # Documentation
-│   ├── specs/              # Feature specifications
-│   └── reference/         # Reference documentation
+│   ├── specs.zip           # Archived SDD specifications/proofs
+│   └── reference/          # Reference documentation
 ├── justfile                # Task runner recipes
 └── pyproject.toml          # Project configuration
 ```

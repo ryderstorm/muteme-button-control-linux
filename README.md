@@ -228,7 +228,7 @@ format = "text"  # or "json" for machine parsing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed development standards and guidelines.
 
-This project uses **Spec-Driven Development (SDD)** methodology, where features are developed through a structured workflow: **idea → specification → tasks → implementation → validation**. Specifications are defined in [`docs/specs/`](docs/specs/) before implementation begins. All code follows **strict Test-Driven Development (TDD)** methodology.
+This project uses **Spec-Driven Development (SDD)** methodology, where features are developed through a structured workflow: **idea → specification → tasks → implementation → validation**. Historical SDD artifacts are archived in [`docs/specs.zip`](docs/specs.zip). All code follows **strict Test-Driven Development (TDD)** methodology.
 
 ### Quick Start
 
@@ -366,8 +366,8 @@ muteme-btn-control/
 ├── tests/               # Test suite
 ├── config/              # Configuration files and examples
 ├── docs/                # Documentation
-│   ├── specs/          # Specification documents (SDD)
-│   └── ARCHITECTURE.md  # Architecture documentation
+│   ├── specs.zip       # Archived SDD specification/proof artifacts
+│   └── ARCHITECTURE.md # Architecture documentation
 ├── .github/             # GitHub workflows and templates
 ├── justfile             # Task runner recipes
 └── pyproject.toml       # Project configuration and dependencies
@@ -390,7 +390,7 @@ Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for de
 
 ### Development Workflow
 
-1. **Create a specification** in `docs/specs/` before implementing features
+1. **Create a specification or implementation plan** before implementing features
 2. **Write tests first** following TDD principles
 3. **Implement the feature** to make tests pass
 4. **Run quality checks** with `just check`

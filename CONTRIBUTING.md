@@ -17,7 +17,7 @@ Thank you for your interest in contributing! This document outlines the developm
 
 ### Spec-Driven Development (SDD)
 
-This project uses **Spec-Driven Development (SDD)** methodology, where features are developed through a structured workflow: **idea → specification → tasks → implementation → validation**. Detailed specifications in [`docs/specs/`](../docs/specs/) define system behavior, requirements, and success criteria before implementation begins. This approach ensures clear communication, reduces ambiguity, and provides a shared understanding for both human developers and AI coding assistants.
+This project uses **Spec-Driven Development (SDD)** methodology, where features are developed through a structured workflow: **idea → specification → tasks → implementation → validation**. Historical SDD specifications and proof artifacts are archived in [`docs/specs.zip`](docs/specs.zip). This approach ensures clear communication, reduces ambiguity, and provides a shared understanding for both human developers and AI coding assistants.
 
 ### Strict Test-Driven Development (TDD)
 
@@ -204,7 +204,7 @@ See [ARCHITECTURE.md](../docs/ARCHITECTURE.md) for detailed project structure, m
 - **`CONTRIBUTING.md`**: This file - development standards and guidelines
 - **`docs/ARCHITECTURE.md`**: Project structure, architecture, and design decisions
 - **`docs/IMPLEMENTATION_PLAN.md`**: Project status and roadmap
-- **`docs/specs/`**: Feature specifications
+- **`docs/specs.zip`**: Archived SDD specifications and proof artifacts
 - **Code docstrings**: API documentation for all public functions
 - **Configuration examples**: Keep `config/muteme.toml.example` current
 

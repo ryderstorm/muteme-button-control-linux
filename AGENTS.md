@@ -76,7 +76,7 @@ For HID/daemon reconnect work, run:
 
 - Keep docs in sync with behavior and CLI shape.
 - Update `README.md` and `docs/IMPLEMENTATION_PLAN.md` when commands or behavior change.
-- Treat `docs/specs/` as archival. Do not modify specs unless explicitly requested.
+- Treat `docs/specs.zip` as the archived SDD record. Do not extract or modify archived specs unless explicitly requested.
 
 ## Git and Commit Rules
 
