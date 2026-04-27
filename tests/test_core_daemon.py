@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from muteme_btn.config import AudioConfig, DeviceConfig
+from muteme_btn.config import AudioConfig, DeviceConfig, OperationMode
 from muteme_btn.core.daemon import MuteMeDaemon
 from muteme_btn.hid.device import DeviceError
 
@@ -464,7 +464,7 @@ class TestMuteMeDaemonPTTMode:
 
     @pytest.mark.asyncio
     async def test_handle_ptt_actions_emit_f19_without_toggling_audio(self, ptt_daemon_parts):
-        """PTT actions should drive F19 and not PulseAudio toggles."""
+        """PTT actions should drive F19 without toggling an already-unmuted microphone."""
         device, audio_backend, state_machine, led_controller, key_emitter = ptt_daemon_parts
         daemon = MuteMeDaemon(
             device=device,
@@ -480,6 +480,46 @@ class TestMuteMeDaemonPTTMode:
         key_emitter.press_f19.assert_called_once()
         key_emitter.release_f19.assert_called_once()
         audio_backend.set_mute_state.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_switching_into_ptt_unmutes_microphone(self, ptt_daemon_parts):
+        """Entering PTT mode should unmute the system microphone before shortcut use."""
+        device, audio_backend, state_machine, led_controller, key_emitter = ptt_daemon_parts
+        audio_backend.is_muted.return_value = True
+        state_machine.current_mode = OperationMode.PTT
+        daemon = MuteMeDaemon(
+            device=device,
+            audio_backend=audio_backend,
+            state_machine=state_machine,
+            led_controller=led_controller,
+            key_emitter=key_emitter,
+        )
+
+        await daemon._handle_action("switch_mode")
+
+        audio_backend.set_mute_state.assert_called_once_with(None, False)
+        key_emitter.release_all.assert_called_once()
+        led_controller.show_mode_switch_confirmation.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_ptt_press_unmutes_if_microphone_was_muted_after_mode_switch(
+        self, ptt_daemon_parts
+    ):
+        """PTT press should defensively unmute before emitting F19 down."""
+        device, audio_backend, state_machine, led_controller, key_emitter = ptt_daemon_parts
+        audio_backend.is_muted.return_value = True
+        daemon = MuteMeDaemon(
+            device=device,
+            audio_backend=audio_backend,
+            state_machine=state_machine,
+            led_controller=led_controller,
+            key_emitter=key_emitter,
+        )
+
+        await daemon._handle_action("ptt_press")
+
+        audio_backend.set_mute_state.assert_called_once_with(None, False)
+        key_emitter.press_f19.assert_called_once()
 
     def test_cleanup_releases_any_held_ptt_key(self, ptt_daemon_parts):
         """Daemon cleanup should force-release synthetic keys and close emitter resources."""

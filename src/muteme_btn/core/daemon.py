@@ -383,6 +383,7 @@ class MuteMeDaemon:
                 await self._update_led_feedback()
                 logger.info(f"Toggled mute state: {new_muted}")
             elif action == "ptt_press":
+                self._ensure_microphone_unmuted_for_ptt()
                 self.key_emitter.press_f19()
                 self._ptt_active = True
                 await self._update_led_feedback()
@@ -394,6 +395,8 @@ class MuteMeDaemon:
                 logger.info("PTT inactive: emitted F19 key up")
             elif action == "switch_mode":
                 self._release_ptt_key_if_needed()
+                if self._current_mode() == OperationMode.PTT:
+                    self._ensure_microphone_unmuted_for_ptt()
                 if self.led_controller:
                     self.led_controller.show_mode_switch_confirmation()
                 await self._update_led_feedback()
@@ -482,6 +485,13 @@ class MuteMeDaemon:
         """Return current mode as a log-friendly string."""
         mode = self._current_mode()
         return mode.value if isinstance(mode, OperationMode) else str(mode)
+
+    def _ensure_microphone_unmuted_for_ptt(self) -> None:
+        """Ensure the system microphone is unmuted before PTT shortcut handling."""
+        if not self.audio_backend.is_muted(None):
+            return
+        self.audio_backend.set_mute_state(None, False)
+        logger.info("Unmuted microphone for PTT mode")
 
     def _release_ptt_key_if_needed(self) -> None:
         """Force-release synthetic PTT key if this daemon considers PTT active."""

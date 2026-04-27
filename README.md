@@ -57,7 +57,7 @@
 | Feature | Description |
 | ------- | ----------- |
 | **Toggle Mode** | Press the MuteMe button to toggle microphone mute/unmute state |
-| **Push-to-Talk Mode** | Hold the button to emit synthetic key down/up events for any app-level PTT shortcut |
+| **Push-to-Talk Mode** | Hold the button to keep the system mic unmuted and emit synthetic key down/up events for any app-level PTT shortcut |
 | **Mode Switching** | Double-tap-and-hold switches between normal and PTT modes |
 | **PulseAudio Integration** | Seamless integration with PulseAudio for audio control |
 | **LED Feedback** | Red/green mute feedback in normal mode plus blue/yellow PTT idle/active feedback |
