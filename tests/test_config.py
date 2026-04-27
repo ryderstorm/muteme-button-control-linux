@@ -312,10 +312,34 @@ class TestModeConfig:
         assert config.double_tap_timeout_ms == 300
         assert config.switch_hold_threshold_ms == 800
 
+    def test_mode_config_accepts_triple_tap_switch_gesture(self) -> None:
+        """Triple tap should be available as an optional mode-switch gesture."""
+        config = ModeConfig(switch_gesture="triple_tap")
+
+        assert config.switch_gesture == "triple_tap"
+        assert config.triple_tap_count == 3
+        assert config.triple_tap_window_ms == 650
+        assert config.tap_max_duration_ms == 140
+        assert config.inter_tap_timeout_ms == 275
+        assert config.ptt_hold_threshold_ms == 120
+
     def test_mode_config_rejects_unsupported_switch_gesture(self) -> None:
         """Unsupported switch gestures should fail fast instead of being ignored."""
-        with pytest.raises(ValueError, match="double_tap_hold"):
-            ModeConfig(switch_gesture="triple_tap")
+        with pytest.raises(ValueError, match="double_tap_hold.*triple_tap"):
+            ModeConfig(switch_gesture="long_press")
+
+    def test_mode_config_validates_triple_tap_tuning_ranges(self) -> None:
+        """Triple-tap timing knobs should fail fast when tuned outside safe bounds."""
+        with pytest.raises(ValueError):
+            ModeConfig(triple_tap_count=2)
+        with pytest.raises(ValueError):
+            ModeConfig(triple_tap_window_ms=99)
+        with pytest.raises(ValueError):
+            ModeConfig(tap_max_duration_ms=20)
+        with pytest.raises(ValueError):
+            ModeConfig(inter_tap_timeout_ms=20)
+        with pytest.raises(ValueError):
+            ModeConfig(ptt_hold_threshold_ms=20)
 
     def test_default_ptt_config(self) -> None:
         """Default PTT config should target the generic F19 shortcut workflow."""

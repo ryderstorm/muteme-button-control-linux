@@ -308,3 +308,92 @@ class TestDualModeButtonStateMachine:
         info = machine.get_state_info()
 
         assert info["mode"] == OperationMode.PTT
+
+
+class TestTripleTapModeSwitching:
+    """Tests for optional triple-tap mode switching."""
+
+    def _event(self, event_type: str, base: datetime, ms: int) -> ButtonEvent:
+        return ButtonEvent(type=event_type, timestamp=base + timedelta(milliseconds=ms))
+
+    def test_triple_tap_switches_modes_without_intermediate_toggles(self):
+        """Three quick taps should switch modes and suppress pending toggles."""
+        machine = ButtonStateMachine(switch_gesture="triple_tap")
+        now = datetime.now()
+
+        assert machine.process_event(self._event("press", now, 0)) == []
+        assert machine.process_event(self._event("release", now, 80)) == []
+        assert machine.process_event(self._event("press", now, 230)) == []
+        assert machine.process_event(self._event("release", now, 300)) == []
+        assert machine.process_event(self._event("press", now, 450)) == []
+        actions = machine.process_event(self._event("release", now, 530))
+
+        assert actions == ["switch_mode"]
+        assert machine.current_mode == OperationMode.PTT
+        assert machine.press_count == 0
+
+    def test_single_triple_tap_candidate_commits_toggle_after_inter_tap_timeout(self):
+        """A lone quick tap in normal mode should toggle after the next-tap window expires."""
+        machine = ButtonStateMachine(switch_gesture="triple_tap", inter_tap_timeout_ms=275)
+        now = datetime.now()
+
+        assert machine.process_event(self._event("press", now, 0)) == []
+        assert machine.process_event(self._event("release", now, 70)) == []
+        assert machine.process_event(self._event("timeout", now, 300)) == []
+        actions = machine.process_event(self._event("timeout", now, 360))
+
+        assert actions == ["toggle"]
+        assert machine.current_mode == OperationMode.NORMAL
+
+    def test_slow_third_tap_does_not_switch_modes(self):
+        """Triple taps outside the sequence window should not switch modes."""
+        machine = ButtonStateMachine(
+            switch_gesture="triple_tap",
+            triple_tap_window_ms=650,
+            inter_tap_timeout_ms=275,
+        )
+        now = datetime.now()
+
+        machine.process_event(self._event("press", now, 0))
+        machine.process_event(self._event("release", now, 80))
+        machine.process_event(self._event("press", now, 230))
+        machine.process_event(self._event("release", now, 300))
+        assert machine.process_event(self._event("timeout", now, 576)) == ["toggle"]
+        assert machine.process_event(self._event("press", now, 800)) == []
+        assert machine.process_event(self._event("release", now, 880)) == []
+
+        assert machine.current_mode == OperationMode.NORMAL
+
+    def test_ptt_triple_tap_switches_modes_without_f19_pulses(self):
+        """Quick triple taps in PTT mode should switch modes without tiny PTT pulses."""
+        machine = ButtonStateMachine(
+            default_mode=OperationMode.PTT,
+            switch_gesture="triple_tap",
+            ptt_hold_threshold_ms=120,
+        )
+        now = datetime.now()
+
+        assert machine.process_event(self._event("press", now, 0)) == []
+        assert machine.process_event(self._event("release", now, 70)) == []
+        assert machine.process_event(self._event("press", now, 220)) == []
+        assert machine.process_event(self._event("release", now, 290)) == []
+        assert machine.process_event(self._event("press", now, 440)) == []
+        actions = machine.process_event(self._event("release", now, 510))
+
+        assert actions == ["switch_mode"]
+        assert machine.current_mode == OperationMode.NORMAL
+
+    def test_ptt_hold_starts_after_hold_threshold_and_releases_normally(self):
+        """PTT mode should separate quick tap candidates from intentional holds."""
+        machine = ButtonStateMachine(
+            default_mode=OperationMode.PTT,
+            switch_gesture="triple_tap",
+            ptt_hold_threshold_ms=120,
+        )
+        now = datetime.now()
+
+        assert machine.process_event(self._event("press", now, 0)) == []
+        assert machine.process_event(self._event("timeout", now, 119)) == []
+        assert machine.process_event(self._event("timeout", now, 120)) == ["ptt_press"]
+        assert machine.process_event(self._event("release", now, 350)) == ["ptt_release"]
+        assert machine.current_mode == OperationMode.PTT

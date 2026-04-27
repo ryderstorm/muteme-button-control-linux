@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 
-from muteme_btn.config import AudioConfig, DeviceConfig, OperationMode
+from muteme_btn.config import AudioConfig, DeviceConfig, ModeConfig, OperationMode
 from muteme_btn.core.daemon import MuteMeDaemon
 from muteme_btn.hid.device import DeviceError
 
@@ -59,8 +59,8 @@ class TestMuteMeDaemon:
             led_controller=mock_led_controller,
         )
 
-    def test_daemon_initialization(self, mock_device, mock_audio_backend):
-        """Test daemon initialization with real components."""
+    def test_daemon_initializes_components(self, mock_device, mock_audio_backend):
+        """Test daemon initializes with correct components."""
         device_config = DeviceConfig()
         audio_config = AudioConfig()
 
@@ -75,11 +75,37 @@ class TestMuteMeDaemon:
 
             # Device is now None initially (created in start())
             assert daemon.device is None
+            assert daemon.device_config == device_config
+            assert daemon.audio_config == audio_config
             assert daemon.audio_backend == mock_audio_backend
             assert daemon.running is False
-            # Device class should not be called in __init__ anymore
+            # Device class should not be called in __init__ anymore.
             mock_device_class.assert_not_called()
             mock_audio_class.assert_called_once_with(audio_config)
+
+    def test_daemon_passes_triple_tap_mode_config_to_state_machine(
+        self, mock_device, mock_audio_backend
+    ):
+        """Daemon should wire triple-tap tuning knobs into the state machine."""
+        mode_config = ModeConfig(
+            switch_gesture="triple_tap",
+            triple_tap_window_ms=625,
+            tap_max_duration_ms=130,
+            inter_tap_timeout_ms=240,
+            ptt_hold_threshold_ms=100,
+        )
+
+        daemon = MuteMeDaemon(
+            device=mock_device,
+            audio_backend=mock_audio_backend,
+            mode_config=mode_config,
+        )
+
+        assert daemon.state_machine.switch_gesture == "triple_tap"
+        assert daemon.state_machine.triple_tap_window_ms == 625
+        assert daemon.state_machine.tap_max_duration_ms == 130
+        assert daemon.state_machine.inter_tap_timeout_ms == 240
+        assert daemon.state_machine.ptt_hold_threshold_ms == 100
 
     @pytest.mark.asyncio
     async def test_start_stop_daemon(self, daemon):

@@ -58,7 +58,7 @@
 | ------- | ----------- |
 | **Toggle Mode** | Press the MuteMe button to toggle microphone mute/unmute state |
 | **Push-to-Talk Mode** | Hold the button to keep the system mic unmuted and emit synthetic key down/up events for any app-level PTT shortcut |
-| **Mode Switching** | Double-tap-and-hold switches between normal and PTT modes |
+| **Mode Switching** | Double-tap-and-hold by default, with optional triple-tap switching for quicker mode changes |
 | **PulseAudio Integration** | Seamless integration with PulseAudio for audio control |
 | **LED Feedback** | Red/green mute feedback in normal mode plus blue/yellow PTT idle/active feedback |
 | **Modern CLI** | Clean Typer-based command-line interface |
@@ -208,8 +208,21 @@ poll_interval = 0.1
 
 [mode]
 default = "normal"              # normal or ptt
+switch_gesture = "double_tap_hold" # double_tap_hold or triple_tap
+
+# Used when switch_gesture = "double_tap_hold".
 double_tap_timeout_ms = 300
 switch_hold_threshold_ms = 800
+
+# Used when switch_gesture = "triple_tap".
+triple_tap_count = 3
+triple_tap_window_ms = 650
+# Quick taps held longer than this are treated as normal holds, not tap-sequence input.
+tap_max_duration_ms = 140
+# Single-tap behavior is committed after this gap with no next tap.
+inter_tap_timeout_ms = 275
+# In PTT mode, holding past this threshold starts the F19 hold.
+ptt_hold_threshold_ms = 120
 
 [ptt]
 key = "f19"                 # currently fixed to F19
@@ -221,6 +234,30 @@ active_color = "yellow"
 level = "INFO"
 format = "text"  # or "json" for machine parsing
 ```
+
+### Mode-switch gesture tuning
+
+`switch_gesture` controls how the physical button switches between normal toggle mode and PTT mode:
+
+- `double_tap_hold` keeps the original gesture: tap once, press again quickly, then hold the second press until `switch_hold_threshold_ms` fires.
+- `triple_tap` switches modes after a quick three-tap sequence and suppresses the intermediate mute toggles or short F19 pulses that would otherwise happen during the sequence.
+
+Triple-tap mode uses a small classifier so single taps still work and PTT holds stay usable:
+
+| Setting | Default | What it controls | Tune it when... |
+| ------- | ------: | ---------------- | --------------- |
+| `triple_tap_count` | `3` | Number of quick taps required to switch modes | You want a harder-to-trigger sequence, such as 4 taps |
+| `triple_tap_window_ms` | `650` | Maximum time from the first press to the final release | Your triple tap fails unless you tap unusually fast; increase slightly |
+| `tap_max_duration_ms` | `140` | Maximum duration for an individual press to count as a quick tap | Holds are being mistaken for tap-sequence input; lower it |
+| `inter_tap_timeout_ms` | `275` | Delay after a quick tap before committing normal single-tap behavior | Single taps feel sluggish; lower it carefully, but keep it above your natural gap between taps |
+| `ptt_hold_threshold_ms` | `120` | Delay before PTT mode emits F19 down for an intentional hold | PTT feels delayed; lower it, but keep it above your quick-tap duration |
+
+A good tuning approach is to capture logs while triple tapping, then compare your timings:
+
+- Individual quick taps should be below `tap_max_duration_ms`.
+- The full gesture should finish below `triple_tap_window_ms`.
+- The largest release-to-next-press gap should stay below `inter_tap_timeout_ms`.
+- `ptt_hold_threshold_ms` should be longer than a quick tap but short enough that hold-to-talk still feels responsive.
 
 ---
 

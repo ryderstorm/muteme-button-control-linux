@@ -24,12 +24,24 @@ poll_interval = 0.1
 [mode]
 # Default button mode: "normal" preserves mute toggle behavior, "ptt" starts in hold-to-talk mode
 default = "normal"
-# Mode switch gesture (currently fixed to double_tap_hold)
+# Mode switch gesture: "double_tap_hold" keeps the original gesture;
+# "triple_tap" enables three quick taps as the switch gesture.
 switch_gesture = "double_tap_hold"
-# Maximum time between taps in the double-tap portion of the switch gesture
+# Used when switch_gesture = "double_tap_hold": maximum time between taps in
+# the double-tap portion and how long to hold the second tap before switching.
 double_tap_timeout_ms = 300
-# How long to hold the second tap before switching modes
 switch_hold_threshold_ms = 800
+# Used when switch_gesture = "triple_tap": tune these from real button logs.
+# triple_tap_count: number of quick taps required to switch modes.
+triple_tap_count = 3
+# triple_tap_window_ms: max time from first press to final release.
+triple_tap_window_ms = 650
+# tap_max_duration_ms: max individual press duration to count as a quick tap.
+tap_max_duration_ms = 140
+# inter_tap_timeout_ms: wait after a quick tap before committing single-tap behavior.
+inter_tap_timeout_ms = 275
+# ptt_hold_threshold_ms: hold duration before PTT mode emits F19 down.
+ptt_hold_threshold_ms = 120
 # Minimum time between press events to ignore bounce
 debounce_time_ms = 10
 

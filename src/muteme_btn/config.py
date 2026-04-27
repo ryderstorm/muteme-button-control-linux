@@ -79,19 +79,55 @@ class ModeConfig(BaseModel):
     )
     switch_gesture: str = Field(
         default="double_tap_hold",
-        description="Gesture used to switch modes; currently double_tap_hold",
+        description="Gesture used to switch modes: double_tap_hold or triple_tap",
     )
     double_tap_timeout_ms: int = Field(
         default=300,
         ge=50,
         le=2000,
-        description="Maximum time between taps for mode-switch gesture detection",
+        description="Maximum time between taps for double-tap-hold detection",
     )
     switch_hold_threshold_ms: int = Field(
         default=800,
         ge=100,
         le=5000,
-        description="How long the second tap must be held to switch modes",
+        description="How long the second tap must be held for double-tap-hold switching",
+    )
+    triple_tap_count: int = Field(
+        default=3,
+        ge=3,
+        le=5,
+        description="Number of quick taps required for triple-tap mode switching",
+    )
+    triple_tap_window_ms: int = Field(
+        default=650,
+        ge=100,
+        le=2000,
+        description="Maximum total time from first press to final release for triple-tap switching",
+    )
+    tap_max_duration_ms: int = Field(
+        default=140,
+        ge=30,
+        le=1000,
+        description="Maximum press duration that counts as a quick tap for triple-tap switching",
+    )
+    inter_tap_timeout_ms: int = Field(
+        default=275,
+        ge=50,
+        le=1000,
+        description=(
+            "How long to wait after a quick tap for another tap before committing "
+            "single-tap behavior"
+        ),
+    )
+    ptt_hold_threshold_ms: int = Field(
+        default=120,
+        ge=50,
+        le=1000,
+        description=(
+            "How long to hold in PTT mode before emitting the PTT key when "
+            "triple-tap switching is enabled"
+        ),
     )
     debounce_time_ms: int = Field(
         default=10,
@@ -104,9 +140,10 @@ class ModeConfig(BaseModel):
     @classmethod
     def validate_switch_gesture(cls, value: str) -> str:
         """Validate the supported mode-switch gesture."""
-        if value != "double_tap_hold":
-            raise ValueError("Only double_tap_hold is currently supported as switch_gesture")
-        return value
+        normalized = value.lower()
+        if normalized not in {"double_tap_hold", "triple_tap"}:
+            raise ValueError("Unsupported switch_gesture; expected double_tap_hold or triple_tap")
+        return normalized
 
 
 class PTTConfig(BaseModel):

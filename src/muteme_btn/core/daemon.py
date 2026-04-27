@@ -57,6 +57,12 @@ class MuteMeDaemon:
             debounce_time_ms=self.mode_config.debounce_time_ms,
             default_mode=self.mode_config.default,
             switch_hold_threshold_ms=self.mode_config.switch_hold_threshold_ms,
+            switch_gesture=self.mode_config.switch_gesture,
+            triple_tap_count=self.mode_config.triple_tap_count,
+            triple_tap_window_ms=self.mode_config.triple_tap_window_ms,
+            tap_max_duration_ms=self.mode_config.tap_max_duration_ms,
+            inter_tap_timeout_ms=self.mode_config.inter_tap_timeout_ms,
+            ptt_hold_threshold_ms=self.mode_config.ptt_hold_threshold_ms,
         )
         # LED controller will be created after device is connected
         self.led_controller = led_controller
