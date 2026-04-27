@@ -203,7 +203,7 @@ pid = 17114     # 0x42DA
 timeout = 5.0
 
 [audio]
-backend = "pulseaudio"
+backend = "pulseaudio"        # Linux: pulseaudio/pipewire; Windows scaffold: coreaudio; or auto
 poll_interval = 0.1
 
 [mode]
@@ -213,7 +213,7 @@ switch_hold_threshold_ms = 800
 
 [ptt]
 key = "f19"                 # currently fixed to F19
-emitter_backend = "ydotool" # stable virtual-keyboard path for app-level shortcuts
+emitter_backend = "ydotool" # Linux: ydotool/evdev; Windows scaffold: sendinput; or auto
 idle_color = "blue"
 active_color = "yellow"
 

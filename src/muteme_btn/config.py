@@ -67,6 +67,17 @@ class AudioConfig(BaseModel):
         default=0.1, ge=0.01, le=1.0, description="Audio state polling interval in seconds"
     )
 
+    @field_validator("backend")
+    @classmethod
+    def validate_backend(cls, value: str) -> str:
+        """Validate and normalize supported audio backend names."""
+        normalized = value.lower()
+        if normalized not in {"auto", "pulseaudio", "pipewire", "coreaudio"}:
+            raise ValueError(
+                "Unsupported audio backend; expected auto, pulseaudio, pipewire, or coreaudio"
+            )
+        return normalized
+
 
 class ModeConfig(BaseModel):
     """Operating mode and gesture configuration."""
@@ -119,7 +130,7 @@ class PTTConfig(BaseModel):
     active_color: str = Field(default="yellow", description="LED color for active PTT hold")
     emitter_backend: str = Field(
         default="ydotool",
-        description="F19 emitter backend: ydotool virtual-keyboard path, or evdev",
+        description="F19 emitter backend: auto, ydotool, evdev, or Windows sendinput",
     )
 
     @field_validator("key")
@@ -136,8 +147,10 @@ class PTTConfig(BaseModel):
     def validate_emitter_backend(cls, value: str) -> str:
         """Validate PTT emitter backend."""
         normalized = value.lower()
-        if normalized not in {"ydotool", "evdev"}:
-            raise ValueError("Unsupported PTT emitter backend; expected ydotool or evdev")
+        if normalized not in {"auto", "ydotool", "evdev", "sendinput"}:
+            raise ValueError(
+                "Unsupported PTT emitter backend; expected auto, ydotool, evdev, or sendinput"
+            )
         return normalized
 
 

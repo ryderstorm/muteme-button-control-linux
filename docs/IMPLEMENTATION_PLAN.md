@@ -67,7 +67,8 @@ muteme-btn-control/
 │       │   └── events.py    # Device event handling
 │       ├── audio/
 │       │   ├── __init__.py
-│       │   ├── base.py      # Audio backend interface
+│       │   ├── backends.py  # Audio backend protocol and platform factory
+│       │   ├── coreaudio.py # Windows Core Audio backend scaffold
 │       │   ├── pulse.py     # PulseAudio backend
 │       │   └── pipewire.py  # PipeWire backend (future)
 │       ├── core/
@@ -90,7 +91,7 @@ muteme-btn-control/
 
 - **CLI Framework**: Typer (modern, type-hint friendly)
 - **HID Communication**: `hidapi` Python bindings
-- **Audio Control**: `pulsectl` for PulseAudio, D-Bus for PipeWire
+- **Audio Control**: `pulsectl` for PulseAudio, D-Bus for PipeWire, PyCAW/comtypes scaffold for Windows Core Audio
 - **Configuration**: TOML with `pydantic` for validation
 - **Concurrency**: `asyncio` with thread-based HID I/O
 - **Logging**: `structlog` for structured, human-readable text logs

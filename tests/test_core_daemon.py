@@ -66,7 +66,7 @@ class TestMuteMeDaemon:
 
         with (
             patch("muteme_btn.core.daemon.MuteMeDevice") as mock_device_class,
-            patch("muteme_btn.core.daemon.PulseAudioBackend") as mock_audio_class,
+            patch("muteme_btn.core.daemon.create_audio_backend") as mock_audio_class,
         ):
             mock_device_class.return_value = mock_device
             mock_audio_class.return_value = mock_audio_backend
@@ -214,7 +214,7 @@ class TestMuteMeDaemon:
         """Test daemon as async context manager."""
         with (
             patch("muteme_btn.core.daemon.MuteMeDevice") as mock_device_class,
-            patch("muteme_btn.core.daemon.PulseAudioBackend") as mock_audio_class,
+            patch("muteme_btn.core.daemon.create_audio_backend") as mock_audio_class,
         ):
             mock_device_class.return_value = mock_device
             mock_audio_class.return_value = mock_audio_backend
@@ -308,7 +308,7 @@ class TestMuteMeDaemon:
 
         with (
             patch("muteme_btn.core.daemon.MuteMeDevice") as mock_device_class,
-            patch("muteme_btn.core.daemon.PulseAudioBackend") as mock_audio_class,
+            patch("muteme_btn.core.daemon.create_audio_backend") as mock_audio_class,
         ):
             mock_device_class.connect_by_vid_pid.return_value = mock_device
             mock_device.is_connected.return_value = True

@@ -447,7 +447,7 @@ class TestEndToEndIntegration:
 
         with (
             patch("muteme_btn.core.daemon.MuteMeDevice") as mock_device_class,
-            patch("muteme_btn.core.daemon.PulseAudioBackend") as mock_audio_class,
+            patch("muteme_btn.core.daemon.create_audio_backend") as mock_audio_class,
         ):
             mock_device = MockHIDDevice(custom_device_config)
             mock_audio = MockAudioBackend(custom_audio_config)

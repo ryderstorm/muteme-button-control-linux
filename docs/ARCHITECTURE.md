@@ -15,8 +15,10 @@ muteme-btn-control/
 │   │   ├── __init__.py
 │   │   ├── device.py       # Device discovery and LED control
 │   │   └── events.py       # Button event handling
-│   ├── audio/              # Audio backend
+│   ├── audio/              # Platform-aware audio backend selection
 │   │   ├── __init__.py
+│   │   ├── backends.py     # Audio backend protocol and platform factory
+│   │   ├── coreaudio.py    # Windows Core Audio backend scaffold
 │   │   └── pulse.py        # PulseAudio backend implementation
 │   ├── core/               # Core logic
 │   │   ├── __init__.py
@@ -41,7 +43,7 @@ muteme-btn-control/
 
 - **CLI Framework**: Typer (modern, type-hint friendly)
 - **HID Communication**: `hidapi` Python bindings
-- **Audio Control**: `pulsectl` for PulseAudio
+- **Audio Control**: `pulsectl` for PulseAudio; Windows Core Audio scaffold via PyCAW/comtypes
 - **Configuration**: TOML with `pydantic` for validation
 - **Concurrency**: `asyncio` with thread-based HID I/O
 - **Logging**: `structlog` for structured, human-readable text logs
@@ -71,14 +73,18 @@ graph TB
     end
 
     subgraph "Audio Layer"
+        BACKENDS[backends.py<br/>Platform Factory]
         PULSE[pulse.py<br/>PulseAudio]
+        COREAUDIO[coreaudio.py<br/>Windows Core Audio]
     end
 
     CLI --> DAEMON
     DAEMON --> STATE
     DAEMON --> LED
     DAEMON --> DEVICE
-    DAEMON --> PULSE
+    DAEMON --> BACKENDS
+    BACKENDS --> PULSE
+    BACKENDS --> COREAUDIO
     DEVICE --> EVENTS
     LED --> DEVICE
 
@@ -94,7 +100,7 @@ graph TB
 1. **CLI Layer** (`cli.py`): User interface and command handling
 2. **Core Layer** (`core/`): Business logic, state management, and orchestration
 3. **Device Layer** (`hid/`): Hardware communication and device abstraction
-4. **Audio Layer** (`audio/`): Audio backend abstraction and PulseAudio implementation
+4. **Audio Layer** (`audio/`): Audio backend protocol/factory with PulseAudio and Windows Core Audio implementations
 5. **Utilities** (`utils/`): Shared utilities like logging
 
 ## Module Organization Principles
@@ -107,6 +113,8 @@ Each module should have one clear purpose:
 - `hid/events.py`: Button event parsing
 - `core/state.py`: Button state machine logic
 - `core/daemon.py`: Application orchestration
+- `audio/backends.py`: Audio backend protocol and platform factory
+- `audio/coreaudio.py`: Windows Core Audio-specific implementation scaffold
 - `audio/pulse.py`: PulseAudio-specific implementation
 
 ### Separation of Concerns

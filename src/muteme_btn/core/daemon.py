@@ -8,8 +8,8 @@ import traceback
 from datetime import datetime
 from types import FrameType
 
-from muteme_btn.audio.pulse import AudioConfig, PulseAudioBackend
-from muteme_btn.config import DeviceConfig, ModeConfig, OperationMode, PTTConfig
+from muteme_btn.audio.backends import AudioBackend, create_audio_backend
+from muteme_btn.config import AudioConfig, DeviceConfig, ModeConfig, OperationMode, PTTConfig
 from muteme_btn.core.led_feedback import LEDFeedbackController
 from muteme_btn.core.state import ButtonEvent, ButtonStateMachine
 from muteme_btn.hid.device import DeviceError, LEDColor, MuteMeDevice
@@ -26,7 +26,7 @@ class MuteMeDaemon:
         device_config: DeviceConfig | None = None,
         audio_config: AudioConfig | None = None,
         device: MuteMeDevice | None = None,
-        audio_backend: PulseAudioBackend | None = None,
+        audio_backend: AudioBackend | None = None,
         state_machine: ButtonStateMachine | None = None,
         led_controller: LEDFeedbackController | None = None,
         mode_config: ModeConfig | None = None,
@@ -51,7 +51,7 @@ class MuteMeDaemon:
 
         # Device will be connected in start() if not provided
         self.device = device
-        self.audio_backend = audio_backend or PulseAudioBackend(self.audio_config)
+        self.audio_backend = audio_backend or create_audio_backend(self.audio_config)
         self.state_machine = state_machine or ButtonStateMachine(
             double_tap_timeout_ms=self.mode_config.double_tap_timeout_ms,
             debounce_time_ms=self.mode_config.debounce_time_ms,

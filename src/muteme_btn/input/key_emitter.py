@@ -1,5 +1,6 @@
 """Synthetic F19 key emission for hold-to-talk mode."""
 
+import sys
 from collections.abc import Callable
 from enum import IntEnum
 from importlib import import_module
@@ -134,6 +135,70 @@ class YdotoolKeyDevice:
         """No persistent resources are owned by this device."""
 
 
+class WindowsSendInputKeyDevice:
+    """Windows SendInput implementation for synthetic F19 key events."""
+
+    VK_F19 = 0x82
+    KEYEVENTF_KEYUP = 0x0002
+
+    def __init__(self, sender: Callable[[int, int], None] | None = None) -> None:
+        """Initialize with an injectable sender for Linux-hosted tests."""
+        self._sender = sender
+
+    def write(self, key_code: KeyCode, value: int) -> None:
+        """Write key state where value 1=down and 0=up."""
+        if key_code != KeyCode.F19:
+            raise ValueError(f"Unsupported key code: {key_code}")
+        if value not in {0, 1}:
+            raise ValueError(f"Unsupported key value: {value}")
+        flags = 0 if value == 1 else self.KEYEVENTF_KEYUP
+        self._send(self.VK_F19, flags)
+
+    def _send(self, virtual_key: int, flags: int) -> None:
+        """Send one Win32 keyboard input event."""
+        if self._sender is not None:
+            self._sender(virtual_key, flags)
+            return
+
+        if sys.platform != "win32":  # pragma: no cover - production guard
+            raise KeyEmitterError(
+                "The sendinput PTT backend requires Windows. Use ydotool or evdev on Linux."
+            )
+
+        try:  # pragma: no cover - exercised on Windows hosts
+            import ctypes
+            from ctypes import wintypes
+        except ImportError as exc:  # pragma: no cover - ctypes is stdlib on supported Python
+            raise KeyEmitterError("Failed to import ctypes for Windows SendInput.") from exc
+
+        class KEYBDINPUT(ctypes.Structure):
+            _fields_ = [
+                ("wVk", wintypes.WORD),
+                ("wScan", wintypes.WORD),
+                ("dwFlags", wintypes.DWORD),
+                ("time", wintypes.DWORD),
+                ("dwExtraInfo", ctypes.POINTER(wintypes.ULONG)),
+            ]
+
+        class INPUT_UNION(ctypes.Union):
+            _fields_ = [("ki", KEYBDINPUT)]
+
+        class INPUT(ctypes.Structure):
+            _fields_ = [("type", wintypes.DWORD), ("union", INPUT_UNION)]
+
+        key_input = KEYBDINPUT(virtual_key, 0, flags, 0, None)
+        input_event = INPUT(type=1, union=INPUT_UNION(ki=key_input))
+        sent = ctypes.windll.user32.SendInput(1, ctypes.byref(input_event), ctypes.sizeof(INPUT))
+        if sent != 1:
+            raise KeyEmitterError("Windows SendInput failed to emit F19.")
+
+    def syn(self) -> None:
+        """Windows SendInput emits complete events without a separate sync step."""
+
+    def close(self) -> None:
+        """No persistent resources are owned by this device."""
+
+
 class F19KeyEmitter:
     """Idempotent synthetic F19 key-down/key-up emitter."""
 
@@ -151,10 +216,14 @@ class F19KeyEmitter:
     def _device_factory_for_backend(backend: str) -> Callable[[], KeyDevice]:
         """Return the key device factory for the configured backend."""
         normalized = backend.lower()
+        if normalized == "auto":
+            normalized = "sendinput" if sys.platform == "win32" else "ydotool"
         if normalized == "ydotool":
             return YdotoolKeyDevice
         if normalized == "evdev":
             return EvdevKeyDevice
+        if normalized == "sendinput":
+            return WindowsSendInputKeyDevice
         raise KeyEmitterError(f"Unsupported PTT emitter backend: {backend}")
 
     @property

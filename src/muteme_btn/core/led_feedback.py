@@ -3,7 +3,7 @@
 import logging
 import time
 
-from muteme_btn.audio.pulse import PulseAudioBackend
+from muteme_btn.audio.backends import AudioBackend
 from muteme_btn.hid.device import LEDColor, MuteMeDevice
 
 logger = logging.getLogger(__name__)
@@ -15,7 +15,7 @@ class LEDFeedbackController:
     def __init__(
         self,
         device: MuteMeDevice,
-        audio_backend: PulseAudioBackend,
+        audio_backend: AudioBackend,
         muted_color: LEDColor = LEDColor.RED,
         unmuted_color: LEDColor = LEDColor.GREEN,
         ptt_idle_color: LEDColor = LEDColor.BLUE,
