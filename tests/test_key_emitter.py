@@ -38,7 +38,7 @@ def test_release_all_releases_f19_when_pressed() -> None:
 
 
 def test_f19_key_code_matches_linux_input_event_code() -> None:
-    """F19 should use the Linux evdev code that Utter watches for."""
+    """F19 should use the Linux evdev code for the synthetic shortcut."""
     assert KeyCode.F19 == 189
 
 

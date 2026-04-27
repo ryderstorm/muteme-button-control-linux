@@ -4,7 +4,7 @@
 
 Automated validation passed for the dual-mode MuteMe implementation. The feature preserves normal toggle behavior, adds a PTT mode that emits synthetic F19 key down/up while held, normalizes noisy HID reports into stable edges, and adds mode-aware LED/config/docs updates.
 
-Manual hardware validation is still recommended before merging to main because LED colors, physical gesture feel, `utter` transcription behavior, and unplug/replug cleanup require the physical MuteMe device and desktop session.
+Manual hardware validation is still recommended before merging to main because LED colors, physical gesture feel, target-app shortcut behavior, and unplug/replug cleanup require the physical MuteMe device and desktop session.
 
 ## Automated Proof Artifacts
 
@@ -89,13 +89,14 @@ Permissions: OK
 All devices are accessible and ready to use
 ```
 
-### Utter-compatible F19 emitter smoke check
+### Virtual-keyboard F19 emitter smoke check
 
 Investigation after manual testing showed raw `evdev`/uinput F19 events can be
-visible in `keyd monitor` while still being missed by the long-running `utter
-watch` process because Utter enumerates input devices at startup. The default PTT
-backend now emits through `ydotool`, which Utter already watches through the
-existing keyd/ydotool virtual input path.
+visible in input monitoring tools while still being missed by long-running
+shortcut watchers that enumerate input devices at startup. The default PTT
+backend now emits through `ydotool`, which routes through the stable
+ydotool/keyd virtual input path that desktop shortcut listeners are more likely
+to observe consistently.
 
 Command:
 
@@ -116,8 +117,8 @@ Result:
 ydotool F19 press/release OK
 ```
 
-Note: this may produce an empty Utter recording if the watcher is running, which
-is expected for a fast down/up smoke test with no speech.
+Note: this may trigger any app currently bound to F19, which is expected for a
+fast down/up smoke test.
 
 ## Manual Validation Still Recommended
 
@@ -140,7 +141,7 @@ Run before merging or relying on daily use:
    - confirm visible mode-switch animation
    - confirm PTT idle LED is blue
 
-4. Confirm true hold-to-talk behavior with `utter`:
+4. Confirm true hold-to-talk behavior with the target app:
    - hold the MuteMe button
    - verify transcription starts only while held
    - release the button

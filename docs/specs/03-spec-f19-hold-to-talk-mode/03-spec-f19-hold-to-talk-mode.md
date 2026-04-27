@@ -2,7 +2,7 @@
 
 ## Introduction/Overview
 
-This specification defines a new dual-mode interaction model for the MuteMe button controller. The existing normal mode must keep the current toggle behavior unchanged. The new Push-to-Talk (PTT) mode must act as true hold-to-talk for the user's already-working `utter` workflow by emulating F19 key down on button press and F19 key up on button release.
+This specification defines a new dual-mode interaction model for the MuteMe button controller. The existing normal mode must keep the current toggle behavior unchanged. The new Push-to-Talk (PTT) mode must act as true hold-to-talk for any app-level shortcut workflow by emulating F19 key down on button press and F19 key up on button release.
 
 This specification is intentionally scoped as a narrow extension of the current daemon rather than a broad redesign. It prioritizes preserving the current stable behavior while adding a second mode with clear visual feedback and low-friction switching.
 
@@ -12,7 +12,7 @@ A key implementation constraint discovered from live logs is that the MuteMe HID
 
 - Preserve the current normal toggle-mode behavior exactly as it works today
 - Add a real hold-to-talk PTT mode that emits synthetic F19 down/up events rather than toggling audio directly
-- Reuse the user's proven `Scroll Lock -> F19 -> utter` workflow rather than introducing a new app-level integration path
+- Reuse the proven logical `F19` shortcut path rather than introducing app-specific integrations
 - Provide a deliberate, low-accident mode-switch gesture
 - Provide clear LED feedback for normal mode, PTT idle, PTT active, and successful mode switches
 - Ensure cleanup paths cannot leave F19 logically stuck down during shutdown, disconnect, reconnect, or mode changes
@@ -21,7 +21,7 @@ A key implementation constraint discovered from live logs is that the MuteMe HID
 
 **As a MuteMe button user**, I want my current button behavior to remain unchanged in normal mode so I do not lose the reliable mute-toggle workflow I already use.
 
-**As a user of `utter` push-to-talk**, I want the MuteMe button to act as a real hold-to-talk trigger so that transcription only happens while I am physically holding the button.
+**As a push-to-talk user**, I want the MuteMe button to act as a real hold-to-talk trigger so that the target app only receives the shortcut while I am physically holding the button.
 
 **As a user switching between workflows**, I want an easy but deliberate way to move between normal mode and PTT mode so I can adapt quickly without accidental mode flips.
 
@@ -65,7 +65,7 @@ A key implementation constraint discovered from live logs is that the MuteMe HID
 
 ### Unit 3: F19 Hold-to-Talk Emulation
 
-**Purpose:** Integrate PTT mode with the user's working `utter` setup by emitting synthetic F19 key down/up events.
+**Purpose:** Integrate PTT mode with app-level shortcut listeners by emitting synthetic F19 key down/up events.
 
 **Demo Criteria:**
 
@@ -142,7 +142,7 @@ A key implementation constraint discovered from live logs is that the MuteMe HID
 
 ## Non-Goals (Out of Scope)
 
-1. **Direct app-specific integrations beyond F19 emulation**: This spec reuses the existing F19/`utter` workflow instead of adding app-specific APIs.
+1. **Direct app-specific integrations beyond F19 emulation**: This spec exposes a generic F19 hold signal instead of adding app-specific APIs.
 2. **Direct audio-control PTT**: PTT mode will not directly unmute/remute PulseAudio in the first implementation.
 3. **GUI or tray application**: Mode switching and feedback remain daemon/CLI/LED-based.
 4. **Per-application automatic mode switching**: The initial implementation uses explicit switching only.
@@ -154,13 +154,13 @@ A key implementation constraint discovered from live logs is that the MuteMe HID
 
 ### Why F19 Emulation Is the Preferred PTT Path
 
-The user already has a working push-to-talk setup using:
+The narrowest app-agnostic path is to make the MuteMe button emit the same kind of logical shortcut signal that desktop apps already support. The originally validated workflow used:
 
 - physical key: `Scroll Lock`
 - `keyd`: `scrolllock = f19`
-- `utter`: watch `--key f19`
+- target app: watch or bind `F19`
 
-Because that path already works well, the narrowest and safest implementation is for PTT mode to emulate the same logical F19 press/release behavior instead of introducing direct application or direct audio-control logic. This minimizes blast radius, preserves compatibility with the current workflow, and keeps rollback simple.
+Because that path relies on a normal keyboard shortcut rather than a direct application API, the narrowest and safest implementation is for PTT mode to emulate the same logical F19 press/release behavior instead of introducing direct application or direct audio-control logic. This minimizes blast radius, keeps the controller broadly reusable, and keeps rollback simple.
 
 ### HID Input Realities
 
@@ -259,7 +259,7 @@ unmuted_color = "green"
 
 - [ ] Normal mode remains behaviorally identical to the current toggle workflow
 - [ ] PTT mode emits one F19 key down on press and one F19 key up on release
-- [ ] Transcription only occurs while the button is physically held in PTT mode
+- [ ] The target app only receives the active PTT shortcut while the button is physically held in PTT mode
 - [ ] Double-tap-and-hold switches modes reliably
 - [ ] LED feedback makes the current mode obvious enough to avoid confusion
 - [ ] Cleanup paths prevent stuck F19 state after shutdown, disconnect, or mode changes
@@ -299,8 +299,8 @@ unmuted_color = "green"
 - Run daemon in debug mode
 - Verify normal mode remains unchanged
 - Switch into PTT mode with double-tap-and-hold
-- Hold button and confirm transcription works only while held
-- Release button and confirm transcription stops immediately
+- Hold button and confirm the target app's PTT action works only while held
+- Release button and confirm the target app stops receiving the active shortcut immediately
 - Stress test rapid taps, long holds, disconnects, and daemon shutdown during active PTT
 
 ## Risks and Mitigations
@@ -330,7 +330,7 @@ unmuted_color = "green"
 - The daemon remains Linux-specific.
 - PTT behavior depends on a reliable synthetic key injection mechanism, likely via a Python-native Linux approach.
 - The implementation should prefer a narrow adapter abstraction so backend selection does not leak into the daemon.
-- This spec intentionally does not require changes to the user's existing `keyd` and `utter` setup beyond continuing to use F19 as the logical PTT trigger.
+- This spec intentionally does not require changes to any target application beyond binding or watching F19 as the logical PTT trigger.
 
 ## Proof of Completion
 
@@ -344,7 +344,7 @@ unmuted_color = "green"
 - Manual validation notes demonstrating:
   - normal mode parity
   - successful switch to PTT mode
-  - transcription only while held
+  - target app PTT action only while held
   - no stuck F19 after cleanup paths
 
 ### Reviewer Checklist
@@ -353,4 +353,4 @@ unmuted_color = "green"
 - Does it explicitly account for the noisy HID behavior observed in the live log?
 - Does it define PTT as true hold-to-talk rather than toggle semantics?
 - Does it define safe cleanup requirements for synthetic key state?
-- Does it keep scope narrow by reusing the proven F19/`utter` workflow?
+- Does it keep scope narrow by reusing a generic F19 shortcut workflow instead of app-specific integration?

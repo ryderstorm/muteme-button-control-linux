@@ -119,7 +119,7 @@ class PTTConfig(BaseModel):
     active_color: str = Field(default="yellow", description="LED color for active PTT hold")
     emitter_backend: str = Field(
         default="ydotool",
-        description="F19 emitter backend: ydotool for Utter compatibility, or evdev",
+        description="F19 emitter backend: ydotool virtual-keyboard path, or evdev",
     )
 
     @field_validator("key")

@@ -37,8 +37,9 @@ debounce_time_ms = 10
 [ptt]
 # Synthetic key emitted while the button is held in PTT mode
 key = "f19"
-# F19 emitter backend: "ydotool" matches Utter's existing watched input path;
-# "evdev" creates a dedicated uinput device for lower-level smoke testing.
+# F19 emitter backend: "ydotool" uses a stable virtual-keyboard path that most
+# desktop shortcut listeners can observe; "evdev" creates a dedicated uinput
+# device for lower-level experiments and may require target apps to restart.
 emitter_backend = "ydotool"
 # LED color when PTT mode is idle
 idle_color = "blue"

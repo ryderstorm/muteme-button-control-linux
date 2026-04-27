@@ -39,7 +39,7 @@
 
 ## 🎯 About
 
-**MuteMe Button Control** is a Python-based Linux daemon that provides reliable toggle-mode and push-to-talk control for MuteMe hardware buttons. It integrates with PulseAudio for microphone mute/unmute operations and can emulate F19 for hold-to-talk workflows such as `utter`, with visual LED feedback and a modern command-line interface.
+**MuteMe Button Control** is a Python-based Linux daemon that provides reliable toggle-mode and push-to-talk control for MuteMe hardware buttons. It integrates with PulseAudio for microphone mute/unmute operations and can emit a configurable synthetic key for hold-to-talk workflows, with visual LED feedback and a modern command-line interface.
 
 ### Key Highlights
 
@@ -57,7 +57,7 @@
 | Feature | Description |
 | ------- | ----------- |
 | **Toggle Mode** | Press the MuteMe button to toggle microphone mute/unmute state |
-| **Push-to-Talk Mode** | Hold the button to emit F19 key down/up for `utter` and similar workflows |
+| **Push-to-Talk Mode** | Hold the button to emit synthetic key down/up events for any app-level PTT shortcut |
 | **Mode Switching** | Double-tap-and-hold switches between normal and PTT modes |
 | **PulseAudio Integration** | Seamless integration with PulseAudio for audio control |
 | **LED Feedback** | Red/green mute feedback in normal mode plus blue/yellow PTT idle/active feedback |
@@ -76,7 +76,7 @@
 - **Audio System**: PulseAudio
 - **Dependencies**: Managed via `uv` (see `pyproject.toml`)
 
-PTT mode emits F19 through `ydotool` by default because Utter already watches the ydotool/keyd virtual input path. A lower-level `evdev` backend is still available for direct uinput smoke testing; if you use it, ensure `/dev/uinput` exists and your user has permission to write to it.
+PTT mode emits F19 through `ydotool` by default because many desktop apps already listen to the stable virtual-keyboard path exposed by `ydotoold`/`keyd`. A lower-level `evdev` backend is still available for direct uinput experiments; if you use it, ensure `/dev/uinput` exists and your user has permission to write to it. Some applications only discover input devices at startup, so a dedicated uinput backend may require restarting the target app's watcher after the device is created.
 
 ---
 
@@ -213,7 +213,7 @@ switch_hold_threshold_ms = 800
 
 [ptt]
 key = "f19"                 # currently fixed to F19
-emitter_backend = "ydotool" # ydotool works with Utter's existing watcher path
+emitter_backend = "ydotool" # stable virtual-keyboard path for app-level shortcuts
 idle_color = "blue"
 active_color = "yellow"
 

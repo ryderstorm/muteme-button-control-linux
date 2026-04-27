@@ -73,7 +73,7 @@ class EvdevKeyDevice:
 
 
 class YdotoolKeyDevice:
-    """ydotoold socket implementation for Utter-compatible synthetic key events."""
+    """ydotoold socket implementation for virtual-keyboard synthetic key events."""
 
     _EVENT = Struct("@llHHi")
     _EV_SYN = 0
@@ -114,7 +114,7 @@ class YdotoolKeyDevice:
                 sock.sendall(payload)
         except OSError as exc:
             raise KeyEmitterError(
-                "PTT mode requires a reachable ydotoold socket for Utter-compatible "
+                "PTT mode requires a reachable ydotoold socket for virtual-keyboard "
                 "F19 emission. Start ydotoold or set ptt.emitter_backend = 'evdev'."
             ) from exc
 

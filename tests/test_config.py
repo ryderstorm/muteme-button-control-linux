@@ -318,7 +318,7 @@ class TestModeConfig:
             ModeConfig(switch_gesture="triple_tap")
 
     def test_default_ptt_config(self) -> None:
-        """Default PTT config should target the proven F19 utter workflow."""
+        """Default PTT config should target the generic F19 shortcut workflow."""
         config = PTTConfig()
 
         assert config.key == "f19"
