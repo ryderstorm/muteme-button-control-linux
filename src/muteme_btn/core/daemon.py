@@ -60,7 +60,7 @@ class MuteMeDaemon:
         )
         # LED controller will be created after device is connected
         self.led_controller = led_controller
-        self.key_emitter = key_emitter or F19KeyEmitter()
+        self.key_emitter = key_emitter or F19KeyEmitter(backend=self.ptt_config.emitter_backend)
         self._ptt_active = False
 
         self.running: bool = False

@@ -76,7 +76,7 @@
 - **Audio System**: PulseAudio
 - **Dependencies**: Managed via `uv` (see `pyproject.toml`)
 
-PTT mode uses Linux uinput through the Python `evdev` package. If F19 emulation fails at runtime, ensure `/dev/uinput` exists and your user has permission to write to it.
+PTT mode emits F19 through `ydotool` by default because Utter already watches the ydotool/keyd virtual input path. A lower-level `evdev` backend is still available for direct uinput smoke testing; if you use it, ensure `/dev/uinput` exists and your user has permission to write to it.
 
 ---
 
@@ -212,7 +212,8 @@ double_tap_timeout_ms = 300
 switch_hold_threshold_ms = 800
 
 [ptt]
-key = "f19"                     # used by utter push-to-talk
+key = "f19"                 # currently fixed to F19
+emitter_backend = "ydotool" # ydotool works with Utter's existing watcher path
 idle_color = "blue"
 active_color = "yellow"
 

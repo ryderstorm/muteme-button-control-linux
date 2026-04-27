@@ -331,3 +331,8 @@ class TestModeConfig:
 
         assert config.mode.default == OperationMode.NORMAL
         assert config.ptt.key == "f19"
+
+    def test_ptt_config_rejects_unsupported_emitter_backend(self) -> None:
+        """Unsupported PTT emitter backends should fail fast."""
+        with pytest.raises(ValueError, match="Unsupported PTT emitter backend"):
+            PTTConfig(emitter_backend="x11")

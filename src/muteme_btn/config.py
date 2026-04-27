@@ -117,6 +117,10 @@ class PTTConfig(BaseModel):
     key: str = Field(default="f19", description="Synthetic key to emit for PTT mode")
     idle_color: str = Field(default="blue", description="LED color for PTT idle state")
     active_color: str = Field(default="yellow", description="LED color for active PTT hold")
+    emitter_backend: str = Field(
+        default="ydotool",
+        description="F19 emitter backend: ydotool for Utter compatibility, or evdev",
+    )
 
     @field_validator("key")
     @classmethod
@@ -125,6 +129,15 @@ class PTTConfig(BaseModel):
         normalized = value.lower()
         if normalized != "f19":
             raise ValueError("Only f19 is currently supported for PTT key emulation")
+        return normalized
+
+    @field_validator("emitter_backend")
+    @classmethod
+    def validate_emitter_backend(cls, value: str) -> str:
+        """Validate PTT emitter backend."""
+        normalized = value.lower()
+        if normalized not in {"ydotool", "evdev"}:
+            raise ValueError("Unsupported PTT emitter backend; expected ydotool or evdev")
         return normalized
 
 

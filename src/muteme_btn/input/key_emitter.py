@@ -3,6 +3,11 @@
 from collections.abc import Callable
 from enum import IntEnum
 from importlib import import_module
+from os import environ
+from pathlib import Path
+from socket import AF_UNIX, SOCK_DGRAM, socket
+from struct import Struct
+from tempfile import gettempdir
 from typing import Any, Protocol
 
 
@@ -13,7 +18,7 @@ class KeyEmitterError(RuntimeError):
 class KeyCode(IntEnum):
     """Internal key codes used by the key-emitter abstraction."""
 
-    F19 = 194
+    F19 = 189
 
 
 class KeyDevice(Protocol):
@@ -67,14 +72,90 @@ class EvdevKeyDevice:
         self._device.close()
 
 
+class YdotoolKeyDevice:
+    """ydotoold socket implementation for Utter-compatible synthetic key events."""
+
+    _EVENT = Struct("@llHHi")
+    _EV_SYN = 0
+    _EV_KEY = 1
+    _SYN_REPORT = 0
+
+    def __init__(
+        self,
+        socket_path: str | None = None,
+        sender: Callable[[bytes], None] | None = None,
+    ) -> None:
+        """Initialize with an injectable sender for tests."""
+        self._socket_path = socket_path or self._default_socket_path()
+        self._sender = sender
+
+    @staticmethod
+    def _default_socket_path() -> str:
+        """Return the socket path used by ydotool's CLI fallback order."""
+        if socket_path := environ.get("YDOTOOL_SOCKET"):
+            return socket_path
+        if runtime_dir := environ.get("XDG_RUNTIME_DIR"):
+            return str(Path(runtime_dir) / ".ydotool_socket")
+        return str(Path(gettempdir()) / ".ydotool_socket")
+
+    @classmethod
+    def _pack_event(cls, event_type: int, code: int, value: int) -> bytes:
+        """Pack a Linux input_event with an empty timestamp."""
+        return cls._EVENT.pack(0, 0, event_type, code, value)
+
+    def _send(self, payload: bytes) -> None:
+        """Send a packed input_event to ydotoold's datagram socket."""
+        if self._sender is not None:
+            self._sender(payload)
+            return
+        try:
+            with socket(AF_UNIX, SOCK_DGRAM) as sock:
+                sock.connect(self._socket_path)
+                sock.sendall(payload)
+        except OSError as exc:
+            raise KeyEmitterError(
+                "PTT mode requires a reachable ydotoold socket for Utter-compatible "
+                "F19 emission. Start ydotoold or set ptt.emitter_backend = 'evdev'."
+            ) from exc
+
+    def write(self, key_code: KeyCode, value: int) -> None:
+        """Write key state where value 1=down and 0=up."""
+        if key_code != KeyCode.F19:
+            raise ValueError(f"Unsupported key code: {key_code}")
+        if value not in {0, 1}:
+            raise ValueError(f"Unsupported key value: {value}")
+        self._send(self._pack_event(self._EV_KEY, int(key_code), value))
+
+    def syn(self) -> None:
+        """Synchronize the emitted input event."""
+        self._send(self._pack_event(self._EV_SYN, self._SYN_REPORT, 0))
+
+    def close(self) -> None:
+        """No persistent resources are owned by this device."""
+
+
 class F19KeyEmitter:
     """Idempotent synthetic F19 key-down/key-up emitter."""
 
-    def __init__(self, device_factory: Callable[[], KeyDevice] | None = None) -> None:
-        """Initialize the emitter with an optional device factory for tests."""
-        self._device_factory = device_factory or EvdevKeyDevice
+    def __init__(
+        self,
+        device_factory: Callable[[], KeyDevice] | None = None,
+        backend: str = "ydotool",
+    ) -> None:
+        """Initialize the emitter with an optional backend/device factory for tests."""
+        self._device_factory = device_factory or self._device_factory_for_backend(backend)
         self._device: KeyDevice | None = None
         self._is_pressed = False
+
+    @staticmethod
+    def _device_factory_for_backend(backend: str) -> Callable[[], KeyDevice]:
+        """Return the key device factory for the configured backend."""
+        normalized = backend.lower()
+        if normalized == "ydotool":
+            return YdotoolKeyDevice
+        if normalized == "evdev":
+            return EvdevKeyDevice
+        raise KeyEmitterError(f"Unsupported PTT emitter backend: {backend}")
 
     @property
     def is_pressed(self) -> bool:

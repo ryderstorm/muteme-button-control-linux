@@ -89,7 +89,13 @@ Permissions: OK
 All devices are accessible and ready to use
 ```
 
-### uinput/F19 emitter smoke check
+### Utter-compatible F19 emitter smoke check
+
+Investigation after manual testing showed raw `evdev`/uinput F19 events can be
+visible in `keyd monitor` while still being missed by the long-running `utter
+watch` process because Utter enumerates input devices at startup. The default PTT
+backend now emits through `ydotool`, which Utter already watches through the
+existing keyd/ydotool virtual input path.
 
 Command:
 
@@ -97,19 +103,21 @@ Command:
 uv run python - <<'PY'
 from muteme_btn.input.key_emitter import F19KeyEmitter
 emitter = F19KeyEmitter()
-emitter._get_device()
+emitter.press_f19()
+emitter.release_f19()
 emitter.close()
-print('uinput F19 emitter initialization OK')
+print('ydotool F19 press/release OK')
 PY
 ```
 
 Result:
 
 ```text
-uinput F19 emitter initialization OK
+ydotool F19 press/release OK
 ```
 
-Note: this initialized and closed the uinput device without emitting an F19 key press.
+Note: this may produce an empty Utter recording if the watcher is running, which
+is expected for a fast down/up smoke test with no speech.
 
 ## Manual Validation Still Recommended
 
