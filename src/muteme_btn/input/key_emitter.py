@@ -8,7 +8,7 @@ from pathlib import Path
 from socket import AF_UNIX, SOCK_DGRAM, socket
 from struct import Struct
 from tempfile import gettempdir
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 
 class KeyEmitterError(RuntimeError):
@@ -40,7 +40,7 @@ class EvdevKeyDevice:
     def __init__(self) -> None:
         """Create a uinput device that can emit F19."""
         try:
-            evdev: Any = import_module("evdev")
+            evdev = cast(Any, import_module("evdev"))
         except ImportError as exc:  # pragma: no cover - exercised by integration/manual use
             raise KeyEmitterError(
                 "PTT mode requires the 'evdev' Python package for F19 key emulation."

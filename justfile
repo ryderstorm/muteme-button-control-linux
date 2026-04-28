@@ -11,6 +11,8 @@ setup:  # Install dependencies and pre-commit hooks
     uv run pre-commit install --hook-type pre-commit --hook-type pre-push --hook-type commit-msg --overwrite
 
 check:  # Run all quality checks (lint, type, test)
+    # Match CI's fresh default dependency set so stale local extras cannot hide failures.
+    uv sync --locked
     just lint
     just type-check
     just test
