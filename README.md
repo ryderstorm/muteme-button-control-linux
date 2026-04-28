@@ -57,7 +57,7 @@
 | Feature | Description |
 | ------- | ----------- |
 | **Toggle Mode** | Press the MuteMe button to toggle microphone mute/unmute state |
-| **Push-to-Talk Mode** | Hold the button to keep the system mic unmuted and emit synthetic key down/up events for any app-level PTT shortcut |
+| **Push-to-Talk Mode** | Hold the button to temporarily unmute the system mic, emit synthetic F19 key down/up events for app-level PTT shortcuts, then restore mute if it was previously muted |
 | **Mode Switching** | Double-tap-and-hold by default, with optional triple-tap switching for quicker mode changes |
 | **PulseAudio Integration** | Seamless integration with PulseAudio for audio control |
 | **LED Feedback** | Red/green mute feedback in normal mode plus blue/yellow PTT idle/active feedback |
@@ -76,7 +76,7 @@
 - **Audio System**: PulseAudio
 - **Dependencies**: Managed via `uv` (see `pyproject.toml`)
 
-PTT mode emits F19 through `ydotool` by default because many desktop apps already listen to the stable virtual-keyboard path exposed by `ydotoold`/`keyd`. A lower-level `evdev` backend is still available for direct uinput experiments; if you use it, ensure `/dev/uinput` exists and your user has permission to write to it. Some applications only discover input devices at startup, so a dedicated uinput backend may require restarting the target app's watcher after the device is created.
+PTT mode emits F19 through `ydotool` by default because many desktop apps already listen to the stable virtual-keyboard path exposed by `ydotoold`/`keyd`. Install and run `ydotoold` before using PTT mode, then point `YDOTOOL_SOCKET` at the daemon socket if your distro does not use the default runtime path. A lower-level `evdev` backend is available as an optional dependency for direct uinput experiments; install it with `uv sync --extra evdev`, set `ptt.emitter_backend = "evdev"`, and ensure `/dev/uinput` exists with write permission for your user. Some applications only discover input devices at startup, so a dedicated uinput backend may require restarting the target app's watcher after the device is created.
 
 ---
 
@@ -144,7 +144,34 @@ cargo install just
    sudo udevadm trigger
    ```
 
-4. **Verify device connection:**
+4. **Set up `ydotoold` for PTT mode** (required when `ptt.emitter_backend = "ydotool"`, the default):
+
+   ```bash
+   # Fedora/Nobara
+   sudo dnf install ydotool
+   systemctl --user enable --now ydotoold.service
+
+   # Ubuntu/Debian package names vary by release; if available:
+   sudo apt install ydotool
+   systemctl --user enable --now ydotoold.service
+   ```
+
+   If your distro starts `ydotoold` somewhere other than `$XDG_RUNTIME_DIR/.ydotool_socket`, export the socket path before running the daemon:
+
+   ```bash
+   export YDOTOOL_SOCKET=/path/to/.ydotool_socket
+   ```
+
+   To use the optional direct `evdev`/uinput backend instead, install the extra and update config:
+
+   ```bash
+   uv sync --extra evdev
+   # ~/.config/muteme/muteme.toml
+   # [ptt]
+   # emitter_backend = "evdev"
+   ```
+
+5. **Verify device connection:**
 
    ```bash
    just check-device

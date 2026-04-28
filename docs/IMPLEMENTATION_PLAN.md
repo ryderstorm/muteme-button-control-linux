@@ -32,7 +32,8 @@ The `mutebtn` Rust project uses a **4-thread architecture** with crossbeam chann
 ### Key Features Implemented
 
 - **Device**: MuteMe button (VID: `0x20a0`, PID: `0x42da`) plus Mini variants
-- **Operation Modes**: Toggle, Push-to-Talk, Hybrid (double-tap latch)
+- **Operation Modes**: Toggle, Push-to-Talk, Hybrid (mode switching between toggle and PTT)
+- **PTT Key Emission**: `ydotoold` virtual keyboard by default; optional `evdev` extra for direct uinput experiments
 - **Audio Backend**: PulseAudio only (all/default/selected device targeting)
 - **LED Control**: 8 colors + no color, simple byte-based HID reports
 - **Configuration**: TOML files with CLI override support
@@ -154,6 +155,7 @@ muteme-btn-control/
 - [x] Basic HID event reading (touch/release) (`src/muteme_btn/hid/events.py`)
 - [x] LED color control via HID reports (8 colors + no color)
 - [x] Device error handling and permission checking
+- [x] Duplicate raw HID report suppression with counters instead of per-poll log noise
 
 #### 2.2 Audio Layer ✅ Complete
 
@@ -180,9 +182,11 @@ muteme-btn-control/
 #### 3.1 Advanced Operation Modes
 
 - [x] Push-to-Talk mode via F19 key emulation (hold button to talk, release to stop)
+- [x] PTT temporarily unmutes during active holds and restores mute if it changed the system mic state
 - [x] Hybrid mode with configurable mode switching between normal and PTT modes
 - [x] Configurable timing windows for double-tap and switch-hold thresholds
 - [x] Advanced button state handling with HID edge normalization for noisy hold/release reports
+- [x] `ydotoold` default F19 emitter with optional `evdev` extra (`uv sync --extra evdev`) for direct uinput experiments
 
 #### 3.2 Multi-Backend Audio Support
 

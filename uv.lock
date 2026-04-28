@@ -252,7 +252,6 @@ name = "muteme-btn-control"
 version = "0.2.1"
 source = { editable = "." }
 dependencies = [
-    { name = "evdev" },
     { name = "hidapi" },
     { name = "psutil" },
     { name = "pulsectl" },
@@ -260,6 +259,11 @@ dependencies = [
     { name = "structlog" },
     { name = "toml" },
     { name = "typer" },
+]
+
+[package.optional-dependencies]
+evdev = [
+    { name = "evdev" },
 ]
 
 [package.dev-dependencies]
@@ -284,7 +288,7 @@ pipewire = [
 
 [package.metadata]
 requires-dist = [
-    { name = "evdev", specifier = ">=1.9.2" },
+    { name = "evdev", marker = "extra == 'evdev'", specifier = ">=1.9.2" },
     { name = "hidapi", specifier = ">=0.14.0.post4" },
     { name = "psutil", specifier = ">=7.1.3" },
     { name = "pulsectl", specifier = ">=24.12.0" },
@@ -293,6 +297,7 @@ requires-dist = [
     { name = "toml", specifier = ">=0.10.2" },
     { name = "typer", specifier = ">=0.20.0" },
 ]
+provides-extras = ["evdev"]
 
 [package.metadata.requires-dev]
 dev = [
