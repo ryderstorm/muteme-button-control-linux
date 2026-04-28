@@ -5,6 +5,8 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from muteme_btn.hid.device import LEDColor
+
 
 class LogLevel(str, Enum):
     """Available log levels."""
@@ -166,6 +168,17 @@ class PTTConfig(BaseModel):
         normalized = value.lower()
         if normalized != "f19":
             raise ValueError("Only f19 is currently supported for PTT key emulation")
+        return normalized
+
+    @field_validator("idle_color", "active_color")
+    @classmethod
+    def validate_led_color(cls, value: str) -> str:
+        """Validate PTT LED color names at config-load time."""
+        normalized = value.lower()
+        try:
+            LEDColor.from_name(normalized)
+        except ValueError as exc:
+            raise ValueError(f"Unsupported PTT LED color: {value}") from exc
         return normalized
 
     @field_validator("emitter_backend")

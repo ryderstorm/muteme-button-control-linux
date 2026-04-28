@@ -1,5 +1,6 @@
 """Tests for synthetic key emission abstraction."""
 
+import struct
 from typing import cast
 from unittest.mock import Mock
 
@@ -53,11 +54,25 @@ def test_ydotool_key_device_emits_f19_down_up_and_syn_events() -> None:
     device.syn()
 
     assert sent == [
-        YdotoolKeyDevice._pack_event(1, 189, 1),
-        YdotoolKeyDevice._pack_event(0, 0, 0),
-        YdotoolKeyDevice._pack_event(1, 189, 0),
-        YdotoolKeyDevice._pack_event(0, 0, 0),
+        struct.pack("llHHI", 0, 0, 1, 189, 1),
+        struct.pack("llHHI", 0, 0, 0, 0, 0),
+        struct.pack("llHHI", 0, 0, 1, 189, 0),
+        struct.pack("llHHI", 0, 0, 0, 0, 0),
     ]
+
+
+def test_f19_key_emitter_close_closes_device_even_when_release_fails() -> None:
+    """Emitter close should always close the backend even if key release fails."""
+    fake_device = Mock()
+    fake_device.write.side_effect = [None, RuntimeError("release failed")]
+    emitter = F19KeyEmitter(device_factory=lambda: fake_device)
+
+    emitter.press_f19()
+
+    with pytest.raises(RuntimeError, match="release failed"):
+        emitter.close()
+
+    fake_device.close.assert_called_once()
 
 
 def test_ydotool_key_device_rejects_non_f19_codes() -> None:

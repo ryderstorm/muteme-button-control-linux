@@ -1,7 +1,7 @@
 """LED feedback synchronization with mute and operating-mode status."""
 
+import asyncio
 import logging
-import time
 from typing import Literal
 
 from muteme_btn.audio.pulse import PulseAudioBackend
@@ -80,14 +80,14 @@ class LEDFeedbackController:
 
         self.update_led_to_mute_status()
 
-    def show_mode_switch_confirmation(self) -> None:
+    async def show_mode_switch_confirmation(self) -> None:
         """Show a short visible confirmation that the operating mode changed."""
         try:
             if not self.device.is_connected():
                 return
             for color in (LEDColor.WHITE, LEDColor.NOCOLOR, LEDColor.WHITE):
                 self.device.set_led_color(color)
-                time.sleep(0.08)
+                await asyncio.sleep(0.08)
             self._last_applied_color = None
         except Exception as e:
             logger.error(f"Failed to show mode switch confirmation: {e}")
@@ -123,7 +123,9 @@ class LEDFeedbackController:
         """Get current LED and mute status."""
         try:
             is_muted = self.audio_backend.is_muted(None)
-            current_led_color = self.muted_color if is_muted else self.unmuted_color
+            current_led_color = self._last_applied_color
+            if current_led_color is None:
+                current_led_color = self.muted_color if is_muted else self.unmuted_color
             device_connected = self.device.is_connected()
 
             return {

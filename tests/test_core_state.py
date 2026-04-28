@@ -361,6 +361,11 @@ class TestDualModeButtonStateMachine:
 
         assert info["mode"] == OperationMode.PTT
 
+    def test_rejects_unsupported_switch_gesture(self):
+        """Direct callers should fail fast for unsupported switch gestures."""
+        with pytest.raises(ValueError, match="Unsupported switch_gesture"):
+            ButtonStateMachine(switch_gesture="typo")
+
 
 class TestTripleTapModeSwitching:
     """Tests for optional triple-tap mode switching."""

@@ -604,3 +604,23 @@ class TestMuteMeButtonEdgeNormalization:
         events = await device.read_events()
 
         assert events == []
+
+    @pytest.mark.asyncio
+    @patch("muteme_btn.hid.device.logger")
+    async def test_duplicate_button_reports_do_not_log_every_poll(self, mock_logger):
+        """Duplicate raw reports should be counted without debug log spam every poll."""
+        mock_hid_device = Mock()
+        mock_hid_device.read.side_effect = [[0x00, 0x00, 0x00, 0x00]] * 3
+        device = MuteMeDevice(mock_hid_device)
+
+        assert await device.read_events() == []
+        assert await device.read_events() == []
+        assert await device.read_events() == []
+
+        assert device.duplicate_report_count == 3
+        duplicate_logs = [
+            call_args
+            for call_args in mock_logger.debug.call_args_list
+            if call_args.args and call_args.args[0] == "Ignored duplicate button report"
+        ]
+        assert duplicate_logs == []

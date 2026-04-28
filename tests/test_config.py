@@ -371,3 +371,9 @@ class TestModeConfig:
         """Unsupported PTT emitter backends should fail fast."""
         with pytest.raises(ValueError, match="Unsupported PTT emitter backend"):
             PTTConfig(emitter_backend="x11")
+
+    @pytest.mark.parametrize("field_name", ["idle_color", "active_color"])
+    def test_ptt_config_rejects_unknown_led_colors(self, field_name: str) -> None:
+        """PTT LED colors should fail fast during config loading."""
+        with pytest.raises(ValueError, match="Unsupported PTT LED color"):
+            PTTConfig(**{field_name: "ultraviolet"})

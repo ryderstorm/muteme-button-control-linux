@@ -68,6 +68,7 @@ class MuteMeDaemon:
         self.led_controller = led_controller
         self.key_emitter = key_emitter or F19KeyEmitter(backend=self.ptt_config.emitter_backend)
         self._ptt_active = False
+        self._ptt_restore_mute_after_release = False
 
         self.running: bool = False
         self._shutdown_event = asyncio.Event()
@@ -397,14 +398,13 @@ class MuteMeDaemon:
             elif action == "ptt_release":
                 self.key_emitter.release_f19()
                 self._ptt_active = False
+                self._restore_microphone_mute_after_ptt_if_needed()
                 await self._update_led_feedback()
                 logger.info("PTT inactive: emitted F19 key up")
             elif action == "switch_mode":
                 self._release_ptt_key_if_needed()
-                if self._current_mode() == OperationMode.PTT:
-                    self._ensure_microphone_unmuted_for_ptt()
                 if self.led_controller:
-                    self.led_controller.show_mode_switch_confirmation()
+                    await self.led_controller.show_mode_switch_confirmation()
                 await self._update_led_feedback()
                 logger.info("Button mode switched", extra={"mode": self._current_mode_value()})
             elif action == "double_tap":
@@ -495,14 +495,25 @@ class MuteMeDaemon:
     def _ensure_microphone_unmuted_for_ptt(self) -> None:
         """Ensure the system microphone is unmuted before PTT shortcut handling."""
         if not self.audio_backend.is_muted(None):
+            self._ptt_restore_mute_after_release = False
             return
         self.audio_backend.set_mute_state(None, False)
-        logger.info("Unmuted microphone for PTT mode")
+        self._ptt_restore_mute_after_release = True
+        logger.info("Temporarily unmuted microphone for active PTT hold")
+
+    def _restore_microphone_mute_after_ptt_if_needed(self) -> None:
+        """Restore mute state if PTT temporarily unmuted the microphone."""
+        if not self._ptt_restore_mute_after_release:
+            return
+        self.audio_backend.set_mute_state(None, True)
+        self._ptt_restore_mute_after_release = False
+        logger.info("Restored microphone mute after active PTT hold")
 
     def _release_ptt_key_if_needed(self) -> None:
         """Force-release synthetic PTT key if this daemon considers PTT active."""
         try:
             self.key_emitter.release_all()
+            self._restore_microphone_mute_after_ptt_if_needed()
         except Exception as e:
             logger.warning(f"Error releasing synthetic PTT key: {e}")
         finally:

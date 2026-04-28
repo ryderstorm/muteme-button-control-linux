@@ -192,7 +192,9 @@ class F19KeyEmitter:
 
     def close(self) -> None:
         """Release keys and close the backing device if it was created."""
-        self.release_all()
-        if self._device is not None:
-            self._device.close()
-            self._device = None
+        try:
+            self.release_all()
+        finally:
+            if self._device is not None:
+                self._device.close()
+                self._device = None

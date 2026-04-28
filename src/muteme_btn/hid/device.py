@@ -85,6 +85,12 @@ class MuteMeDevice:
         self._device = device
         self._device_info = device_info
         self._button_pressed = False
+        self._duplicate_report_count = 0
+
+    @property
+    def duplicate_report_count(self) -> int:
+        """Return the number of duplicate raw reports suppressed since initialization."""
+        return self._duplicate_report_count
 
     @classmethod
     def discover_devices(cls) -> list[DeviceInfo]:
@@ -460,12 +466,7 @@ class MuteMeDevice:
                         f"(raw data: {data.hex()}, button byte: 0x{button_byte:02x})"
                     )
                 else:
-                    logger.debug(
-                        "Ignored duplicate button report",
-                        raw_data=data.hex(),
-                        button_byte=f"0x{button_byte:02x}",
-                        logical_pressed=self._button_pressed,
-                    )
+                    self._duplicate_report_count += 1
 
         except DeviceError:
             # No data, a read timeout, or a stale handle that read() already disconnected.

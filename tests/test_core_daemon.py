@@ -484,14 +484,42 @@ class TestMuteMeDaemonPTTMode:
         led_controller = Mock()
         led_controller.update_led_to_mute_status = Mock()
         led_controller.update_led_for_mode = Mock()
-        led_controller.show_mode_switch_confirmation = Mock()
+        led_controller.show_mode_switch_confirmation = AsyncMock()
         led_controller.force_led_color = Mock()
         return device, audio_backend, state_machine, led_controller, mock_key_emitter
 
     @pytest.mark.asyncio
-    async def test_handle_ptt_actions_emit_f19_without_toggling_audio(self, ptt_daemon_parts):
-        """PTT actions should drive F19 without toggling an already-unmuted microphone."""
+    async def test_handle_ptt_actions_restore_mute_state_after_temporary_unmute(
+        self, ptt_daemon_parts
+    ):
+        """PTT should restore mute if it temporarily unmuted the microphone."""
         device, audio_backend, state_machine, led_controller, key_emitter = ptt_daemon_parts
+        audio_backend.is_muted.side_effect = [True]
+        daemon = MuteMeDaemon(
+            device=device,
+            audio_backend=audio_backend,
+            state_machine=state_machine,
+            led_controller=led_controller,
+            key_emitter=key_emitter,
+        )
+
+        await daemon._handle_action("ptt_press")
+        await daemon._handle_action("ptt_release")
+
+        key_emitter.press_f19.assert_called_once()
+        key_emitter.release_f19.assert_called_once()
+        assert audio_backend.set_mute_state.call_args_list == [
+            ((None, False),),
+            ((None, True),),
+        ]
+
+    @pytest.mark.asyncio
+    async def test_handle_ptt_actions_leave_originally_unmuted_microphone_unmuted(
+        self, ptt_daemon_parts
+    ):
+        """PTT release should not mute a microphone that was already unmuted."""
+        device, audio_backend, state_machine, led_controller, key_emitter = ptt_daemon_parts
+        audio_backend.is_muted.return_value = False
         daemon = MuteMeDaemon(
             device=device,
             audio_backend=audio_backend,
@@ -508,8 +536,8 @@ class TestMuteMeDaemonPTTMode:
         audio_backend.set_mute_state.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_switching_into_ptt_unmutes_microphone(self, ptt_daemon_parts):
-        """Entering PTT mode should unmute the system microphone before shortcut use."""
+    async def test_switching_into_ptt_does_not_unmute_before_hold(self, ptt_daemon_parts):
+        """Entering PTT mode should wait for an actual PTT press before unmuting."""
         device, audio_backend, state_machine, led_controller, key_emitter = ptt_daemon_parts
         audio_backend.is_muted.return_value = True
         state_machine.current_mode = OperationMode.PTT
@@ -523,7 +551,7 @@ class TestMuteMeDaemonPTTMode:
 
         await daemon._handle_action("switch_mode")
 
-        audio_backend.set_mute_state.assert_called_once_with(None, False)
+        audio_backend.set_mute_state.assert_not_called()
         key_emitter.release_all.assert_called_once()
         led_controller.show_mode_switch_confirmation.assert_called_once()
 

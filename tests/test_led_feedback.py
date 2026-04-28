@@ -1,6 +1,6 @@
 """Tests for LED feedback synchronization with mute status."""
 
-from unittest.mock import Mock, call
+from unittest.mock import Mock, call, patch
 
 import pytest
 
@@ -222,15 +222,20 @@ class TestModeAwareLEDFeedback:
 
         mode_led_controller.device.set_led_color.assert_called_once_with(LEDColor.YELLOW)
 
-    def test_show_mode_switch_confirmation_animates(self, mode_led_controller):
-        """Mode switches should produce a short visible confirmation."""
-        mode_led_controller.show_mode_switch_confirmation()
+    @pytest.mark.asyncio
+    async def test_show_mode_switch_confirmation_animates_without_blocking_sleep(
+        self, mode_led_controller
+    ):
+        """Mode switches should produce a short visible confirmation without blocking sleep."""
+        with patch("muteme_btn.core.led_feedback.asyncio.sleep") as sleep_mock:
+            await mode_led_controller.show_mode_switch_confirmation()
 
         assert mode_led_controller.device.set_led_color.call_args_list == [
             call(LEDColor.WHITE),
             call(LEDColor.NOCOLOR),
             call(LEDColor.WHITE),
         ]
+        assert sleep_mock.await_count == 3
 
     def test_update_ptt_led_logs_and_swallows_device_errors(self, mode_led_controller, caplog):
         """PTT LED update failures should not escape the mode-state path."""
@@ -240,3 +245,11 @@ class TestModeAwareLEDFeedback:
 
         assert "Failed to update PTT LED" in caplog.text
         assert "YELLOW" in caplog.text
+
+    def test_get_current_status_reports_last_applied_ptt_color(self, mode_led_controller):
+        """Status should report the LED color actually applied in PTT mode."""
+        mode_led_controller.update_led_for_mode("ptt", active=True)
+
+        status = mode_led_controller.get_current_status()
+
+        assert status["led_color"] == LEDColor.YELLOW

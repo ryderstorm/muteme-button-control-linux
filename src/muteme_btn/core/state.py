@@ -51,7 +51,7 @@ class ButtonStateMachine:
         self._suppress_next_release = False
         self._switch_fired_for_current_press = False
 
-        self.switch_gesture = switch_gesture
+        self.switch_gesture = self._validate_switch_gesture(switch_gesture)
         self.double_tap_timeout_ms = double_tap_timeout_ms
         self.debounce_time_ms = debounce_time_ms
         self.switch_hold_threshold_ms = switch_hold_threshold_ms
@@ -68,7 +68,7 @@ class ButtonStateMachine:
         logger.debug(
             "Initialized ButtonStateMachine with "
             f"mode={self.current_mode.value}, "
-            f"switch_gesture={switch_gesture}, "
+            f"switch_gesture={self.switch_gesture}, "
             f"double_tap_timeout={double_tap_timeout_ms}ms, "
             f"switch_hold_threshold={switch_hold_threshold_ms}ms, "
             f"triple_tap_window={triple_tap_window_ms}ms, "
@@ -76,6 +76,14 @@ class ButtonStateMachine:
             f"ptt_hold_threshold={ptt_hold_threshold_ms}ms, "
             f"debounce_time={debounce_time_ms}ms"
         )
+
+    @staticmethod
+    def _validate_switch_gesture(value: str) -> str:
+        """Validate the supported mode-switch gesture for direct callers."""
+        normalized = value.lower()
+        if normalized not in {"double_tap_hold", "triple_tap"}:
+            raise ValueError("Unsupported switch_gesture; expected double_tap_hold or triple_tap")
+        return normalized
 
     def process_event(self, event: ButtonEvent) -> list[str]:
         """Process a button event and return action strings to execute."""
