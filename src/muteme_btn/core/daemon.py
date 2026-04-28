@@ -69,6 +69,7 @@ class MuteMeDaemon:
         self.key_emitter = key_emitter or F19KeyEmitter(backend=self.ptt_config.emitter_backend)
         self._ptt_active = False
         self._ptt_restore_mute_after_release = False
+        self._mode_switch_confirmation_task: asyncio.Task[None] | None = None
 
         self.running: bool = False
         self._shutdown_event = asyncio.Event()
@@ -416,8 +417,12 @@ class MuteMeDaemon:
             elif action == "switch_mode":
                 self._release_ptt_key_if_needed()
                 if self.led_controller:
-                    task = asyncio.create_task(self._show_mode_switch_confirmation_then_restore())
-                    task.add_done_callback(self._log_background_task_error)
+                    self._mode_switch_confirmation_task = asyncio.create_task(
+                        self._show_mode_switch_confirmation_then_restore()
+                    )
+                    self._mode_switch_confirmation_task.add_done_callback(
+                        self._log_background_task_error
+                    )
                     await asyncio.sleep(0)
                 else:
                     await self._update_led_feedback()
@@ -488,6 +493,13 @@ class MuteMeDaemon:
                 logger.debug("LED controller not initialized, skipping LED feedback update")
                 return
 
+            if (
+                self._mode_switch_confirmation_task is not None
+                and not self._mode_switch_confirmation_task.done()
+            ):
+                logger.debug("Mode-switch confirmation active, skipping steady LED update")
+                return
+
             if self._current_mode() == OperationMode.PTT:
                 self.led_controller.update_led_for_mode("ptt", active=self._ptt_active)
             else:
@@ -502,6 +514,8 @@ class MuteMeDaemon:
         """Run mode-switch confirmation asynchronously, then restore steady LED state."""
         if self.led_controller:
             await self.led_controller.show_mode_switch_confirmation()
+        if self._mode_switch_confirmation_task is asyncio.current_task():
+            self._mode_switch_confirmation_task = None
         await self._update_led_feedback()
 
     @staticmethod
@@ -542,12 +556,17 @@ class MuteMeDaemon:
 
     def _release_ptt_key_if_needed(self) -> None:
         """Force-release synthetic PTT key if this daemon considers PTT active."""
+        if not self._ptt_active and not self._ptt_restore_mute_after_release:
+            return
         try:
             self.key_emitter.release_all()
-            self._restore_microphone_mute_after_ptt_if_needed()
         except Exception as e:
             logger.warning(f"Error releasing synthetic PTT key: {e}")
         finally:
+            try:
+                self._restore_microphone_mute_after_ptt_if_needed()
+            except Exception as e:
+                logger.warning(f"Error restoring microphone mute after PTT cleanup: {e}")
             self._ptt_active = False
 
     def _close_key_emitter(self) -> None:

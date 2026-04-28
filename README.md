@@ -76,7 +76,14 @@
 - **Audio System**: PulseAudio
 - **Dependencies**: Managed via `uv` (see `pyproject.toml`)
 
-PTT mode emits F19 through `ydotool` by default because many desktop apps already listen to the stable virtual-keyboard path exposed by `ydotoold`/`keyd`. Install and run `ydotoold` before using PTT mode, then point `YDOTOOL_SOCKET` at the daemon socket if your distro does not use the default runtime path. A lower-level `evdev` backend is available as an optional dependency for direct uinput experiments; install it with `uv sync --extra evdev`, set `ptt.emitter_backend = "evdev"`, and ensure `/dev/uinput` exists with write permission for your user. Some applications only discover input devices at startup, so a dedicated uinput backend may require restarting the target app's watcher after the device is created.
+**PTT mode requirements:**
+
+- **Default backend**: PTT mode emits F19 through `ydotool` because many desktop apps already listen to the stable virtual-keyboard path exposed by `ydotoold`/`keyd`.
+- **Setup**: Install and run `ydotoold` before using PTT mode.
+- **Socket configuration**: Set `YDOTOOL_SOCKET` if your distro does not use the default runtime socket path.
+- **Alternative backend**: For direct uinput experiments, install the optional `evdev` backend with `uv sync --extra evdev` and set `ptt.emitter_backend = "evdev"`.
+- **Permissions**: The `evdev` backend requires `/dev/uinput` to exist and be writable by your user.
+- **App restart caveat**: Some applications only discover input devices at startup and may need a restart after the uinput device is created.
 
 ---
 

@@ -638,9 +638,7 @@ class TestMuteMeButtonEdgeNormalization:
         assert [event.type for event in events] == ["press"]
         mock_logger.info.assert_called_once_with(
             "Button event detected",
-            extra={
-                "event_type": "press",
-                "raw_data": "00000001",
-                "button_byte": "0x01",
-            },
+            event_type="press",
+            raw_data="00000001",
+            button_byte="0x01",
         )

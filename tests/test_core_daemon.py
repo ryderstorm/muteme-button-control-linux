@@ -594,8 +594,24 @@ class TestMuteMeDaemonPTTMode:
         await daemon._handle_action("switch_mode")
 
         audio_backend.set_mute_state.assert_not_called()
-        key_emitter.release_all.assert_called_once()
+        key_emitter.release_all.assert_not_called()
         led_controller.show_mode_switch_confirmation.assert_called_once()
+
+    def test_release_ptt_key_skips_backend_when_no_ptt_cleanup_needed(self, ptt_daemon_parts):
+        """Forced cleanup should avoid backend I/O when no PTT state is active."""
+        device, audio_backend, state_machine, led_controller, key_emitter = ptt_daemon_parts
+        daemon = MuteMeDaemon(
+            device=device,
+            audio_backend=audio_backend,
+            state_machine=state_machine,
+            led_controller=led_controller,
+            key_emitter=key_emitter,
+        )
+
+        daemon._release_ptt_key_if_needed()
+
+        key_emitter.release_all.assert_not_called()
+        audio_backend.set_mute_state.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_switch_mode_schedules_confirmation_without_blocking(self, ptt_daemon_parts):
@@ -620,10 +636,40 @@ class TestMuteMeDaemonPTTMode:
         await daemon._handle_action("switch_mode")
 
         assert confirmation_started.is_set()
+        assert daemon._mode_switch_confirmation_task is not None
         led_controller.update_led_to_mute_status.assert_not_called()
         confirmation_release.set()
         await asyncio.sleep(0)
         led_controller.update_led_to_mute_status.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_led_feedback_skips_steady_state_while_confirmation_is_active(
+        self, ptt_daemon_parts
+    ):
+        """Periodic LED refreshes should not repaint over an active switch flash."""
+        device, audio_backend, state_machine, led_controller, key_emitter = ptt_daemon_parts
+        confirmation_release = asyncio.Event()
+
+        async def confirmation() -> None:
+            await confirmation_release.wait()
+
+        led_controller.show_mode_switch_confirmation.side_effect = confirmation
+        daemon = MuteMeDaemon(
+            device=device,
+            audio_backend=audio_backend,
+            state_machine=state_machine,
+            led_controller=led_controller,
+            key_emitter=key_emitter,
+        )
+
+        await daemon._handle_action("switch_mode")
+        led_controller.update_led_to_mute_status.reset_mock()
+
+        await daemon._update_led_feedback()
+
+        led_controller.update_led_to_mute_status.assert_not_called()
+        confirmation_release.set()
+        await asyncio.sleep(0)
 
     @pytest.mark.asyncio
     async def test_ptt_press_unmutes_if_microphone_was_muted_after_mode_switch(
@@ -655,11 +701,31 @@ class TestMuteMeDaemonPTTMode:
             led_controller=led_controller,
             key_emitter=key_emitter,
         )
+        daemon._ptt_active = True
 
         daemon.cleanup()
 
         key_emitter.release_all.assert_called_once()
         key_emitter.close.assert_called_once()
+
+    def test_forced_ptt_release_restores_mute_even_when_key_release_fails(self, ptt_daemon_parts):
+        """Forced cleanup should restore daemon-owned mute changes if key I/O fails."""
+        device, audio_backend, state_machine, led_controller, key_emitter = ptt_daemon_parts
+        key_emitter.release_all.side_effect = RuntimeError("release failed")
+        daemon = MuteMeDaemon(
+            device=device,
+            audio_backend=audio_backend,
+            state_machine=state_machine,
+            led_controller=led_controller,
+            key_emitter=key_emitter,
+        )
+        daemon._ptt_active = True
+        daemon._ptt_restore_mute_after_release = True
+
+        daemon._release_ptt_key_if_needed()
+
+        audio_backend.set_mute_state.assert_called_once_with(None, True)
+        assert daemon._ptt_active is False
 
     @pytest.mark.asyncio
     async def test_process_button_events_checks_timeout_for_hold_gesture(self, ptt_daemon_parts):
