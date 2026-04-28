@@ -254,26 +254,25 @@ class TestMuteMeDaemon:
             mock_audio_backend.close.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_device_disconnection_during_operation(self, daemon):
+    async def test_device_disconnection_during_operation(self, daemon, mock_state_machine):
         """Test handling device disconnection during active operation."""
-        # Start with device connected
-        daemon.device.is_connected.return_value = True
         daemon.device.read_events.return_value = []
 
-        # Simulate device disconnection during event processing
+        # Simulate stale handle detection after the initial connected check.
         call_count = 0
 
         def is_connected_side_effect():
             nonlocal call_count
             call_count += 1
-            # Disconnect after first check
             return call_count == 1
 
         daemon.device.is_connected.side_effect = is_connected_side_effect
 
-        # Should handle disconnection gracefully
+        # Should avoid feeding synthetic timeout events after read-side disconnect.
         await daemon._process_button_events()
-        assert call_count > 0
+
+        assert call_count == 2
+        mock_state_machine.process_event.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_device_disconnection_during_led_update(self, daemon, mock_led_controller):
@@ -706,6 +705,38 @@ class TestMuteMeDaemonPTTMode:
         daemon.cleanup()
 
         key_emitter.release_all.assert_called_once()
+        key_emitter.close.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_cleanup_cancels_active_mode_switch_confirmation_task(self, ptt_daemon_parts):
+        """Daemon cleanup should cancel in-flight LED confirmation before closing resources."""
+        device, audio_backend, state_machine, led_controller, key_emitter = ptt_daemon_parts
+        confirmation_started = asyncio.Event()
+        confirmation_release = asyncio.Event()
+
+        async def confirmation() -> None:
+            confirmation_started.set()
+            await confirmation_release.wait()
+
+        led_controller.show_mode_switch_confirmation.side_effect = confirmation
+        daemon = MuteMeDaemon(
+            device=device,
+            audio_backend=audio_backend,
+            state_machine=state_machine,
+            led_controller=led_controller,
+            key_emitter=key_emitter,
+        )
+        await daemon._handle_action("switch_mode")
+        assert confirmation_started.is_set()
+        task = daemon._mode_switch_confirmation_task
+        assert task is not None
+
+        daemon.cleanup()
+        await asyncio.sleep(0)
+
+        assert task.cancelled()
+        assert daemon._mode_switch_confirmation_task is None
+        device.close.assert_called_once()
         key_emitter.close.assert_called_once()
 
     def test_forced_ptt_release_restores_mute_even_when_key_release_fails(self, ptt_daemon_parts):

@@ -364,7 +364,7 @@ class MuteMeDaemon:
             # Feed timeout ticks only when no edge event was received. This lets
             # double-tap-and-hold mode switching fire while a normalized hold is
             # producing no duplicate press events.
-            if not events:
+            if not events and self.device is not None and self.device.is_connected():
                 timeout_actions = self.state_machine.process_event(
                     ButtonEvent(type="timeout", timestamp=datetime.now())
                 )
@@ -512,11 +512,25 @@ class MuteMeDaemon:
 
     async def _show_mode_switch_confirmation_then_restore(self) -> None:
         """Run mode-switch confirmation asynchronously, then restore steady LED state."""
-        if self.led_controller:
-            await self.led_controller.show_mode_switch_confirmation()
+        try:
+            if self.led_controller:
+                await self.led_controller.show_mode_switch_confirmation()
+        except asyncio.CancelledError:
+            if self._mode_switch_confirmation_task is asyncio.current_task():
+                self._mode_switch_confirmation_task = None
+            raise
         if self._mode_switch_confirmation_task is asyncio.current_task():
             self._mode_switch_confirmation_task = None
         await self._update_led_feedback()
+
+    def _cancel_mode_switch_confirmation_task(self) -> None:
+        """Cancel any in-flight mode-switch LED confirmation task."""
+        task = self._mode_switch_confirmation_task
+        if task is None:
+            return
+        if not task.done():
+            task.cancel()
+        self._mode_switch_confirmation_task = None
 
     @staticmethod
     def _log_background_task_error(task: asyncio.Task[None]) -> None:
@@ -582,6 +596,7 @@ class MuteMeDaemon:
         """Clean up resources on shutdown."""
         try:
             logger.debug("Cleaning up daemon resources")
+            self._cancel_mode_switch_confirmation_task()
             self._release_ptt_key_if_needed()
             self._close_key_emitter()
 
