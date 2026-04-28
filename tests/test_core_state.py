@@ -21,6 +21,24 @@ class TestButtonStateMachine:
         assert state_machine.last_press_time is None
         assert state_machine.press_count == 0
 
+    @pytest.mark.parametrize(
+        ("option", "value"),
+        [
+            ("double_tap_timeout_ms", 0),
+            ("switch_hold_threshold_ms", 0),
+            ("triple_tap_count", 0),
+            ("triple_tap_window_ms", 0),
+            ("tap_max_duration_ms", 0),
+            ("inter_tap_timeout_ms", 0),
+            ("ptt_hold_threshold_ms", 0),
+            ("debounce_time_ms", -1),
+        ],
+    )
+    def test_rejects_invalid_numeric_tuning_options(self, option, value):
+        """Direct state-machine callers should fail fast on invalid timing knobs."""
+        with pytest.raises(ValueError, match=option):
+            ButtonStateMachine(**{option: value})
+
     def test_button_press_in_idle_state(self, state_machine):
         """Test handling button press from IDLE state."""
         event = ButtonEvent(type="press", timestamp=datetime.now())

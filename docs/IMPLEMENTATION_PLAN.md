@@ -7,14 +7,14 @@ This document outlines the conversion of the Rust `mutebtn` project to a modern 
 ## Current Status (2025-11-08)
 
 **Stage 1 (Foundation)**: ✅ **100% Complete** (22/22 tasks)
-**Stage 2 (Core Functionality)**: ✅ **100% Complete** (16/16 tasks for toggle mode)
+**Stage 2 (Core Functionality)**: ✅ **100% Complete** (16/16 tasks for toggle/PTT mode)
 **Stage 3 (Advanced Features)**: ⏳ **8% Complete** (2/24 tasks)
 
 **Key Metrics**:
 
-- **Test Coverage**: 90% (249 tests, all passing)
+- **Test Coverage**: 90% (321 tests, all passing)
 - **Quality Gates**: All passing (0 lint errors, 0 type errors)
-- **Spec Compliance**: 100% (all functional requirements met for basic toggle control)
+- **Spec Compliance**: 100% (all functional requirements met for basic toggle control plus PTT hold-to-talk scope)
 
 **Current Spec**: `01-spec-basic-toggle-control.md` (Basic Toggle Control) - ✅ Complete
 
@@ -459,9 +459,9 @@ device_check = true    # verify device access on startup
 - [x] Basic error handling and device permission checking
 - [x] UDEV rules template and device utilities
 
-### Stage 3 Success (Feature Complete) ⏳ Partial (2/8 Complete)
+### Stage 3 Success (Feature Complete) ⏳ Partial (2/24 Complete)
 
-- [x] All original features working (for toggle mode scope)
+- [x] All original features working (toggle mode plus PTT hold-to-talk scope)
 - [ ] PipeWire support added - **Not in spec** (explicitly excluded)
 - [ ] Hot-plug device handling - **Not in spec** (explicitly excluded)
 - [ ] Runtime configuration changes - **Not in spec** (explicitly excluded)
@@ -527,7 +527,7 @@ Before starting device integration, ensure:
 - [x] CLI `--version` displays correct version (0.1.0)
 - [x] Configuration file loads and validates properly
 - [x] Logging works in both text and JSON formats
-- [x] All tests pass with >80% coverage (90% achieved, 249 tests)
+- [x] All tests pass with >80% coverage (90% achieved, 321 tests)
 - [x] Pre-commit hooks run successfully
 - [x] Project can be installed via `uv pip install -e .`
 - [x] Console script `muteme-btn-control` works globally

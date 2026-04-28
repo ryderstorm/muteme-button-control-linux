@@ -5,11 +5,12 @@ import logging
 from typing import Literal
 
 from muteme_btn.audio.pulse import PulseAudioBackend
+from muteme_btn.config import OperationMode
 from muteme_btn.hid.device import LEDColor, MuteMeDevice
 
 logger = logging.getLogger(__name__)
 
-OperatingMode = Literal["normal", "ptt"]
+OperatingModeValue = OperationMode | Literal["normal", "ptt"]
 
 
 class LEDFeedbackController:
@@ -59,14 +60,15 @@ class LEDFeedbackController:
         except Exception as e:
             logger.error(f"Failed to update LED based on mute status: {e}")
 
-    def update_led_for_mode(self, mode: OperatingMode, active: bool = False) -> None:
+    def update_led_for_mode(self, mode: OperatingModeValue, active: bool = False) -> None:
         """Update LED for a mode-specific presentation.
 
         Args:
-            mode: Current operating mode ("normal" or "ptt")
+            mode: Current operating mode (normal or ptt)
             active: Whether the PTT hold is active
         """
-        if mode == "ptt":
+        mode_value = mode.value if isinstance(mode, OperationMode) else mode
+        if mode_value == OperationMode.PTT.value:
             target_color = self.ptt_active_color if active else self.ptt_idle_color
             try:
                 self._apply_color_if_needed(target_color)
@@ -88,9 +90,10 @@ class LEDFeedbackController:
             for color in (LEDColor.WHITE, LEDColor.NOCOLOR, LEDColor.WHITE):
                 self.device.set_led_color(color)
                 await asyncio.sleep(0.08)
-            self._last_applied_color = None
         except Exception as e:
             logger.error(f"Failed to show mode switch confirmation: {e}")
+        finally:
+            self._last_applied_color = None
 
     def _apply_color_if_needed(self, target_color: LEDColor, check_connected: bool = True) -> None:
         """Apply color while avoiding duplicate LED writes."""

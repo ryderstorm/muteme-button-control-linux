@@ -624,3 +624,23 @@ class TestMuteMeButtonEdgeNormalization:
             if call_args.args and call_args.args[0] == "Ignored duplicate button report"
         ]
         assert duplicate_logs == []
+
+    @pytest.mark.asyncio
+    @patch("muteme_btn.hid.device.logger")
+    async def test_button_event_log_uses_structured_fields(self, mock_logger):
+        """Button-event logs should expose event metadata as structured fields."""
+        mock_hid_device = Mock()
+        mock_hid_device.read.side_effect = [[0x00, 0x00, 0x00, 0x01]]
+        device = MuteMeDevice(mock_hid_device)
+
+        events = await device.read_events()
+
+        assert [event.type for event in events] == ["press"]
+        mock_logger.info.assert_called_once_with(
+            "Button event detected",
+            extra={
+                "event_type": "press",
+                "raw_data": "00000001",
+                "button_byte": "0x01",
+            },
+        )

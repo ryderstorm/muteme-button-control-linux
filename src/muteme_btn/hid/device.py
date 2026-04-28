@@ -462,8 +462,12 @@ class MuteMeDevice:
 
                     events.append(DeviceEvent(type=event_type, timestamp=timestamp))
                     logger.info(
-                        f"Button event detected: {event_type} "
-                        f"(raw data: {data.hex()}, button byte: 0x{button_byte:02x})"
+                        "Button event detected",
+                        extra={
+                            "event_type": event_type,
+                            "raw_data": data.hex(),
+                            "button_byte": f"0x{button_byte:02x}",
+                        },
                     )
                 else:
                     self._duplicate_report_count += 1

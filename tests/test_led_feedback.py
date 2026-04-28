@@ -4,6 +4,7 @@ from unittest.mock import Mock, call, patch
 
 import pytest
 
+from muteme_btn.config import OperationMode
 from muteme_btn.core.led_feedback import LEDFeedbackController
 from muteme_btn.hid.device import LEDColor
 
@@ -222,6 +223,12 @@ class TestModeAwareLEDFeedback:
 
         mode_led_controller.device.set_led_color.assert_called_once_with(LEDColor.YELLOW)
 
+    def test_update_ptt_accepts_shared_operation_mode_enum(self, mode_led_controller):
+        """LED mode updates should use the shared operation-mode contract."""
+        mode_led_controller.update_led_for_mode(OperationMode.PTT, active=True)
+
+        mode_led_controller.device.set_led_color.assert_called_once_with(LEDColor.YELLOW)
+
     @pytest.mark.asyncio
     async def test_show_mode_switch_confirmation_animates_without_blocking_sleep(
         self, mode_led_controller
@@ -253,3 +260,21 @@ class TestModeAwareLEDFeedback:
         status = mode_led_controller.get_current_status()
 
         assert status["led_color"] == LEDColor.YELLOW
+
+    @pytest.mark.asyncio
+    async def test_show_mode_switch_confirmation_invalidates_cache_after_failed_flash(
+        self, mode_led_controller
+    ):
+        """Failed confirmation flashes should force the next steady-state LED write."""
+        mode_led_controller.update_led_for_mode("ptt", active=False)
+        mode_led_controller.device.set_led_color.reset_mock()
+        mode_led_controller.device.set_led_color.side_effect = [
+            None,
+            RuntimeError("USB write failed"),
+        ]
+
+        await mode_led_controller.show_mode_switch_confirmation()
+        mode_led_controller.device.set_led_color.side_effect = None
+        mode_led_controller.update_led_for_mode("ptt", active=False)
+
+        assert mode_led_controller.device.set_led_color.call_args_list[-1] == call(LEDColor.BLUE)

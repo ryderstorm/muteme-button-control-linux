@@ -52,14 +52,28 @@ class ButtonStateMachine:
         self._switch_fired_for_current_press = False
 
         self.switch_gesture = self._validate_switch_gesture(switch_gesture)
-        self.double_tap_timeout_ms = double_tap_timeout_ms
-        self.debounce_time_ms = debounce_time_ms
-        self.switch_hold_threshold_ms = switch_hold_threshold_ms
-        self.triple_tap_count = triple_tap_count
-        self.triple_tap_window_ms = triple_tap_window_ms
-        self.tap_max_duration_ms = tap_max_duration_ms
-        self.inter_tap_timeout_ms = inter_tap_timeout_ms
-        self.ptt_hold_threshold_ms = ptt_hold_threshold_ms
+        self.double_tap_timeout_ms = self._validate_positive_int(
+            "double_tap_timeout_ms", double_tap_timeout_ms
+        )
+        self.debounce_time_ms = self._validate_non_negative_int(
+            "debounce_time_ms", debounce_time_ms
+        )
+        self.switch_hold_threshold_ms = self._validate_positive_int(
+            "switch_hold_threshold_ms", switch_hold_threshold_ms
+        )
+        self.triple_tap_count = self._validate_positive_int("triple_tap_count", triple_tap_count)
+        self.triple_tap_window_ms = self._validate_positive_int(
+            "triple_tap_window_ms", triple_tap_window_ms
+        )
+        self.tap_max_duration_ms = self._validate_positive_int(
+            "tap_max_duration_ms", tap_max_duration_ms
+        )
+        self.inter_tap_timeout_ms = self._validate_positive_int(
+            "inter_tap_timeout_ms", inter_tap_timeout_ms
+        )
+        self.ptt_hold_threshold_ms = self._validate_positive_int(
+            "ptt_hold_threshold_ms", ptt_hold_threshold_ms
+        )
 
         self._triple_sequence_start_time: datetime | None = None
         self._last_tap_release_time: datetime | None = None
@@ -84,6 +98,20 @@ class ButtonStateMachine:
         if normalized not in {"double_tap_hold", "triple_tap"}:
             raise ValueError("Unsupported switch_gesture; expected double_tap_hold or triple_tap")
         return normalized
+
+    @staticmethod
+    def _validate_positive_int(option: str, value: int) -> int:
+        """Validate timing/count options that must be positive."""
+        if value <= 0:
+            raise ValueError(f"{option} must be greater than 0")
+        return value
+
+    @staticmethod
+    def _validate_non_negative_int(option: str, value: int) -> int:
+        """Validate timing options that may be zero but not negative."""
+        if value < 0:
+            raise ValueError(f"{option} must be greater than or equal to 0")
+        return value
 
     def process_event(self, event: ButtonEvent) -> list[str]:
         """Process a button event and return action strings to execute."""

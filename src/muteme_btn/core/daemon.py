@@ -391,21 +391,36 @@ class MuteMeDaemon:
                 logger.info(f"Toggled mute state: {new_muted}")
             elif action == "ptt_press":
                 self._ensure_microphone_unmuted_for_ptt()
-                self.key_emitter.press_f19()
-                self._ptt_active = True
+                try:
+                    self.key_emitter.press_f19()
+                    self._ptt_active = True
+                except Exception:
+                    self._ptt_active = False
+                    self._restore_microphone_mute_after_ptt_if_needed()
+                    await self._update_led_feedback()
+                    raise
                 await self._update_led_feedback()
                 logger.info("PTT active: emitted F19 key down")
             elif action == "ptt_release":
-                self.key_emitter.release_f19()
+                release_error: Exception | None = None
+                try:
+                    self.key_emitter.release_f19()
+                except Exception as e:
+                    release_error = e
                 self._ptt_active = False
                 self._restore_microphone_mute_after_ptt_if_needed()
                 await self._update_led_feedback()
+                if release_error is not None:
+                    raise release_error
                 logger.info("PTT inactive: emitted F19 key up")
             elif action == "switch_mode":
                 self._release_ptt_key_if_needed()
                 if self.led_controller:
-                    await self.led_controller.show_mode_switch_confirmation()
-                await self._update_led_feedback()
+                    task = asyncio.create_task(self._show_mode_switch_confirmation_then_restore())
+                    task.add_done_callback(self._log_background_task_error)
+                    await asyncio.sleep(0)
+                else:
+                    await self._update_led_feedback()
                 logger.info("Button mode switched", extra={"mode": self._current_mode_value()})
             elif action == "double_tap":
                 logger.debug("Double-tap detected without hold threshold")
@@ -482,6 +497,22 @@ class MuteMeDaemon:
             # Log traceback in debug mode for better debugging
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug(f"Exception traceback:\n{traceback.format_exc()}")
+
+    async def _show_mode_switch_confirmation_then_restore(self) -> None:
+        """Run mode-switch confirmation asynchronously, then restore steady LED state."""
+        if self.led_controller:
+            await self.led_controller.show_mode_switch_confirmation()
+        await self._update_led_feedback()
+
+    @staticmethod
+    def _log_background_task_error(task: asyncio.Task[None]) -> None:
+        """Log unhandled exceptions from fire-and-forget daemon tasks."""
+        try:
+            task.result()
+        except asyncio.CancelledError:
+            return
+        except Exception as e:
+            logger.error(f"Background daemon task failed: {e}")
 
     def _current_mode(self) -> OperationMode:
         """Return the current state-machine mode, falling back to configured default."""
