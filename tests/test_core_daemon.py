@@ -535,8 +535,8 @@ class TestMuteMeDaemonPTTMode:
         assert daemon._ptt_active is False
 
     @pytest.mark.asyncio
-    async def test_ptt_release_restores_mute_even_if_key_release_fails(self, ptt_daemon_parts):
-        """PTT release failures should still restore any daemon-owned mute change."""
+    async def test_ptt_release_keeps_ptt_active_if_key_release_fails(self, ptt_daemon_parts):
+        """PTT release failures should keep active state so cleanup can retry key release."""
         device, audio_backend, state_machine, led_controller, key_emitter = ptt_daemon_parts
         key_emitter.release_f19.side_effect = RuntimeError("release failed")
         daemon = MuteMeDaemon(
@@ -552,7 +552,7 @@ class TestMuteMeDaemonPTTMode:
         await daemon._handle_action("ptt_release")
 
         audio_backend.set_mute_state.assert_called_once_with(None, True)
-        assert daemon._ptt_active is False
+        assert daemon._ptt_active is True
 
     @pytest.mark.asyncio
     async def test_handle_ptt_actions_leave_originally_unmuted_microphone_unmuted(
@@ -777,8 +777,8 @@ class TestMuteMeDaemonPTTMode:
         device.close.assert_called_once()
         key_emitter.close.assert_called_once()
 
-    def test_forced_ptt_release_restores_mute_even_when_key_release_fails(self, ptt_daemon_parts):
-        """Forced cleanup should restore daemon-owned mute changes if key I/O fails."""
+    def test_forced_ptt_release_keeps_ptt_active_when_key_release_fails(self, ptt_daemon_parts):
+        """Forced cleanup should keep active state after failed key I/O for later retry."""
         device, audio_backend, state_machine, led_controller, key_emitter = ptt_daemon_parts
         key_emitter.release_all.side_effect = RuntimeError("release failed")
         daemon = MuteMeDaemon(
@@ -794,6 +794,12 @@ class TestMuteMeDaemonPTTMode:
         daemon._release_ptt_key_if_needed()
 
         audio_backend.set_mute_state.assert_called_once_with(None, True)
+        assert daemon._ptt_active is True
+
+        key_emitter.release_all.side_effect = None
+        daemon._release_ptt_key_if_needed()
+
+        assert key_emitter.release_all.call_count == 2
         assert daemon._ptt_active is False
 
     @pytest.mark.asyncio

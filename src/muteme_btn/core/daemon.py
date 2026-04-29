@@ -406,9 +406,9 @@ class MuteMeDaemon:
                 release_error: Exception | None = None
                 try:
                     self.key_emitter.release_f19()
+                    self._ptt_active = False
                 except Exception as e:
                     release_error = e
-                self._ptt_active = False
                 self._restore_microphone_mute_after_ptt_if_needed()
                 await self._update_led_feedback()
                 if release_error is not None:
@@ -573,8 +573,10 @@ class MuteMeDaemon:
         """Force-release synthetic PTT key if this daemon considers PTT active."""
         if not self._ptt_active and not self._ptt_restore_mute_after_release:
             return
+        release_succeeded = False
         try:
             self.key_emitter.release_all()
+            release_succeeded = True
         except Exception as e:
             logger.warning(f"Error releasing synthetic PTT key: {e}")
         finally:
@@ -582,7 +584,8 @@ class MuteMeDaemon:
                 self._restore_microphone_mute_after_ptt_if_needed()
             except Exception as e:
                 logger.warning(f"Error restoring microphone mute after PTT cleanup: {e}")
-            self._ptt_active = False
+            if release_succeeded:
+                self._ptt_active = False
 
     def _close_key_emitter(self) -> None:
         """Close the synthetic key emitter when supported."""
