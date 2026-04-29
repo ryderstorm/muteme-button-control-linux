@@ -417,6 +417,7 @@ class MuteMeDaemon:
             elif action == "switch_mode":
                 self._release_ptt_key_if_needed()
                 if self.led_controller:
+                    self._cancel_mode_switch_confirmation_task()
                     self._mode_switch_confirmation_task = asyncio.create_task(
                         self._show_mode_switch_confirmation_then_restore()
                     )

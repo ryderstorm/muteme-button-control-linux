@@ -642,6 +642,44 @@ class TestMuteMeDaemonPTTMode:
         led_controller.update_led_to_mute_status.assert_called_once()
 
     @pytest.mark.asyncio
+    async def test_second_switch_mode_cancels_existing_confirmation_task(self, ptt_daemon_parts):
+        """A new mode switch should not orphan an older LED confirmation task."""
+        device, audio_backend, state_machine, led_controller, key_emitter = ptt_daemon_parts
+        confirmation_started = [asyncio.Event(), asyncio.Event()]
+        confirmation_release = [asyncio.Event(), asyncio.Event()]
+        call_index = 0
+
+        async def confirmation() -> None:
+            nonlocal call_index
+            index = call_index
+            call_index += 1
+            confirmation_started[index].set()
+            await confirmation_release[index].wait()
+
+        led_controller.show_mode_switch_confirmation.side_effect = confirmation
+        daemon = MuteMeDaemon(
+            device=device,
+            audio_backend=audio_backend,
+            state_machine=state_machine,
+            led_controller=led_controller,
+            key_emitter=key_emitter,
+        )
+
+        await daemon._handle_action("switch_mode")
+        first_task = daemon._mode_switch_confirmation_task
+        assert first_task is not None
+        assert confirmation_started[0].is_set()
+
+        await daemon._handle_action("switch_mode")
+
+        assert first_task.cancelled()
+        assert confirmation_started[1].is_set()
+        assert daemon._mode_switch_confirmation_task is not None
+        assert daemon._mode_switch_confirmation_task is not first_task
+        confirmation_release[1].set()
+        await asyncio.sleep(0)
+
+    @pytest.mark.asyncio
     async def test_led_feedback_skips_steady_state_while_confirmation_is_active(
         self, ptt_daemon_parts
     ):

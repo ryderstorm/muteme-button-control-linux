@@ -12,7 +12,7 @@ This document outlines the conversion of the Rust `mutebtn` project to a modern 
 
 **Key Metrics**:
 
-- **Test Coverage**: 90% (325 tests, all passing)
+- **Test Coverage**: 90% (326 tests, all passing)
 - **Quality Gates**: All passing (0 lint errors, 0 type errors)
 - **Spec Compliance**: 100% (all functional requirements met for basic toggle control plus PTT hold-to-talk scope)
 
@@ -528,7 +528,7 @@ Before starting device integration, ensure:
 - [x] CLI `--version` displays correct version (0.1.0)
 - [x] Configuration file loads and validates properly
 - [x] Logging works in both text and JSON formats
-- [x] All tests pass with >80% coverage (90% achieved, 325 tests)
+- [x] All tests pass with >80% coverage (90% achieved, 326 tests)
 - [x] Pre-commit hooks run successfully
 - [x] Project can be installed via `uv pip install -e .`
 - [x] Console script `muteme-btn-control` works globally
