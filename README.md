@@ -39,7 +39,7 @@
 
 ## 🎯 About
 
-**MuteMe Button Control** is a Python-based Linux daemon that provides reliable toggle-mode control for MuteMe hardware buttons. It seamlessly integrates with PulseAudio to manage microphone mute/unmute operations, offering visual LED feedback and a modern command-line interface.
+**MuteMe Button Control** is a Python-based Linux daemon that provides reliable toggle-mode and push-to-talk control for MuteMe hardware buttons. It integrates with PulseAudio for microphone mute/unmute operations and can emit a configurable synthetic key for hold-to-talk workflows, with visual LED feedback and a modern command-line interface.
 
 ### Key Highlights
 
@@ -57,8 +57,10 @@
 | Feature | Description |
 | ------- | ----------- |
 | **Toggle Mode** | Press the MuteMe button to toggle microphone mute/unmute state |
+| **Push-to-Talk Mode** | Hold the button to temporarily unmute the system mic, emit synthetic F19 key down/up events for app-level PTT shortcuts, then restore mute if it was previously muted |
+| **Mode Switching** | Double-tap-and-hold by default, with optional triple-tap switching for quicker mode changes |
 | **PulseAudio Integration** | Seamless integration with PulseAudio for audio control |
-| **LED Feedback** | Visual LED feedback (red=muted, green=unmuted) synchronized with audio state |
+| **LED Feedback** | Red/green mute feedback in normal mode plus blue/yellow PTT idle/active feedback |
 | **Modern CLI** | Clean Typer-based command-line interface |
 | **Configuration** | Flexible TOML-based configuration with validation |
 | **Structured Logging** | Human-readable text logs or JSON format for machine parsing |
@@ -73,6 +75,15 @@
 - **Hardware**: MuteMe button device (VID: `0x20A0`, PID: `0x42DA`)
 - **Audio System**: PulseAudio
 - **Dependencies**: Managed via `uv` (see `pyproject.toml`)
+
+**PTT mode requirements:**
+
+- **Default backend**: PTT mode emits F19 through `ydotool` because many desktop apps already listen to the stable virtual-keyboard path exposed by `ydotoold`/`keyd`.
+- **Setup**: Install and run `ydotoold` before using PTT mode.
+- **Socket configuration**: Set `YDOTOOL_SOCKET` if your distro does not use the default runtime socket path.
+- **Alternative backend**: For direct uinput experiments, install the optional `evdev` backend with `uv sync --extra evdev` and set `ptt.emitter_backend = "evdev"`.
+- **Permissions**: The `evdev` backend requires `/dev/uinput` to exist and be writable by your user.
+- **App restart caveat**: Some applications only discover input devices at startup and may need a restart after the uinput device is created.
 
 ---
 
@@ -140,7 +151,34 @@ cargo install just
    sudo udevadm trigger
    ```
 
-4. **Verify device connection:**
+4. **Set up `ydotoold` for PTT mode** (required when `ptt.emitter_backend = "ydotool"`, the default):
+
+   ```bash
+   # Fedora/Nobara
+   sudo dnf install ydotool
+   systemctl --user enable --now ydotoold.service
+
+   # Ubuntu/Debian package names vary by release; if available:
+   sudo apt install ydotool
+   systemctl --user enable --now ydotoold.service
+   ```
+
+   If your distro starts `ydotoold` somewhere other than `$XDG_RUNTIME_DIR/.ydotool_socket`, export the socket path before running the daemon:
+
+   ```bash
+   export YDOTOOL_SOCKET=/path/to/.ydotool_socket
+   ```
+
+   To use the optional direct `evdev`/uinput backend instead, install the extra and update config:
+
+   ```bash
+   uv sync --extra evdev
+   # ~/.config/muteme/muteme.toml
+   # [ptt]
+   # emitter_backend = "evdev"
+   ```
+
+5. **Verify device connection:**
 
    ```bash
    just check-device
@@ -167,8 +205,13 @@ The application supports configuration via TOML files. Configuration files are c
 
 1. CLI argument: `--config /path/to/config.toml`
 2. `~/.config/muteme/muteme.toml`
-3. `/etc/muteme/muteme.toml`
-4. Default values
+3. `~/.muteme.toml`
+4. `~/muteme.toml`
+5. `./muteme.toml`
+6. `/etc/muteme/muteme.toml`
+7. Default values
+
+At startup, the daemon logs the resolved configuration file plus the effective preferences it is using. This is useful when running from a source checkout, where an old local `./muteme.toml` could otherwise make it look like your home-directory config was ignored.
 
 #### Setup Configuration
 
@@ -202,10 +245,58 @@ timeout = 5.0
 backend = "pulseaudio"
 poll_interval = 0.1
 
+[mode]
+default = "normal"              # normal or ptt
+switch_gesture = "double_tap_hold" # double_tap_hold or triple_tap
+
+# Used when switch_gesture = "double_tap_hold".
+double_tap_timeout_ms = 300
+switch_hold_threshold_ms = 800
+
+# Used when switch_gesture = "triple_tap".
+triple_tap_count = 3
+triple_tap_window_ms = 650
+# Quick taps held longer than this are treated as normal holds, not tap-sequence input.
+tap_max_duration_ms = 140
+# Single-tap behavior is committed after this gap with no next tap.
+inter_tap_timeout_ms = 275
+# In PTT mode, holding past this threshold starts the F19 hold.
+ptt_hold_threshold_ms = 120
+
+[ptt]
+key = "f19"                 # currently fixed to F19; not user-configurable yet
+emitter_backend = "ydotool" # stable virtual-keyboard path for app-level shortcuts
+idle_color = "blue"
+active_color = "yellow"
+
 [logging]
 level = "INFO"
 format = "text"  # or "json" for machine parsing
 ```
+
+### Mode-switch gesture tuning
+
+`switch_gesture` controls how the physical button switches between normal toggle mode and PTT mode:
+
+- `double_tap_hold` keeps the original gesture: tap once, press again quickly, then hold the second press until `switch_hold_threshold_ms` fires. When switching away from PTT mode, the tap portion can briefly emit F19 press/release pulses before the switch threshold fires.
+- `triple_tap` switches modes after a quick three-tap sequence and suppresses the intermediate mute toggles or short F19 pulses that would otherwise happen during the sequence.
+
+Triple-tap mode uses a small classifier so single taps still work and PTT holds stay usable:
+
+| Setting | Default | What it controls | Tune it when... |
+| ------- | ------: | ---------------- | --------------- |
+| `triple_tap_count` | `3` | Number of quick taps required to switch modes | You want a harder-to-trigger sequence, such as 4 taps |
+| `triple_tap_window_ms` | `650` | Maximum time from the first press to the final release | Your triple tap fails unless you tap unusually fast; increase slightly |
+| `tap_max_duration_ms` | `140` | Maximum duration for an individual press to count as a quick tap | Holds are being mistaken for tap-sequence input; lower it |
+| `inter_tap_timeout_ms` | `275` | Delay after a quick tap before committing normal single-tap behavior | Single taps feel sluggish; lower it carefully, but keep it above your natural gap between taps |
+| `ptt_hold_threshold_ms` | `120` | Delay before PTT mode emits F19 down for an intentional hold | PTT feels delayed; lower it, but keep it above your quick-tap duration |
+
+A good tuning approach is to capture logs while triple tapping, then compare your timings:
+
+- Individual quick taps should be below `tap_max_duration_ms`.
+- The full gesture should finish below `triple_tap_window_ms`.
+- The largest release-to-next-press gap should stay below `inter_tap_timeout_ms`.
+- `ptt_hold_threshold_ms` should be longer than a quick tap but short enough that hold-to-talk still feels responsive.
 
 ---
 
@@ -213,7 +304,7 @@ format = "text"  # or "json" for machine parsing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed development standards and guidelines.
 
-This project uses **Spec-Driven Development (SDD)** methodology, where features are developed through a structured workflow: **idea → specification → tasks → implementation → validation**. Specifications are defined in [`docs/specs/`](docs/specs/) before implementation begins. All code follows **strict Test-Driven Development (TDD)** methodology.
+This project uses **Spec-Driven Development (SDD)** methodology, where features are developed through a structured workflow: **idea → specification → tasks → implementation → validation**. Historical SDD artifacts are archived in [`docs/specs.zip`](docs/specs.zip). All code follows **strict Test-Driven Development (TDD)** methodology.
 
 ### Quick Start
 
@@ -351,8 +442,8 @@ muteme-btn-control/
 ├── tests/               # Test suite
 ├── config/              # Configuration files and examples
 ├── docs/                # Documentation
-│   ├── specs/          # Specification documents (SDD)
-│   └── ARCHITECTURE.md  # Architecture documentation
+│   ├── specs.zip       # Archived SDD specification/proof artifacts
+│   └── ARCHITECTURE.md # Architecture documentation
 ├── .github/             # GitHub workflows and templates
 ├── justfile             # Task runner recipes
 └── pyproject.toml       # Project configuration and dependencies
@@ -375,7 +466,7 @@ Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for de
 
 ### Development Workflow
 
-1. **Create a specification** in `docs/specs/` before implementing features
+1. **Create a specification or implementation plan** before implementing features
 2. **Write tests first** following TDD principles
 3. **Implement the feature** to make tests pass
 4. **Run quality checks** with `just check`

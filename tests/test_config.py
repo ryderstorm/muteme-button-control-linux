@@ -12,6 +12,9 @@ from muteme_btn.config import (
     LogFormat,
     LoggingConfig,
     LogLevel,
+    ModeConfig,
+    OperationMode,
+    PTTConfig,
 )
 
 
@@ -296,3 +299,81 @@ class TestConfigEnums:
 
         assert data["level"] == "DEBUG"
         assert data["format"] == "json"
+
+
+class TestModeConfig:
+    """Test suite for mode/PTT configuration."""
+
+    def test_default_mode_config(self) -> None:
+        """Default mode config should preserve existing normal toggle behavior."""
+        config = ModeConfig()
+
+        assert config.default == OperationMode.NORMAL
+        assert config.double_tap_timeout_ms == 300
+        assert config.switch_hold_threshold_ms == 800
+
+    def test_mode_config_accepts_triple_tap_switch_gesture(self) -> None:
+        """Triple tap should be available as an optional mode-switch gesture."""
+        config = ModeConfig(switch_gesture="triple_tap")
+
+        assert config.switch_gesture == "triple_tap"
+        assert config.triple_tap_count == 3
+        assert config.triple_tap_window_ms == 650
+        assert config.tap_max_duration_ms == 140
+        assert config.inter_tap_timeout_ms == 275
+        assert config.ptt_hold_threshold_ms == 120
+
+    def test_mode_config_rejects_unsupported_switch_gesture(self) -> None:
+        """Unsupported switch gestures should fail fast instead of being ignored."""
+        with pytest.raises(ValueError, match="double_tap_hold.*triple_tap"):
+            ModeConfig(switch_gesture="long_press")
+
+    def test_mode_config_validates_triple_tap_tuning_ranges(self) -> None:
+        """Triple-tap timing knobs should fail fast when tuned outside safe bounds."""
+        with pytest.raises(ValueError):
+            ModeConfig(triple_tap_count=2)
+        with pytest.raises(ValueError):
+            ModeConfig(triple_tap_window_ms=99)
+        with pytest.raises(ValueError):
+            ModeConfig(tap_max_duration_ms=20)
+        with pytest.raises(ValueError):
+            ModeConfig(inter_tap_timeout_ms=20)
+        with pytest.raises(ValueError):
+            ModeConfig(ptt_hold_threshold_ms=20)
+
+    def test_default_ptt_config(self) -> None:
+        """Default PTT config should target the generic F19 shortcut workflow."""
+        config = PTTConfig()
+
+        assert config.key == "f19"
+        assert config.idle_color == "blue"
+        assert config.active_color == "yellow"
+
+    def test_app_config_includes_mode_and_ptt_defaults(self) -> None:
+        """App config should include mode and ptt sections by default."""
+        config = AppConfig()
+
+        assert config.mode.default == OperationMode.NORMAL
+        assert config.ptt.key == "f19"
+
+    def test_app_config_save_excludes_runtime_config_file_path(self, tmp_path: Path) -> None:
+        """Saved TOML should not persist the runtime source config path."""
+        config_path = tmp_path / "muteme.toml"
+        config = AppConfig(config_file=Path("/tmp/source-muteme.toml"))
+
+        config.to_toml_file(config_path)
+
+        saved = toml.load(config_path)
+
+        assert "config_file" not in saved
+
+    def test_ptt_config_rejects_unsupported_emitter_backend(self) -> None:
+        """Unsupported PTT emitter backends should fail fast."""
+        with pytest.raises(ValueError, match="Unsupported PTT emitter backend"):
+            PTTConfig(emitter_backend="x11")
+
+    @pytest.mark.parametrize("field_name", ["idle_color", "active_color"])
+    def test_ptt_config_rejects_unknown_led_colors(self, field_name: str) -> None:
+        """PTT LED colors should fail fast during config loading."""
+        with pytest.raises(ValueError, match="Unsupported PTT LED color"):
+            PTTConfig(**{field_name: "ultraviolet"})

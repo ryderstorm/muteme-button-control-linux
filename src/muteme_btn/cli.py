@@ -5,6 +5,7 @@ import os
 import sys
 import time
 from pathlib import Path
+from typing import Any
 
 import psutil
 import typer
@@ -13,7 +14,7 @@ from . import __version__
 from .config import AppConfig, LogLevel
 from .core.daemon import MuteMeDaemon
 from .hid.device import DeviceInfo, LEDColor, MuteMeDevice
-from .utils.logging import setup_logging
+from .utils.logging import get_logger, setup_logging
 
 # LED timing constants (seconds)
 LED_COLOR_HOLD_DURATION = 0.3  # Duration to hold each color
@@ -578,13 +579,17 @@ def _find_config_file(config_path: Path | None) -> Path | None:
     Returns:
         Path to config file if found, None otherwise
     """
-    if config_path and config_path.exists():
-        return config_path
+    if config_path:
+        return config_path if config_path.exists() else None
 
-    # Standard locations (in order of precedence)
+    # Standard locations (in order of precedence). Prefer user config over cwd
+    # so running from the source checkout does not shadow personal preferences.
+    home = Path.home()
     standard_locations = [
+        home / ".config" / "muteme" / "muteme.toml",
+        home / ".muteme.toml",
+        home / "muteme.toml",
         Path("muteme.toml"),  # Current directory
-        Path.home() / ".config" / "muteme" / "muteme.toml",
         Path("/etc/muteme/muteme.toml"),
     ]
 
@@ -593,6 +598,32 @@ def _find_config_file(config_path: Path | None) -> Path | None:
             return location
 
     return None
+
+
+def _flatten_config_values(data: dict[str, Any], prefix: str = "") -> dict[str, Any]:
+    """Flatten nested config values for readable structured startup logging."""
+    values: dict[str, Any] = {}
+    for key, value in data.items():
+        dotted_key = f"{prefix}.{key}" if prefix else key
+        if isinstance(value, dict):
+            values.update(_flatten_config_values(value, dotted_key))
+        else:
+            values[dotted_key] = value
+    return values
+
+
+def _build_config_startup_summary(config: AppConfig) -> dict[str, Any]:
+    """Build a startup log summary showing the loaded config source and preferences."""
+    config_data = config.model_dump(mode="json")
+    summary = _flatten_config_values(config_data)
+    summary["config_file"] = str(config.config_file) if config.config_file else "defaults"
+    return summary
+
+
+def _log_loaded_config(config: AppConfig) -> None:
+    """Log loaded configuration source and effective preferences after logging is configured."""
+    logger = get_logger(__name__)
+    logger.info("Loaded MuteMe configuration", **_build_config_startup_summary(config))
 
 
 def _load_config(config_path: Path | None, log_level: str | None) -> AppConfig:
@@ -1067,10 +1098,14 @@ def run(
             backup_count=app_config.logging.backup_count,
         )
 
+        _log_loaded_config(app_config)
+
         # Create and run daemon
         daemon = MuteMeDaemon(
             device_config=app_config.device,
             audio_config=app_config.audio,
+            mode_config=app_config.mode,
+            ptt_config=app_config.ptt,
         )
 
         # Run the daemon

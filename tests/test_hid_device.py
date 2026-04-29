@@ -548,3 +548,97 @@ class TestMuteMeDevice:
             result = MuteMeDevice._find_usb_device_node(0x20A0, 0x42DA)
 
         assert result is None
+
+
+class TestMuteMeButtonEdgeNormalization:
+    """Tests for normalizing noisy MuteMe raw reports into stable button edges."""
+
+    @pytest.mark.asyncio
+    async def test_repeated_press_reports_emit_single_press_edge(self):
+        """A long hold should not emit repeated logical press events."""
+        mock_hid_device = Mock()
+        mock_hid_device.read.side_effect = [
+            [0x00, 0x00, 0x00, 0x01],
+            [0x00, 0x00, 0x00, 0x01],
+            [0x00, 0x00, 0x00, 0x01],
+        ]
+        device = MuteMeDevice(mock_hid_device)
+
+        first = await device.read_events()
+        second = await device.read_events()
+        third = await device.read_events()
+
+        assert [event.type for event in first] == ["press"]
+        assert second == []
+        assert third == []
+
+    @pytest.mark.asyncio
+    async def test_noisy_release_tail_emits_single_release_edge(self):
+        """Release-like packet tails should collapse to one logical release."""
+        mock_hid_device = Mock()
+        mock_hid_device.read.side_effect = [
+            [0x00, 0x00, 0x00, 0x01],
+            [0x00, 0x00, 0x00, 0x02],
+            [0x00, 0x00, 0x00, 0x00],
+            [0x00, 0x00, 0x00, 0x04],
+        ]
+        device = MuteMeDevice(mock_hid_device)
+
+        press = await device.read_events()
+        release = await device.read_events()
+        tail_zero = await device.read_events()
+        tail_four = await device.read_events()
+
+        assert [event.type for event in press] == ["press"]
+        assert [event.type for event in release] == ["release"]
+        assert tail_zero == []
+        assert tail_four == []
+
+    @pytest.mark.asyncio
+    async def test_initial_release_like_packet_is_ignored(self):
+        """Startup release-like packets should not produce logical release events."""
+        mock_hid_device = Mock()
+        mock_hid_device.read.side_effect = [[0x00, 0x00, 0x00, 0x04]]
+        device = MuteMeDevice(mock_hid_device)
+
+        events = await device.read_events()
+
+        assert events == []
+
+    @pytest.mark.asyncio
+    @patch("muteme_btn.hid.device.logger")
+    async def test_duplicate_button_reports_do_not_log_every_poll(self, mock_logger):
+        """Duplicate raw reports should be counted without debug log spam every poll."""
+        mock_hid_device = Mock()
+        mock_hid_device.read.side_effect = [[0x00, 0x00, 0x00, 0x00]] * 3
+        device = MuteMeDevice(mock_hid_device)
+
+        assert await device.read_events() == []
+        assert await device.read_events() == []
+        assert await device.read_events() == []
+
+        assert device.duplicate_report_count == 3
+        duplicate_logs = [
+            call_args
+            for call_args in mock_logger.debug.call_args_list
+            if call_args.args and call_args.args[0] == "Ignored duplicate button report"
+        ]
+        assert duplicate_logs == []
+
+    @pytest.mark.asyncio
+    @patch("muteme_btn.hid.device.logger")
+    async def test_button_event_log_uses_structured_fields(self, mock_logger):
+        """Button-event logs should expose event metadata as structured fields."""
+        mock_hid_device = Mock()
+        mock_hid_device.read.side_effect = [[0x00, 0x00, 0x00, 0x01]]
+        device = MuteMeDevice(mock_hid_device)
+
+        events = await device.read_events()
+
+        assert [event.type for event in events] == ["press"]
+        mock_logger.info.assert_called_once_with(
+            "Button event detected",
+            event_type="press",
+            raw_data="00000001",
+            button_byte="0x01",
+        )

@@ -5,6 +5,8 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from muteme_btn.hid.device import LEDColor
+
 
 class LogLevel(str, Enum):
     """Available log levels."""
@@ -21,6 +23,13 @@ class LogFormat(str, Enum):
 
     TEXT = "text"
     JSON = "json"
+
+
+class OperationMode(str, Enum):
+    """Supported button operating modes."""
+
+    NORMAL = "normal"
+    PTT = "ptt"
 
 
 class DeviceConfig(BaseModel):
@@ -61,6 +70,127 @@ class AudioConfig(BaseModel):
     )
 
 
+class ModeConfig(BaseModel):
+    """Operating mode and gesture configuration."""
+
+    model_config = ConfigDict(validate_assignment=True)
+
+    default: OperationMode = Field(
+        default=OperationMode.NORMAL,
+        description="Default operating mode: normal toggle or ptt hold-to-talk",
+    )
+    switch_gesture: str = Field(
+        default="double_tap_hold",
+        description="Gesture used to switch modes: double_tap_hold or triple_tap",
+    )
+    double_tap_timeout_ms: int = Field(
+        default=300,
+        ge=50,
+        le=2000,
+        description="Maximum time between taps for double-tap-hold detection",
+    )
+    switch_hold_threshold_ms: int = Field(
+        default=800,
+        ge=100,
+        le=5000,
+        description="How long the second tap must be held for double-tap-hold switching",
+    )
+    triple_tap_count: int = Field(
+        default=3,
+        ge=3,
+        le=5,
+        description="Number of quick taps required for triple-tap mode switching",
+    )
+    triple_tap_window_ms: int = Field(
+        default=650,
+        ge=100,
+        le=2000,
+        description="Maximum total time from first press to final release for triple-tap switching",
+    )
+    tap_max_duration_ms: int = Field(
+        default=140,
+        ge=30,
+        le=1000,
+        description="Maximum press duration that counts as a quick tap for triple-tap switching",
+    )
+    inter_tap_timeout_ms: int = Field(
+        default=275,
+        ge=50,
+        le=1000,
+        description=(
+            "How long to wait after a quick tap for another tap before committing "
+            "single-tap behavior"
+        ),
+    )
+    ptt_hold_threshold_ms: int = Field(
+        default=120,
+        ge=50,
+        le=1000,
+        description=(
+            "How long to hold in PTT mode before emitting the PTT key when "
+            "triple-tap switching is enabled"
+        ),
+    )
+    debounce_time_ms: int = Field(
+        default=10,
+        ge=0,
+        le=250,
+        description="Minimum time between press events to ignore bounce",
+    )
+
+    @field_validator("switch_gesture")
+    @classmethod
+    def validate_switch_gesture(cls, value: str) -> str:
+        """Validate the supported mode-switch gesture."""
+        normalized = value.lower()
+        if normalized not in {"double_tap_hold", "triple_tap"}:
+            raise ValueError("Unsupported switch_gesture; expected double_tap_hold or triple_tap")
+        return normalized
+
+
+class PTTConfig(BaseModel):
+    """Push-to-talk configuration."""
+
+    model_config = ConfigDict(validate_assignment=True)
+
+    key: str = Field(default="f19", description="Synthetic key to emit for PTT mode")
+    idle_color: str = Field(default="blue", description="LED color for PTT idle state")
+    active_color: str = Field(default="yellow", description="LED color for active PTT hold")
+    emitter_backend: str = Field(
+        default="ydotool",
+        description="F19 emitter backend: ydotool virtual-keyboard path, or evdev",
+    )
+
+    @field_validator("key")
+    @classmethod
+    def validate_key(cls, value: str) -> str:
+        """Only F19 is supported by the initial PTT emitter."""
+        normalized = value.lower()
+        if normalized != "f19":
+            raise ValueError("Only f19 is currently supported for PTT key emulation")
+        return normalized
+
+    @field_validator("idle_color", "active_color")
+    @classmethod
+    def validate_led_color(cls, value: str) -> str:
+        """Validate PTT LED color names at config-load time."""
+        normalized = value.lower()
+        try:
+            LEDColor.from_name(normalized)
+        except ValueError as exc:
+            raise ValueError(f"Unsupported PTT LED color: {value}") from exc
+        return normalized
+
+    @field_validator("emitter_backend")
+    @classmethod
+    def validate_emitter_backend(cls, value: str) -> str:
+        """Validate PTT emitter backend."""
+        normalized = value.lower()
+        if normalized not in {"ydotool", "evdev"}:
+            raise ValueError("Unsupported PTT emitter backend; expected ydotool or evdev")
+        return normalized
+
+
 class LoggingConfig(BaseModel):
     """Logging configuration."""
 
@@ -81,17 +211,7 @@ class LoggingConfig(BaseModel):
     @field_validator("level", mode="before")
     @classmethod
     def normalize_level(cls, value: LogLevel | str) -> LogLevel:
-        """Normalize log level string to uppercase before enum validation.
-
-        Args:
-            value: Log level value (enum or string)
-
-        Returns:
-            LogLevel enum value
-
-        Raises:
-            ValueError: If log level is not supported
-        """
+        """Normalize log level string to uppercase before enum validation."""
         if isinstance(value, LogLevel):
             return value
         try:
@@ -119,6 +239,8 @@ class AppConfig(BaseModel):
 
     device: DeviceConfig = Field(default_factory=DeviceConfig, description="Device configuration")
     audio: AudioConfig = Field(default_factory=AudioConfig, description="Audio configuration")
+    mode: ModeConfig = Field(default_factory=ModeConfig, description="Operating mode configuration")
+    ptt: PTTConfig = Field(default_factory=PTTConfig, description="Push-to-talk configuration")
     logging: LoggingConfig = Field(
         default_factory=LoggingConfig, description="Logging configuration"
     )
@@ -127,18 +249,7 @@ class AppConfig(BaseModel):
 
     @classmethod
     def from_toml_file(cls, config_path: Path) -> "AppConfig":
-        """Load configuration from a TOML file.
-
-        Args:
-            config_path: Path to the TOML configuration file
-
-        Returns:
-            AppConfig instance
-
-        Raises:
-            FileNotFoundError: If config file doesn't exist
-            ValueError: If config file is invalid
-        """
+        """Load configuration from a TOML file."""
         if not config_path.exists():
             raise FileNotFoundError(f"Configuration file not found: {config_path}")
 
@@ -146,23 +257,17 @@ class AppConfig(BaseModel):
             import toml
 
             config_data = toml.load(config_path)
-            return cls(**config_data)
+            config = cls(**config_data)
+            config.config_file = config_path
+            return config
         except Exception as e:
             raise ValueError(f"Invalid configuration file {config_path}: {e}") from e
 
     def to_toml_file(self, config_path: Path) -> None:
-        """Save configuration to a TOML file.
-
-        Args:
-            config_path: Path where to save the TOML configuration file
-        """
+        """Save configuration to a TOML file."""
         import toml
 
-        # Ensure directory exists
         config_path.parent.mkdir(parents=True, exist_ok=True)
-
-        # Get the model dump with enum values as strings
-        config_data = self.model_dump(mode="json")
-
+        config_data = self.model_dump(mode="json", exclude={"config_file"})
         with open(config_path, "w") as f:
             toml.dump(config_data, f)

@@ -1,9 +1,10 @@
 """Tests for LED feedback synchronization with mute status."""
 
-from unittest.mock import Mock
+from unittest.mock import Mock, call, patch
 
 import pytest
 
+from muteme_btn.config import OperationMode
 from muteme_btn.core.led_feedback import LEDFeedbackController
 from muteme_btn.hid.device import LEDColor
 
@@ -195,3 +196,85 @@ class TestLEDFeedbackController:
 
         assert controller.muted_color == LEDColor.BLUE
         assert controller.unmuted_color == LEDColor.YELLOW
+
+
+class TestModeAwareLEDFeedback:
+    """Tests for mode-aware LED rendering."""
+
+    @pytest.fixture
+    def mode_led_controller(self):
+        """Create a LED controller for mode-aware tests."""
+        device = Mock()
+        device.set_led_color = Mock()
+        device.is_connected = Mock(return_value=True)
+        audio_backend = Mock()
+        audio_backend.is_muted = Mock(return_value=False)
+        return LEDFeedbackController(device=device, audio_backend=audio_backend)
+
+    def test_update_ptt_idle_sets_blue(self, mode_led_controller):
+        """PTT idle should use the configured idle color."""
+        mode_led_controller.update_led_for_mode("ptt", active=False)
+
+        mode_led_controller.device.set_led_color.assert_called_once_with(LEDColor.BLUE)
+
+    def test_update_ptt_active_sets_yellow(self, mode_led_controller):
+        """PTT active should use the configured active color."""
+        mode_led_controller.update_led_for_mode("ptt", active=True)
+
+        mode_led_controller.device.set_led_color.assert_called_once_with(LEDColor.YELLOW)
+
+    def test_update_ptt_accepts_shared_operation_mode_enum(self, mode_led_controller):
+        """LED mode updates should use the shared operation-mode contract."""
+        mode_led_controller.update_led_for_mode(OperationMode.PTT, active=True)
+
+        mode_led_controller.device.set_led_color.assert_called_once_with(LEDColor.YELLOW)
+
+    @pytest.mark.asyncio
+    async def test_show_mode_switch_confirmation_animates_without_blocking_sleep(
+        self, mode_led_controller
+    ):
+        """Mode switches should produce a short visible confirmation without blocking sleep."""
+        with patch("muteme_btn.core.led_feedback.asyncio.sleep") as sleep_mock:
+            await mode_led_controller.show_mode_switch_confirmation()
+
+        assert mode_led_controller.device.set_led_color.call_args_list == [
+            call(LEDColor.WHITE),
+            call(LEDColor.NOCOLOR),
+            call(LEDColor.WHITE),
+        ]
+        assert sleep_mock.await_count == 3
+
+    def test_update_ptt_led_logs_and_swallows_device_errors(self, mode_led_controller, caplog):
+        """PTT LED update failures should not escape the mode-state path."""
+        mode_led_controller.device.set_led_color.side_effect = RuntimeError("USB write failed")
+
+        mode_led_controller.update_led_for_mode("ptt", active=True)
+
+        assert "Failed to update PTT LED" in caplog.text
+        assert "YELLOW" in caplog.text
+
+    def test_get_current_status_reports_last_applied_ptt_color(self, mode_led_controller):
+        """Status should report the LED color actually applied in PTT mode."""
+        mode_led_controller.update_led_for_mode("ptt", active=True)
+
+        status = mode_led_controller.get_current_status()
+
+        assert status["led_color"] == LEDColor.YELLOW
+
+    @pytest.mark.asyncio
+    async def test_show_mode_switch_confirmation_invalidates_cache_after_failed_flash(
+        self, mode_led_controller
+    ):
+        """Failed confirmation flashes should force the next steady-state LED write."""
+        mode_led_controller.update_led_for_mode("ptt", active=False)
+        mode_led_controller.device.set_led_color.reset_mock()
+        mode_led_controller.device.set_led_color.side_effect = [
+            None,
+            RuntimeError("USB write failed"),
+        ]
+
+        await mode_led_controller.show_mode_switch_confirmation()
+        mode_led_controller.device.set_led_color.side_effect = None
+        mode_led_controller.update_led_for_mode("ptt", active=False)
+
+        assert mode_led_controller.device.set_led_color.call_args_list[-1] == call(LEDColor.BLUE)

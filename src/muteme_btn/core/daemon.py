@@ -5,13 +5,15 @@ import logging
 import signal
 import time
 import traceback
+from datetime import datetime
 from types import FrameType
 
 from muteme_btn.audio.pulse import AudioConfig, PulseAudioBackend
-from muteme_btn.config import DeviceConfig
+from muteme_btn.config import DeviceConfig, ModeConfig, OperationMode, PTTConfig
 from muteme_btn.core.led_feedback import LEDFeedbackController
 from muteme_btn.core.state import ButtonEvent, ButtonStateMachine
 from muteme_btn.hid.device import DeviceError, LEDColor, MuteMeDevice
+from muteme_btn.input.key_emitter import F19KeyEmitter
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +29,9 @@ class MuteMeDaemon:
         audio_backend: PulseAudioBackend | None = None,
         state_machine: ButtonStateMachine | None = None,
         led_controller: LEDFeedbackController | None = None,
+        mode_config: ModeConfig | None = None,
+        ptt_config: PTTConfig | None = None,
+        key_emitter: F19KeyEmitter | None = None,
     ):
         """Initialize MuteMe daemon.
 
@@ -41,13 +46,30 @@ class MuteMeDaemon:
         # Use provided instances or create new ones
         self.device_config = device_config or DeviceConfig()
         self.audio_config = audio_config or AudioConfig()
+        self.mode_config = mode_config or ModeConfig()
+        self.ptt_config = ptt_config or PTTConfig()
 
         # Device will be connected in start() if not provided
         self.device = device
         self.audio_backend = audio_backend or PulseAudioBackend(self.audio_config)
-        self.state_machine = state_machine or ButtonStateMachine()
+        self.state_machine = state_machine or ButtonStateMachine(
+            double_tap_timeout_ms=self.mode_config.double_tap_timeout_ms,
+            debounce_time_ms=self.mode_config.debounce_time_ms,
+            default_mode=self.mode_config.default,
+            switch_hold_threshold_ms=self.mode_config.switch_hold_threshold_ms,
+            switch_gesture=self.mode_config.switch_gesture,
+            triple_tap_count=self.mode_config.triple_tap_count,
+            triple_tap_window_ms=self.mode_config.triple_tap_window_ms,
+            tap_max_duration_ms=self.mode_config.tap_max_duration_ms,
+            inter_tap_timeout_ms=self.mode_config.inter_tap_timeout_ms,
+            ptt_hold_threshold_ms=self.mode_config.ptt_hold_threshold_ms,
+        )
         # LED controller will be created after device is connected
         self.led_controller = led_controller
+        self.key_emitter = key_emitter or F19KeyEmitter(backend=self.ptt_config.emitter_backend)
+        self._ptt_active = False
+        self._ptt_restore_mute_after_release = False
+        self._mode_switch_confirmation_task: asyncio.Task[None] | None = None
 
         self.running: bool = False
         self._shutdown_event = asyncio.Event()
@@ -117,7 +139,10 @@ class MuteMeDaemon:
                 if not self.device:
                     raise DeviceError("Device not connected, cannot create LED controller")
                 self.led_controller = LEDFeedbackController(
-                    device=self.device, audio_backend=self.audio_backend
+                    device=self.device,
+                    audio_backend=self.audio_backend,
+                    ptt_idle_color=LEDColor.from_name(self.ptt_config.idle_color),
+                    ptt_active_color=LEDColor.from_name(self.ptt_config.active_color),
                 )
 
             # Show startup connection pattern: flash blue-green-red 3 times
@@ -295,6 +320,7 @@ class MuteMeDaemon:
             return
 
         try:
+            self._release_ptt_key_if_needed()
             logger.info("Device disconnected, attempting reconnect")
             await self._connect_device()
 
@@ -330,14 +356,19 @@ class MuteMeDaemon:
             events = await self.device.read_events()  # type: ignore[call-overload]
 
             for event in events:
-                # Convert to button event
                 button_event = ButtonEvent(type=event.type, timestamp=event.timestamp)
-
-                # Process through state machine
                 actions = self.state_machine.process_event(button_event)
+                for action in dict.fromkeys(actions):
+                    await self._handle_action(action)
 
-                # Handle actions (avoid duplicates)
-                for action in set(actions):  # Use set to avoid duplicate actions
+            # Feed timeout ticks only when no edge event was received. This lets
+            # double-tap-and-hold mode switching fire while a normalized hold is
+            # producing no duplicate press events.
+            if not events and self.device is not None and self.device.is_connected():
+                timeout_actions = self.state_machine.process_event(
+                    ButtonEvent(type="timeout", timestamp=datetime.now())
+                )
+                for action in dict.fromkeys(timeout_actions):
                     await self._handle_action(action)
 
         except Exception as e:
@@ -354,15 +385,51 @@ class MuteMeDaemon:
         """
         try:
             if action == "toggle":
-                # Toggle mute state
                 current_muted = self.audio_backend.is_muted(None)
                 new_muted = not current_muted
                 self.audio_backend.set_mute_state(None, new_muted)
-
-                # Update LED to reflect new state
                 await self._update_led_feedback()
-
                 logger.info(f"Toggled mute state: {new_muted}")
+            elif action == "ptt_press":
+                self._ensure_microphone_unmuted_for_ptt()
+                try:
+                    self.key_emitter.press_f19()
+                    self._ptt_active = True
+                except Exception:
+                    self._ptt_active = False
+                    self._restore_microphone_mute_after_ptt_if_needed()
+                    await self._update_led_feedback()
+                    raise
+                await self._update_led_feedback()
+                logger.info("PTT active: emitted F19 key down")
+            elif action == "ptt_release":
+                release_error: Exception | None = None
+                try:
+                    self.key_emitter.release_f19()
+                    self._ptt_active = False
+                except Exception as e:
+                    release_error = e
+                self._restore_microphone_mute_after_ptt_if_needed()
+                await self._update_led_feedback()
+                if release_error is not None:
+                    raise release_error
+                logger.info("PTT inactive: emitted F19 key up")
+            elif action == "switch_mode":
+                self._release_ptt_key_if_needed()
+                if self.led_controller:
+                    self._cancel_mode_switch_confirmation_task()
+                    self._mode_switch_confirmation_task = asyncio.create_task(
+                        self._show_mode_switch_confirmation_then_restore()
+                    )
+                    self._mode_switch_confirmation_task.add_done_callback(
+                        self._log_background_task_error
+                    )
+                    await asyncio.sleep(0)
+                else:
+                    await self._update_led_feedback()
+                logger.info("Button mode switched", extra={"mode": self._current_mode_value()})
+            elif action == "double_tap":
+                logger.debug("Double-tap detected without hold threshold")
             else:
                 logger.debug(f"Unknown action: {action}")
 
@@ -427,17 +494,115 @@ class MuteMeDaemon:
                 logger.debug("LED controller not initialized, skipping LED feedback update")
                 return
 
-            self.led_controller.update_led_to_mute_status()
+            if (
+                self._mode_switch_confirmation_task is not None
+                and not self._mode_switch_confirmation_task.done()
+            ):
+                logger.debug("Mode-switch confirmation active, skipping steady LED update")
+                return
+
+            if self._current_mode() == OperationMode.PTT:
+                self.led_controller.update_led_for_mode("ptt", active=self._ptt_active)
+            else:
+                self.led_controller.update_led_to_mute_status()
         except Exception as e:
             logger.error(f"Error updating LED feedback: {e}")
             # Log traceback in debug mode for better debugging
             if logger.isEnabledFor(logging.DEBUG):
                 logger.debug(f"Exception traceback:\n{traceback.format_exc()}")
 
+    async def _show_mode_switch_confirmation_then_restore(self) -> None:
+        """Run mode-switch confirmation asynchronously, then restore steady LED state."""
+        try:
+            if self.led_controller:
+                await self.led_controller.show_mode_switch_confirmation()
+        except asyncio.CancelledError:
+            if self._mode_switch_confirmation_task is asyncio.current_task():
+                self._mode_switch_confirmation_task = None
+            raise
+        if self._mode_switch_confirmation_task is asyncio.current_task():
+            self._mode_switch_confirmation_task = None
+        await self._update_led_feedback()
+
+    def _cancel_mode_switch_confirmation_task(self) -> None:
+        """Cancel any in-flight mode-switch LED confirmation task."""
+        task = self._mode_switch_confirmation_task
+        if task is None:
+            return
+        if not task.done():
+            task.cancel()
+        self._mode_switch_confirmation_task = None
+
+    @staticmethod
+    def _log_background_task_error(task: asyncio.Task[None]) -> None:
+        """Log unhandled exceptions from fire-and-forget daemon tasks."""
+        try:
+            task.result()
+        except asyncio.CancelledError:
+            return
+        except Exception as e:
+            logger.error(f"Background daemon task failed: {e}")
+
+    def _current_mode(self) -> OperationMode:
+        """Return the current state-machine mode, falling back to configured default."""
+        return getattr(self.state_machine, "current_mode", self.mode_config.default)
+
+    def _current_mode_value(self) -> str:
+        """Return current mode as a log-friendly string."""
+        mode = self._current_mode()
+        return mode.value if isinstance(mode, OperationMode) else str(mode)
+
+    def _ensure_microphone_unmuted_for_ptt(self) -> None:
+        """Ensure the system microphone is unmuted before PTT shortcut handling."""
+        if not self.audio_backend.is_muted(None):
+            self._ptt_restore_mute_after_release = False
+            return
+        self.audio_backend.set_mute_state(None, False)
+        self._ptt_restore_mute_after_release = True
+        logger.info("Temporarily unmuted microphone for active PTT hold")
+
+    def _restore_microphone_mute_after_ptt_if_needed(self) -> None:
+        """Restore mute state if PTT temporarily unmuted the microphone."""
+        if not self._ptt_restore_mute_after_release:
+            return
+        self.audio_backend.set_mute_state(None, True)
+        self._ptt_restore_mute_after_release = False
+        logger.info("Restored microphone mute after active PTT hold")
+
+    def _release_ptt_key_if_needed(self) -> None:
+        """Force-release synthetic PTT key if this daemon considers PTT active."""
+        if not self._ptt_active and not self._ptt_restore_mute_after_release:
+            return
+        release_succeeded = False
+        try:
+            self.key_emitter.release_all()
+            release_succeeded = True
+        except Exception as e:
+            logger.warning(f"Error releasing synthetic PTT key: {e}")
+        finally:
+            try:
+                self._restore_microphone_mute_after_ptt_if_needed()
+            except Exception as e:
+                logger.warning(f"Error restoring microphone mute after PTT cleanup: {e}")
+            if release_succeeded:
+                self._ptt_active = False
+
+    def _close_key_emitter(self) -> None:
+        """Close the synthetic key emitter when supported."""
+        try:
+            close = getattr(self.key_emitter, "close", None)
+            if callable(close):
+                close()
+        except Exception as e:
+            logger.warning(f"Error closing synthetic key emitter: {e}")
+
     def cleanup(self) -> None:
         """Clean up resources on shutdown."""
         try:
             logger.debug("Cleaning up daemon resources")
+            self._cancel_mode_switch_confirmation_task()
+            self._release_ptt_key_if_needed()
+            self._close_key_emitter()
 
             # Close device connection
             if hasattr(self, "device") and self.device:

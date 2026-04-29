@@ -21,6 +21,11 @@ dependencies = [
 [project.scripts]
 muteme-btn-control = "muteme_btn.main:app"
 
+[project.optional-dependencies]
+evdev = [
+    "evdev>=1.9.2",
+]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/muteme_btn"]
 
